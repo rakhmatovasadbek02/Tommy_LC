@@ -18,51 +18,71 @@
     .filter-bar {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       padding: 10px 16px;
       border-bottom: 1px solid var(--border);
       background: white;
       flex-shrink: 0;
       flex-wrap: wrap;
     }
-    .filter-search { position: relative; }
+    /* Search */
+    .filter-search { position: relative; flex: 1; min-width: 160px; max-width: 260px; }
     .filter-search input {
-      padding: 7px 12px 7px 30px;
+      width: 100%;
+      padding: 8px 12px 8px 32px;
       border-radius: 8px;
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       font-size: 13px;
       font-family: 'Inter', sans-serif;
       outline: none;
-      width: 160px;
       background: var(--surface);
+      box-sizing: border-box;
+      transition: border-color 0.14s, background 0.14s;
     }
     .filter-search input:focus { border-color: var(--crimson); background: white; }
     .filter-search-icon {
-      position: absolute; left: 9px; top: 50%;
+      position: absolute; left: 10px; top: 50%;
       transform: translateY(-50%);
-      color: var(--muted); font-size: 13px; pointer-events: none;
+      color: var(--muted); pointer-events: none; display: flex;
     }
-    .filter-select {
-      padding: 7px 24px 7px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      font-size: 13px;
-      font-family: 'Inter', sans-serif;
-      outline: none;
+    /* Divider */
+    .filter-divider {
+      width: 1px; height: 28px; background: var(--border); flex-shrink: 0;
+    }
+    /* Labeled filter chip */
+    .filter-chip {
+      display: flex; align-items: center; gap: 0;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      background: var(--surface); overflow: hidden;
+      transition: border-color 0.14s;
+    }
+    .filter-chip:focus-within { border-color: var(--crimson); }
+    .filter-chip-label {
+      padding: 0 8px 0 10px;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      white-space: nowrap; user-select: none;
+      border-right: 1.5px solid var(--border);
+      height: 100%; display: flex; align-items: center;
+      background: white;
+    }
+    .filter-chip select {
+      padding: 7px 24px 7px 8px;
+      border: none; outline: none;
+      font-size: 13px; font-family: 'Inter', sans-serif;
       background: var(--surface);
       cursor: pointer;
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23994444' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 8px center;
+      background-position: right 7px center;
+      color: var(--text);
     }
-    .filter-select:focus { border-color: var(--crimson); }
     .filter-bar-right { margin-left: auto; display: flex; gap: 6px; }
     .filter-icon-btn {
-      width: 32px; height: 32px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--surface);
+      width: 34px; height: 34px; border-radius: 8px;
+      border: 1.5px solid var(--border); background: var(--surface);
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 14px; color: var(--muted); transition: all 0.14s;
+      cursor: pointer; color: var(--muted); transition: all 0.14s;
     }
     .filter-icon-btn:hover { border-color: var(--crimson); color: var(--crimson); background: var(--crimson-soft); }
 
@@ -281,16 +301,23 @@
     <div class="filter-bar">
       <div class="filter-search">
         <span class="filter-search-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" id="searchInput" placeholder="Search…" oninput="renderBoard()">
+        <input type="text" id="searchInput" placeholder="Search leads…" oninput="renderBoard()">
       </div>
-      <select class="filter-select" id="filterLevel" onchange="renderBoard()">
-        <option value="">All Levels</option>
-        <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
-        <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
-      </select>
-      <select class="filter-select" id="filterGroup" onchange="renderBoard()">
-        <option value="">All Groups</option>
-      </select>
+      <div class="filter-divider"></div>
+      <div class="filter-chip">
+        <span class="filter-chip-label">Level</span>
+        <select id="filterLevel" onchange="renderBoard()">
+          <option value="">All</option>
+          <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
+          <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
+        </select>
+      </div>
+      <div class="filter-chip">
+        <span class="filter-chip-label">Group</span>
+        <select id="filterGroup" onchange="renderBoard()">
+          <option value="">All</option>
+        </select>
+      </div>
       <div class="filter-bar-right">
         <button class="filter-icon-btn" onclick="load()" title="Refresh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
       </div>
