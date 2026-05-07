@@ -564,17 +564,50 @@ ${already ? '<span style="font-size:11px;color:var(--muted)">Already enrolled</s
 }
 async function addStudentToGroup(studentId) {
 try {
+const s = allStudents.find(s=>s.id===studentId);
+const wasInactive = s && s.status === 'Inactive';
 const ids = [...new Set([...(group.studentIds||[]), studentId])];
 await apiPatch('/api/groups/'+groupId+'/students', { studentIds: ids });
 group.studentIds = ids;
-const s = allStudents.find(s=>s.id===studentId);
 if (s && !students.find(x=>x.id===studentId)) students.push(s);
 renderStudentList();
 renderAttendance();
 filterStudentSearch();
 logActivity(`Added student to ${group.name}`, 'green');
-showToast('Student added!');
+if (wasInactive) {
+  showActivatePrompt(s);
+} else {
+  showToast('Student added!');
+}
 } catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
+function showActivatePrompt(s) {
+const name = s.firstName + ' ' + s.lastName;
+const overlay = document.createElement('div');
+overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+overlay.innerHTML = `
+  <div style="background:white;border-radius:14px;padding:24px 28px;width:min(360px,92vw);box-shadow:0 8px 40px rgba(0,0,0,0.18)">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Activate Student?</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px"><strong>${name}</strong> was inactive. Set status to Active?</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" id="skipActivate">Skip</button>
+      <button class="btn btn-primary" id="confirmActivate">Activate</button>
+    </div>
+  </div>`;
+document.body.appendChild(overlay);
+overlay.querySelector('#confirmActivate').onclick = async () => {
+  try {
+    await apiPut('/api/students/'+s.id, { ...s, status: 'Active' });
+    s.status = 'Active';
+    showToast(name + ' activated!');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+  overlay.remove();
+};
+overlay.querySelector('#skipActivate').onclick = () => {
+  showToast('Student added!');
+  overlay.remove();
+};
 }
 load();
 </script>

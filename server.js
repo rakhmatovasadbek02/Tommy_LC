@@ -330,11 +330,16 @@ app.delete('/api/users/:id', async (req, res) => {
 /* STUDENTS */
 app.get('/api/students', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM students ORDER BY created_at DESC');
-    res.json(rows.map(s => ({
+    const [studRes, grpRes] = await Promise.all([
+      pool.query('SELECT * FROM students ORDER BY created_at DESC'),
+      pool.query('SELECT student_ids FROM groups')
+    ]);
+    const enrolled = new Set(grpRes.rows.flatMap(g => g.student_ids || []));
+    res.json(studRes.rows.map(s => ({
       id: s.id, firstName: s.first_name, lastName: s.last_name,
       phone: s.phone, phoneParent: s.phone_parent,
-      level: s.level, status: s.status,
+      level: s.level,
+      status: enrolled.has(s.id) ? s.status : 'Inactive',
       balance: Number(s.balance || 0),
       exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at
     })));
@@ -627,7 +632,21 @@ app.delete('/api/groups/:id', async (req, res) => {
 app.patch('/api/groups/:id/students', async (req, res) => {
   try {
     const { studentIds } = req.body;
+    const prev = await pool.query('SELECT student_ids FROM groups WHERE id=$1', [req.params.id]);
+    const prevIds = prev.rows[0]?.student_ids || [];
+    const newSet = new Set(studentIds || []);
+    const removed = prevIds.filter(id => !newSet.has(id));
     await pool.query('UPDATE groups SET student_ids=$1 WHERE id=$2', [JSON.stringify(studentIds||[]), req.params.id]);
+    // Auto-deactivate students no longer in any group
+    if (removed.length) {
+      const allGroups = await pool.query('SELECT student_ids FROM groups WHERE id!=$1', [req.params.id]);
+      const stillEnrolled = new Set(allGroups.rows.flatMap(g => g.student_ids || []));
+      for (const sid of removed) {
+        if (!stillEnrolled.has(sid)) {
+          await pool.query("UPDATE students SET status='Inactive' WHERE id=$1", [sid]);
+        }
+      }
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
