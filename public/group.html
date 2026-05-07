@@ -81,18 +81,20 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .att-table tr:last-child td { border-bottom: none; }
 .att-name-cell { display: flex; align-items: center; gap: 10px; }
 .att-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; }
-.chip { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 26px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; border: none; }
+.chip { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.13s; border: none; }
 .chip-present { background: #1E6B45; color: white; }
 .chip-absent { background: var(--crimson); color: white; }
-.chip-empty { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s; }
-.chip-empty:hover { border-color: var(--crimson); }
-.att-save-row { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
-/* Note bar */
-.note-bar { position: fixed; bottom: 0; left: var(--nav-w); right: 0; background: white; border-top: 1px solid var(--border); padding: 10px 24px; display: flex; align-items: center; gap: 10px; z-index: 40; }
-.note-bar input { flex: 1; border: none; outline: none; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text); }
-.note-send-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--crimson-soft); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--crimson); font-size: 16px; transition: all 0.15s; }
-.note-send-btn:hover { background: var(--crimson); color: white; }
-.page-content { padding-bottom: 70px; }
+.chip-empty { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s; }
+.chip-empty:hover { border-color: var(--crimson); background: var(--crimson-soft); }
+.att-save-row { display: none; }
+/* Inline note bar inside left panel */
+.note-bar-inline { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: var(--surface); }
+.note-bar-inline input { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 7px 11px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--text); background: white; outline: none; transition: border-color 0.14s; }
+.note-bar-inline input:focus { border-color: var(--crimson); }
+.note-send-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--crimson-soft); border: 1.5px solid var(--crimson-light); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--crimson); transition: all 0.14s; flex-shrink: 0; }
+.note-send-btn:hover { background: var(--crimson); color: white; border-color: var(--crimson); }
+/* Auto-save indicator */
+.att-autosave { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; transition: opacity 0.3s; }
 .student-search-result { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-radius: 8px; transition: background 0.1s; font-size: 13px; }
 .student-search-result:hover { background: var(--crimson-soft); }
 .student-search-result.already { opacity: 0.4; cursor: default; }
@@ -147,12 +149,27 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <div class="student-list" id="studentList"></div>
 <!-- Archive -->
 <button class="archive-btn">Show archived students</button>
+<!-- Note bar -->
+<div class="note-bar-inline">
+<input type="text" placeholder="Add a note…" id="noteInput" onkeydown="if(event.key==='Enter')sendNote()">
+<button class="note-send-btn" onclick="sendNote()" title="Save note">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+</button>
+</div>
 <!-- Bottom action bar: horizontal buttons -->
 <div class="left-action-bar">
-<button class="icon-btn" title="Edit group" onclick="goEdit()">️</button>
-<button class="icon-btn red" title="Delete group" onclick="doDeleteGroup()"></button>
-<button class="icon-btn green" title="Add student" onclick="openAddStudent()"></button>
-<button class="icon-btn" title="Download list" style="border-color:#1D4ED8;color:#1D4ED8"></button>
+<button class="icon-btn" title="Edit group" onclick="goEdit()">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+</button>
+<button class="icon-btn red" title="Delete group" onclick="doDeleteGroup()">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+</button>
+<button class="icon-btn green" title="Add student" onclick="openAddStudent()">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+</button>
+<button class="icon-btn" title="Download list" style="border-color:#1D4ED8;color:#1D4ED8">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+</button>
 </div>
 </div>
 </div>
@@ -160,15 +177,15 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <div class="right-panel">
 <div class="tab-nav">
 <button class="tab-nav-btn active" onclick="setTab('attendance',this)">Attendance</button>
-<button class="tab-nav-btn" onclick="setTab('grades',this)">Grades</button>
-<button class="tab-nav-btn" onclick="setTab('materials',this)">Materials</button>
-<button class="tab-nav-btn" onclick="setTab('prices',this)">Prices</button>
 <button class="tab-nav-btn" onclick="setTab('exams',this)">Exams</button>
 <button class="tab-nav-btn" onclick="setTab('history',this)">History</button>
 </div>
 <div class="tab-content active" id="tab-attendance">
 <div class="att-header">
+<div style="display:flex;align-items:center;gap:10px">
 <div class="att-title">Attendance</div>
+<span class="att-autosave" id="autoSaveInd" style="opacity:0"></span>
+</div>
 <div class="month-nav">
 <button class="month-btn today-btn" onclick="goToday()">Current</button>
 <button class="month-btn" onclick="changeMonth(-1)">‹</button>
@@ -184,20 +201,12 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <button class="btn btn-primary" onclick="saveAttendance()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Save Attendance</button>
 </div>
 </div>
-<div class="tab-content" id="tab-grades"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>Grades coming soon.</p></div></div>
-<div class="tab-content" id="tab-materials"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>Materials coming soon.</p></div></div>
-<div class="tab-content" id="tab-prices"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>Prices coming soon.</p></div></div>
 <div class="tab-content" id="tab-exams"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>Exams coming soon.</p></div></div>
 <div class="tab-content" id="tab-history"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>History coming soon.</p></div></div>
 </div>
 </div>
 <div id="loadingState" style="text-align:center;padding:60px;color:var(--muted)">Loading…</div>
 </div>
-</div>
-<!-- Note bar -->
-<div class="note-bar">
-<input type="text" placeholder="Note" id="noteInput">
-<button class="note-send-btn"></button>
 </div>
 <!-- ADD STUDENT MODAL -->
 <div class="modal-overlay" id="addStudentModal">
@@ -290,14 +299,14 @@ const [h,m] = group.time.split(':').map(Number);
 const e = h*60+(m||0)+90;
 return `${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
 })();
-const price = group.price ? Number(group.price).toLocaleString('uz-UZ')+' UZS' : '—';
+const price = group.price ? Number(group.price).toLocaleString('uz-UZ')+' UZS' : null;
 document.getElementById('groupInfoText').innerHTML = `
 <div class="gi-row"><span class="gi-label">Course:</span><span class="gi-val">${group.level||'—'}</span></div>
 <div class="gi-row"><span class="gi-label">Teacher:</span><span class="gi-val">${group.teacher||'—'}</span></div>
-<div class="gi-row"><span class="gi-label">Price:</span><span class="gi-val" style="color:var(--green)">${price}</span></div>
 <div class="gi-row"><span class="gi-label">Schedule:</span><span class="gi-val">${SCHED[group.schedType]||'—'}</span></div>
 <div class="gi-row"><span class="gi-label">Time:</span><span class="gi-val">${group.time||'—'}${endTime?' – '+endTime:''}</span></div>
 <div class="gi-row"><span class="gi-label">Room:</span><span class="gi-val">${group.room||'—'}</span></div>
+${price ? `<div class="gi-row" style="margin-top:6px"><span style="display:inline-flex;align-items:center;gap:6px;background:#E8F5E9;border:1.5px solid #A5D6A7;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:700;color:#1E6B45"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>${price}</span></div>` : ''}
 <div class="gi-row" style="margin-top:4px"><span style="color:var(--muted);font-size:11px">id: ${group.id}</span></div>
 `;
 }
@@ -469,6 +478,23 @@ return `<td><span class="chip-empty" data-sid="${s.id}" data-date="${ds}" onclic
 tbody += '</tbody>';
 document.getElementById('attTable').innerHTML = thead + tbody;
 }
+let _autoSaveTimer = null;
+function scheduleAutoSave() {
+  if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
+  const ind = document.getElementById('autoSaveInd');
+  if (ind) { ind.textContent = 'Saving…'; ind.style.opacity = '1'; }
+  _autoSaveTimer = setTimeout(async () => {
+    try {
+      await Promise.all(Object.entries(attData).map(([date, records]) => {
+        const arr = Object.entries(records).filter(([,s])=>s!=='').map(([studentId,status])=>({studentId,status}));
+        return apiPost(`/api/attendance/${groupId}/${date}`, { records: arr });
+      }));
+      if (ind) { ind.textContent = 'Saved ✓'; ind.style.opacity = '1'; setTimeout(()=>{ ind.style.opacity='0'; }, 2000); }
+    } catch(e) {
+      if (ind) { ind.textContent = 'Save failed'; ind.style.opacity = '1'; }
+    }
+  }, 1200);
+}
 function cycleAtt(el) {
 const sid = el.dataset.sid;
 const date = el.dataset.date;
@@ -480,6 +506,16 @@ const td = el.parentElement;
 if (next==='present') td.innerHTML = `<button class="chip chip-present" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></button>`;
 else if (next==='absent') td.innerHTML = `<button class="chip chip-absent" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></button>`;
 else td.innerHTML = `<span class="chip-empty" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></span>`;
+scheduleAutoSave();
+}
+function sendNote() {
+  const input = document.getElementById('noteInput');
+  const text = input.value.trim();
+  if (!text) return;
+  apiPost('/api/activity', { text: `[${group.name}] ${text}`, color: '', actor: getSession()?.name||'', role: getSession()?.role||'' })
+    .catch(()=>{});
+  input.value = '';
+  showToast('Note saved');
 }
 async function saveAttendance() {
 try {
