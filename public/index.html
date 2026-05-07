@@ -303,7 +303,7 @@ ${cls.level?`<span style="font-size:10px;color:${textCol};opacity:0.85;margin-le
 ${cls.currentUnit?`<span style="font-size:9px;font-weight:700;color:${c};background:${textCol};padding:1px 5px;border-radius:3px;white-space:nowrap">${cls.currentUnit}</span>`:''}
 </div>
 <div style="grid-column:1/3;grid-row:2;display:flex;align-items:center;overflow:hidden">
-${cls.teacher?`<span style="font-size:10px;color:${textCol};opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"> ${cls.teacher}</span>`:''}
+<span style="font-size:10px;color:${textCol};opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.teacher||'No teacher'}</span>
 </div>
 <div style="grid-column:1;grid-row:3">
 <span style="font-size:9px;color:${textCol};opacity:0.85;white-space:nowrap"> ${cls.time}–${minToTime(cEnd)}</span>
