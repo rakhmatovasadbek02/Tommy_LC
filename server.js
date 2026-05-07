@@ -472,6 +472,11 @@ app.put('/api/teachers/:id', async (req, res) => {
 
 app.delete('/api/teachers/:id', async (req, res) => {
   try {
+    const old = await pool.query('SELECT first_name, last_name FROM teachers WHERE id=$1', [req.params.id]);
+    if (old.rows[0]) {
+      const name = `${old.rows[0].first_name} ${old.rows[0].last_name}`;
+      await pool.query('UPDATE groups SET teacher=NULL WHERE teacher=$1', [name]);
+    }
     await pool.query('DELETE FROM teachers WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
