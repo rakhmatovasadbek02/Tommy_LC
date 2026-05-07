@@ -199,7 +199,7 @@ return `<div class="group-card">
 ${g.lang?`<span style="font-size:20px">${LANG_FLAG[g.lang]||''}</span>`:''}
 </div>
 <div class="group-meta">
-${g.teacher?`<span> ${g.teacher}</span>`:''}
+<span>${g.teacher || 'No teacher'}</span>
 ${g.room?`<span> ${g.room}</span>`:''}
 ${g.time?`<span> ${g.time}${endTime?'–'+endTime:''}</span>`:''}
 <span> From ${formatDate(g.startDate)}</span>
@@ -275,7 +275,6 @@ const type =document.querySelector('input[name="gSched"]:checked')?.value||'odd'
 const days =[...document.querySelectorAll('input[name="gDay"]:checked')].map(c=>Number(c.value));
 if(!code) {showToast('Group code is required.','error'); return;}
 if(!level) {showToast('Level is required.','error'); return;}
-if(!teacher){showToast('Teacher is required.','error'); return;}
 if(!room) {showToast('Room is required.','error'); return;}
 if(!time) {showToast('Start time is required.','error'); return;}
 if(!date) {showToast('Start date is required.','error'); return;}
