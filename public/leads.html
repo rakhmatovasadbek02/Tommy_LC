@@ -280,7 +280,7 @@
   <div class="page-content">
     <div class="filter-bar">
       <div class="filter-search">
-        <span class="filter-search-icon">🔍</span>
+        <span class="filter-search-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" id="searchInput" placeholder="Search…" oninput="renderBoard()">
       </div>
       <select class="filter-select" id="filterLevel" onchange="renderBoard()">
@@ -292,7 +292,7 @@
         <option value="">All Groups</option>
       </select>
       <div class="filter-bar-right">
-        <button class="filter-icon-btn" onclick="load()" title="Refresh">↻</button>
+        <button class="filter-icon-btn" onclick="load()" title="Refresh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
       </div>
     </div>
 
@@ -309,7 +309,7 @@
         <div class="cont-panel-title" id="contPanelTitle">Containers</div>
         <div class="cont-panel-subtitle" id="contPanelSubtitle"></div>
       </div>
-      <button class="cont-panel-close" onclick="closeContainerEditor()">✕</button>
+      <button class="cont-panel-close" onclick="closeContainerEditor()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="cont-panel-body" id="contPanelBody"></div>
     <div class="cont-panel-footer">
@@ -327,7 +327,7 @@
   <div class="modal" style="width:min(560px,96vw)">
     <div class="modal-header">
       <div class="modal-title" id="leadModalTitle">Register Lead</div>
-      <button class="modal-close" onclick="closeModal('leadModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('leadModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="editLeadId">
@@ -393,7 +393,7 @@
   <div class="modal" style="width:min(440px,94vw)">
     <div class="modal-header">
       <div class="modal-title">Send to Trial</div>
-      <button class="modal-close" onclick="closeModal('trialModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('trialModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <div id="trialLeadName" style="font-size:16px;font-weight:700;margin-bottom:14px;color:var(--text)"></div>
@@ -407,7 +407,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('trialModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmTrial()">Send to Trial →</button>
+      <button class="btn btn-primary" onclick="confirmTrial()">Send to Trial <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
     </div>
   </div>
 </div>
@@ -417,7 +417,7 @@
   <div class="modal" style="width:min(440px,94vw)">
     <div class="modal-header">
       <div class="modal-title">Activate Student</div>
-      <button class="modal-close" onclick="closeModal('activateModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('activateModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <div id="activateLeadName" style="font-size:16px;font-weight:700;margin-bottom:2px;color:var(--text)"></div>
@@ -447,7 +447,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('activateModal')">Cancel</button>
-      <button class="btn-activate" style="padding:9px 16px;font-size:13px;border-radius:8px" onclick="confirmActivate()">✅ Confirm & Activate</button>
+      <button class="btn-activate" style="padding:9px 16px;font-size:13px;border-radius:8px;display:inline-flex;align-items:center;gap:6px" onclick="confirmActivate()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirm & Activate</button>
     </div>
   </div>
 </div>
@@ -457,7 +457,7 @@
   <div class="modal" style="width:min(480px,94vw)">
     <div class="modal-header">
       <div class="modal-title" id="detailName"></div>
-      <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('detailModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" id="detailBody"></div>
     <div class="modal-footer" id="detailFooter"></div>
@@ -561,7 +561,7 @@ function buildColumn(col, filtered) {
   }).join('');
 
   const addBtn = col.status === 'Registration'
-    ? `<button class="kanban-add-btn" onclick="openAdd()">➕ Register Lead</button>` : '';
+    ? `<button class="kanban-add-btn" onclick="openAdd()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Register Lead</button>` : '';
 
   return `<div class="kanban-col">
     <div class="kanban-col-header">
@@ -596,13 +596,13 @@ function buildCard(l, col, conts) {
 
   let actionBtns = '';
   if (col.status === 'Registration') {
-    actionBtns = `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();moveToWaitlist('${l.id}')">→ Waitlist</button>`;
+    actionBtns = `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();moveToWaitlist('${l.id}')">Waitlist <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
   } else if (col.status === 'Waitlist') {
-    actionBtns = `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openTrial('${l.id}')">→ Trial</button>`;
+    actionBtns = `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openTrial('${l.id}')">Trial <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
   } else if (col.status === 'Trial') {
     const grpLabel = group
-      ? `<span style="font-size:10px;color:#A05C00;font-weight:600;margin-right:2px">👥 ${group.name}</span>` : '';
-    actionBtns = `${grpLabel}<button class="btn-activate" onclick="event.stopPropagation();openActivate('${l.id}')">✅ Activate</button>`;
+      ? `<span style="font-size:10px;color:#A05C00;font-weight:600;margin-right:2px">${group.name}</span>` : '';
+    actionBtns = `${grpLabel}<button class="btn-activate" style="display:inline-flex;align-items:center;gap:4px" onclick="event.stopPropagation();openActivate('${l.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Activate</button>`;
   }
 
   const groupBadge = col.status === 'Trial' && group
@@ -617,8 +617,8 @@ function buildCard(l, col, conts) {
     <div class="lead-card-actions">
       ${actionBtns}
       ${moveHtml}
-      <button class="btn btn-ghost btn-sm" style="margin-left:auto;padding:2px 6px" onclick="event.stopPropagation();editLead('${l.id}')">✏️</button>
-      <button class="btn btn-danger btn-sm" style="padding:2px 6px" onclick="event.stopPropagation();deleteLead('${l.id}')">🗑</button>
+      <button class="btn btn-ghost btn-sm" style="margin-left:auto;padding:3px 7px" onclick="event.stopPropagation();editLead('${l.id}')">${IC.edit}</button>
+      <button class="btn btn-danger btn-sm" style="padding:3px 7px" onclick="event.stopPropagation();deleteLead('${l.id}')">${IC.trash}</button>
     </div>
   </div>`;
 }
@@ -683,8 +683,8 @@ function renderContainerEditor() {
     return `<div class="cont-item" id="citem-${c.id}">
       <span class="cont-item-name" id="cname-${c.id}">${c.name}</span>
       <span class="cont-item-count">${count} lead${count!==1?'s':''}</span>
-      <button class="cont-item-btn" onclick="startRenameContainer('${colStatus}','${c.id}')" title="Rename">✏️</button>
-      <button class="cont-item-btn danger" onclick="deleteContainer('${colStatus}','${c.id}')" title="Delete">🗑</button>
+      <button class="cont-item-btn" onclick="startRenameContainer('${colStatus}','${c.id}')" title="Rename">${IC.edit}</button>
+      <button class="cont-item-btn danger" onclick="deleteContainer('${colStatus}','${c.id}')" title="Delete">${IC.trash}</button>
     </div>`;
   }).join('');
 }
@@ -898,8 +898,8 @@ function showDetail(id) {
     ${l.notes?`<div class="form-group"><label>Notes</label><div style="background:var(--crimson-soft);padding:12px;border-radius:8px;font-size:14px">${l.notes}</div></div>`:''}
   `;
   document.getElementById('detailFooter').innerHTML = `
-    <button class="btn btn-ghost" onclick="editLead('${id}')">✏️ Edit</button>
-    ${l.status==='Trial'?`<button class="btn-activate" style="padding:8px 14px;border-radius:8px;font-size:13px" onclick="closeModal('detailModal');openActivate('${id}')">✅ Activate</button>`:''}
+    <button class="btn btn-ghost" onclick="editLead('${id}')">${IC.edit} Edit</button>
+    ${l.status==='Trial'?`<button class="btn-activate" style="padding:8px 14px;border-radius:8px;font-size:13px;display:inline-flex;align-items:center;gap:5px" onclick="closeModal('detailModal');openActivate('${id}')">${IC.check} Activate</button>`:''}
     <button class="btn btn-outline" onclick="closeModal('detailModal')">Close</button>
   `;
   openModal('detailModal');

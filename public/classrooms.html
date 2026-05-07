@@ -37,7 +37,7 @@
   <div class="modal" style="width:360px">
     <div class="modal-header">
       <div class="modal-title">Edit Classroom</div>
-      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('editModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="editRoomId">
@@ -84,8 +84,8 @@
           </div>` : ''}
         </div>
         <div class="room-card-footer">
-          <button class="btn btn-ghost btn-sm" onclick="openEdit('${r.id}')">✏️ Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteRoom('${r.id}')">🗑 Delete</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEdit('${r.id}')">${IC.edit} Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRoom('${r.id}')">${IC.trash} Delete</button>
         </div>
       </div>`;
     }).join('');

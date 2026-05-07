@@ -19,11 +19,11 @@
 <div class="main">
   <div class="topbar">
     <div class="page-title">Users</div>
-    <div class="topbar-right"><button class="btn btn-primary" onclick="openAdd()">➕ Add Staff</button></div>
+    <div class="topbar-right"><button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Staff</button></div>
   </div>
   <div class="page-content">
     <div class="toolbar">
-      <div class="search-bar"><span class="search-icon">🔍</span>
+      <div class="search-bar"><span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" id="searchInput" placeholder="Search staff…" oninput="renderUsers()">
       </div>
       <select id="filterRole" onchange="renderUsers()" style="width:auto;padding:9px 14px">
@@ -40,7 +40,7 @@
   <div class="modal" style="width:520px">
     <div class="modal-header">
       <div class="modal-title" id="userModalTitle">Add Staff Member</div>
-      <button class="modal-close" onclick="closeModal('userModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('userModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="editUserId">
@@ -120,8 +120,8 @@
           </div>
           <span style="background:${rs.bg};color:${rs.color};padding:4px 12px;border-radius:100px;font-size:12px;font-weight:700">${rs.emoji} ${u.role}</span>
           ${!isMe?`<div style="display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">✏️ Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑</button>
+            <button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">${IC.edit} Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">${IC.trash}</button>
           </div>`:''}
         </div>
       </div>`;

@@ -22,11 +22,11 @@
 <div class="main">
   <div class="topbar">
     <div class="page-title">Teachers</div>
-    <div class="topbar-right"><button class="btn btn-primary" onclick="openAdd()">➕ Add Teacher</button></div>
+    <div class="topbar-right"><button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Teacher</button></div>
   </div>
   <div class="page-content">
     <div class="toolbar">
-      <div class="search-bar"><span class="search-icon">🔍</span>
+      <div class="search-bar"><span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" id="searchInput" placeholder="Search teachers…" oninput="renderTeachers()">
       </div>
       <span class="text-muted" id="teacherCount" style="margin-left:auto"></span>
@@ -39,7 +39,7 @@
   <div class="modal" style="width:440px">
     <div class="modal-header">
       <div class="modal-title" id="teacherModalTitle">Add Teacher</div>
-      <button class="modal-close" onclick="closeModal('teacherModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('teacherModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="editTeacherId">
@@ -101,8 +101,8 @@
           ${t.bio?`<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5">${t.bio}</div>`:''}
         </div>
         <div class="tc-footer">
-          <button class="btn btn-ghost btn-sm" onclick="editTeacher('${t.id}')">✏️ Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${t.id}')">🗑</button>
+          <button class="btn btn-ghost btn-sm" onclick="editTeacher('${t.id}')">${IC.edit} Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${t.id}')">${IC.trash}</button>
         </div>
       </div>`;
     }).join('');

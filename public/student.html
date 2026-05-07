@@ -219,11 +219,11 @@
 <div class="main">
 <div class="topbar">
   <div style="display:flex;align-items:center;gap:12px">
-    <a href="students.html" class="btn btn-ghost btn-sm">← Back</a>
+    <a href="students.html" class="btn btn-ghost btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back</a>
     <div class="page-title" id="pageTitle">Student</div>
   </div>
   <div class="topbar-right">
-    <button class="btn btn-primary" onclick="openPaymentModal()">💳 Add Payment</button>
+    <button class="btn btn-primary" onclick="openPaymentModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Add Payment</button>
   </div>
 </div>
 
@@ -236,8 +236,8 @@
   <div class="left-panel">
     <div class="profile-block">
       <div class="profile-actions">
-        <button class="profile-btn" title="Edit" onclick="openEditModal()">✏️</button>
-        <button class="profile-btn red" title="Delete" onclick="doDelete()">🗑</button>
+        <button class="profile-btn" title="Edit" onclick="openEditModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="profile-btn red" title="Delete" onclick="doDelete()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       </div>
       <div class="profile-avatar" id="profileAvatar"></div>
       <div class="profile-name" id="profileName"></div>
@@ -367,7 +367,7 @@
   <div class="modal" style="width:min(540px,96vw)">
     <div class="modal-header">
       <div class="modal-title">Edit Student</div>
-      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('editModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="form-row">
@@ -422,7 +422,7 @@
   <div class="modal" style="width:min(460px,96vw)">
     <div class="modal-header">
       <div class="modal-title">Add Payment</div>
-      <button class="modal-close" onclick="closeModal('paymentModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('paymentModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <div id="payStudentName" style="font-size:16px;font-weight:700;margin-bottom:14px;color:var(--text)"></div>
@@ -456,7 +456,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('paymentModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="savePayment()">✅ Confirm Payment</button>
+      <button class="btn btn-primary" onclick="savePayment()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirm Payment</button>
     </div>
   </div>
 </div>
@@ -466,7 +466,7 @@
   <div class="modal" style="width:min(460px,96vw)">
     <div class="modal-header">
       <div class="modal-title">Add to Group</div>
-      <button class="modal-close" onclick="closeModal('addGroupModal')">✕</button>
+      <button class="modal-close" onclick="closeModal('addGroupModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -586,8 +586,8 @@ function renderGroups() {
             <br>${SCHED[g.schedType]||'—'} • ${g.time||'—'}${endTime?' – '+endTime:''}
           </div>
           <div style="display:flex;gap:6px">
-            <button class="gc-btn" title="Open group" onclick="window.location.href='group.html?id=${g.id}'">↗</button>
-            <button class="gc-btn red" title="Remove from group" onclick="removeFromGroup('${g.id}')">✕</button>
+            <button class="gc-btn" title="Open group" onclick="window.location.href='group.html?id=${g.id}'">${IC.arrowRight}</button>
+            <button class="gc-btn red" title="Remove from group" onclick="removeFromGroup('${g.id}')">${IC.close}</button>
           </div>
         </div>
       </div>
@@ -669,7 +669,7 @@ function renderComments() {
         <div class="log-meta">
           <span>${c.actor||'Admin'}</span>
           <span>${formatDateFull(c.created_at)}</span>
-          <button class="log-delete" onclick="deleteComment(${c.id})">✕</button>
+          <button class="log-delete" onclick="deleteComment(${c.id})">${IC.close}</button>
         </div>
       </div>
     </div>`).join('');
@@ -689,7 +689,7 @@ function renderCalls() {
         <div class="log-meta">
           <span>${c.actor||'Admin'}</span>
           <span>${formatDateFull(c.created_at)}</span>
-          <button class="log-delete" onclick="deleteCall(${c.id})">✕</button>
+          <button class="log-delete" onclick="deleteCall(${c.id})">${IC.close}</button>
         </div>
       </div>
     </div>`).join('');
