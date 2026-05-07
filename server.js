@@ -195,6 +195,15 @@ async function initDB() {
     }
   } catch(e) { console.warn('Trial cleanup skipped:', e.message); }
 
+  // Null out group teacher names that no longer exist in the teachers table
+  try {
+    await pool.query(`
+      UPDATE groups SET teacher = NULL
+      WHERE teacher IS NOT NULL
+      AND teacher NOT IN (SELECT first_name || ' ' || last_name FROM teachers)
+    `);
+  } catch(e) { console.warn('Teacher orphan cleanup skipped:', e.message); }
+
   const { rows } = await pool.query('SELECT COUNT(*) FROM users');
   if (parseInt(rows[0].count) === 0) {
     await pool.query(`
