@@ -204,6 +204,53 @@ async function initDB() {
     `);
   } catch(e) { console.warn('Teacher orphan cleanup skipped:', e.message); }
 
+  // Seed: group 101e with teacher Raxmatov Asadbek and 18 students
+  try {
+    const alreadySeeded = await pool.query("SELECT id FROM teachers WHERE id='seed_raxmatov_asadbek'");
+    if (!alreadySeeded.rows.length) {
+      await pool.query(`
+        INSERT INTO teachers (id, first_name, last_name, status)
+        VALUES ('seed_raxmatov_asadbek', 'Asadbek', 'Raxmatov', 'Active')
+        ON CONFLICT DO NOTHING
+      `);
+      const students = [
+        { id:'seed_101e_s01', fn:'Timur',        ln:'Dyatlik',        ph:'95 029 04 82', pp:'90 638 00 03' },
+        { id:'seed_101e_s02', fn:'Nastya',        ln:'Kim',            ph:'99 315 05 73', pp:null },
+        { id:'seed_101e_s03', fn:'Odina',         ln:'Meliyeva',       ph:'97 246 02 32', pp:'97 423 30 24' },
+        { id:'seed_101e_s04', fn:'Charos',        ln:'Ahmedova',       ph:'77 777 25 13', pp:null },
+        { id:'seed_101e_s05', fn:'Alleyna',       ln:'Jabbarova',      ph:'99 725 46 47', pp:null },
+        { id:'seed_101e_s06', fn:'Ahmadjon',      ln:'Abdujabborov',   ph:'90 252 85 58', pp:'91 101 03 12' },
+        { id:'seed_101e_s07', fn:'Kamil',         ln:'Nimatullayev',   ph:'90 107 57 37', pp:'91 100 18 15' },
+        { id:'seed_101e_s08', fn:'Muhammadali',   ln:'Hakimov',        ph:'77 375 67 73', pp:'97 340 82 84' },
+        { id:'seed_101e_s09', fn:'Sharof',        ln:"Jo'rayev",       ph:'90 936 81 71', pp:'90 683 45 75' },
+        { id:'seed_101e_s10', fn:'Rumina',        ln:'Batalova',       ph:'91 503 22 42', pp:'97 247 52 51' },
+        { id:'seed_101e_s11', fn:'Shodiya',       ln:'Shavkatova',     ph:'99 470 30 03', pp:'99 472 01 60' },
+        { id:'seed_101e_s12', fn:'Nurlan',        ln:'Rayembayev',     ph:'91 508 86 60', pp:'90 152 91 26' },
+        { id:'seed_101e_s13', fn:'Gumush',        ln:'Zubeirova',      ph:'99 024 95 10', pp:'95 727 79 84' },
+        { id:'seed_101e_s14', fn:'Elmira',        ln:'Aliyeva',        ph:'90 105 07 18', pp:'91 504 30 18' },
+        { id:'seed_101e_s15', fn:'Jasmina',       ln:'Faxriddinova',   ph:'77 800 02 10', pp:'95 837 32 72' },
+        { id:'seed_101e_s16', fn:'Faxriddin',     ln:'Sayfurov',       ph:'95 880 36 16', pp:'97 277 36 00' },
+        { id:'seed_101e_s17', fn:'Shoxrux',       ln:'Haydarov',       ph:'91 806 60 77', pp:'91 624 07 87' },
+        { id:'seed_101e_s18', fn:'Timur',         ln:'Burseitov',      ph:'91 501 09 10', pp:'99 308 55 92' },
+      ];
+      for (const s of students) {
+        await pool.query(
+          `INSERT INTO students (id, first_name, last_name, phone, phone_parent, level, status)
+           VALUES ($1,$2,$3,$4,$5,'Elementary','Active') ON CONFLICT DO NOTHING`,
+          [s.id, s.fn, s.ln, s.ph, s.pp]
+        );
+      }
+      const studentIds = JSON.stringify(students.map(s => s.id));
+      await pool.query(
+        `INSERT INTO groups (id, name, teacher, level, sched_type, time, start_date, price, lang, duration, student_ids)
+         VALUES ('seed_grp_101e','101e','Asadbek Raxmatov','Elementary','even','14:00','2025-04-01',400000,'UZ',90,$1::jsonb)
+         ON CONFLICT DO NOTHING`,
+        [studentIds]
+      );
+      console.log('Seeded: teacher Raxmatov Asadbek, group 101e, 18 students.');
+    }
+  } catch(e) { console.warn('Seed 101e skipped:', e.message); }
+
   const { rows } = await pool.query('SELECT COUNT(*) FROM users');
   if (parseInt(rows[0].count) === 0) {
     await pool.query(`
