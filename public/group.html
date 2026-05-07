@@ -108,6 +108,8 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .att-trial-row:hover td { background: #eeeeee !important; }
 .att-trial-name { color: #666; }
 .trial-label { font-size: 10px; font-weight: 700; color: #888; background: #e0e0e0; border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+.btn-activate-sm { font-size: 10px; font-weight: 700; color: white; background: #1E6B45; border: none; border-radius: 5px; padding: 2px 8px; cursor: pointer; margin-left: auto; flex-shrink: 0; }
+.btn-activate-sm:hover { background: #155235; }
 
 .unit-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 8px; }
 .unit-opt { padding: 10px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; transition: all 0.15s; }
@@ -322,23 +324,35 @@ if (!sorted.length) {
 el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">No students enrolled.</div>';
 return;
 }
-el.innerHTML = sorted.map((s,i) => `
+const active = sorted.filter(s => s.status !== 'Trial');
+const trialReg = sorted.filter(s => s.status === 'Trial');
+el.innerHTML = active.map((s,i) => `
 <div class="student-list-item" style="cursor:pointer" onclick="window.location.href='student.html?id=${s.id}'">
 <span class="student-num">${i+1}.</span>
 <span class="student-dot"></span>
 <span class="student-list-name">${s.firstName} ${s.lastName}</span>
 <span class="student-phone">${s.phone||''}</span>
 </div>`).join('');
-// Render trial students below with grey styling
+// Trial enrolled students (added but not yet activated)
+if (trialReg.length) {
+el.innerHTML += trialReg.map((s,i) => `
+<div class="student-list-item trial-student" style="display:flex;align-items:center">
+<span class="student-num">${active.length+i+1}.</span>
+<span class="student-dot trial"></span>
+<span class="student-list-name" style="color:#777;flex:1">${s.firstName} ${s.lastName}</span>
+<span class="trial-badge">Trial</span>
+<button class="btn-activate-sm" onclick="event.stopPropagation();activateEnrolledStudent('${s.id}')">Activate</button>
+</div>`).join('');
+}
+// Leads on trial
 if (trialStudents.length) {
-const trialHtml = trialStudents.map((s,i) => `
+el.innerHTML += trialStudents.map((s,i) => `
 <div class="student-list-item trial-student">
-<span class="student-num">${sorted.length+i+1}.</span>
+<span class="student-num">${active.length+trialReg.length+i+1}.</span>
 <span class="student-dot trial"></span>
 <span class="student-list-name" style="color:#777">${s.firstName} ${s.lastName}</span>
-<span class="trial-badge">Trial</span>
+<span class="trial-badge">Lead Trial</span>
 </div>`).join('');
-el.innerHTML += trialHtml;
 }
 }
 function setTab(name, btn) {
@@ -565,49 +579,32 @@ ${already ? '<span style="font-size:11px;color:var(--muted)">Already enrolled</s
 async function addStudentToGroup(studentId) {
 try {
 const s = allStudents.find(s=>s.id===studentId);
-const wasInactive = s && s.status === 'Inactive';
 const ids = [...new Set([...(group.studentIds||[]), studentId])];
 await apiPatch('/api/groups/'+groupId+'/students', { studentIds: ids });
 group.studentIds = ids;
+// Set status to Trial automatically
+await apiPut('/api/students/'+studentId, { ...s, status: 'Trial' });
+if (s) s.status = 'Trial';
 if (s && !students.find(x=>x.id===studentId)) students.push(s);
 renderStudentList();
 renderAttendance();
 filterStudentSearch();
-logActivity(`Added student to ${group.name}`, 'green');
-if (wasInactive) {
-  showActivatePrompt(s);
-} else {
-  showToast('Student added!');
-}
+logActivity(`Added student to ${group.name} as Trial`, 'green');
+showToast('Student added as Trial!');
 } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
-function showActivatePrompt(s) {
-const name = s.firstName + ' ' + s.lastName;
-const overlay = document.createElement('div');
-overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
-overlay.innerHTML = `
-  <div style="background:white;border-radius:14px;padding:24px 28px;width:min(360px,92vw);box-shadow:0 8px 40px rgba(0,0,0,0.18)">
-    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Activate Student?</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:20px"><strong>${name}</strong> was inactive. Set status to Active?</div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-outline" id="skipActivate">Skip</button>
-      <button class="btn btn-primary" id="confirmActivate">Activate</button>
-    </div>
-  </div>`;
-document.body.appendChild(overlay);
-overlay.querySelector('#confirmActivate').onclick = async () => {
-  try {
-    await apiPut('/api/students/'+s.id, { ...s, status: 'Active' });
-    s.status = 'Active';
-    showToast(name + ' activated!');
-  } catch(e) { showToast('Error: '+e.message,'error'); }
-  overlay.remove();
-};
-overlay.querySelector('#skipActivate').onclick = () => {
-  showToast('Student added!');
-  overlay.remove();
-};
+async function activateEnrolledStudent(studentId) {
+try {
+const s = students.find(s=>s.id===studentId) || allStudents.find(s=>s.id===studentId);
+await apiPut('/api/students/'+studentId, { ...s, status: 'Active' });
+if (s) s.status = 'Active';
+renderStudentList();
+renderAttendance();
+const name = s ? s.firstName+' '+s.lastName : 'Student';
+logActivity(`Activated student ${name} in ${group.name}`, 'green');
+showToast(name + ' activated!');
+} catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 load();
 </script>
