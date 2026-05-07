@@ -275,13 +275,14 @@ const type =document.querySelector('input[name="gSched"]:checked')?.value||'odd'
 const days =[...document.querySelectorAll('input[name="gDay"]:checked')].map(c=>Number(c.value));
 if(!code) {showToast('Group code is required.','error'); return;}
 if(!level) {showToast('Level is required.','error'); return;}
+const id=document.getElementById('editGroupId').value;
+if(!id && !teacher){showToast('Teacher is required.','error'); return;}
 if(!room) {showToast('Room is required.','error'); return;}
 if(!time) {showToast('Start time is required.','error'); return;}
 if(!date) {showToast('Start date is required.','error'); return;}
 if(type==='custom'&&!days.length){showToast('Select at least one day.','error');return;}
-const id=document.getElementById('editGroupId').value;
 const data={
-name:code, level, teacher, room, time, lang, startDate:date, duration:90,
+name:code, level, teacher:teacher||null, room, time, lang, startDate:date, duration:90,
 schedType:type, customDays:type==='custom'?days:[],
 studentIds:id?(groups.find(g=>g.id===id)?.studentIds||[]):[],
 price: levelPrices[level] || 0,
