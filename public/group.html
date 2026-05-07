@@ -210,23 +210,69 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <div id="loadingState" style="text-align:center;padding:60px;color:var(--muted)">Loading…</div>
 </div>
 </div>
-<!-- ADD STUDENT MODAL -->
+<!-- ENROLL STUDENT MODAL -->
 <div class="modal-overlay" id="addStudentModal">
-<div class="modal" style="width:480px">
-<div class="modal-header">
-<div class="modal-title"> Add Student to Group</div>
-<button class="modal-close" onclick="closeModal('addStudentModal')"></button>
-</div>
-<div class="modal-body">
-<div class="form-group" style="margin-bottom:12px">
-<input type="text" id="studentSearchInput" placeholder="Search by name or phone…" oninput="filterStudentSearch()">
-</div>
-<div id="studentSearchResults" style="max-height:320px;overflow-y:auto;"></div>
-</div>
-<div class="modal-footer">
-<button class="btn btn-outline" onclick="closeModal('addStudentModal')">Close</button>
-</div>
-</div>
+  <div class="modal" style="width:min(560px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">Enroll Student</div>
+      <button class="modal-close" onclick="closeModal('addStudentModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>First Name *</label><input type="text" id="eFirst" placeholder="John"></div>
+        <div class="form-group"><label>Last Name *</label><input type="text" id="eLast" placeholder="Smith"></div>
+      </div>
+      <div class="form-group">
+        <label>Phone Numbers <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(at least 2 required)</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👤 Student</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="ePhoneStudent" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👨 Father</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="ePhoneFather" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👩 Mother</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="ePhoneMother" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👥 Other</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="ePhoneOther" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
+        </div>
+        <div id="ePhoneError" style="color:var(--crimson);font-size:12px;margin-top:6px;display:none">⚠️ At least 2 phone numbers required.</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Level</label>
+          <select id="eLevel"><option value="">— Select level —</option>
+            <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
+            <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Test Result</label><input type="text" id="eTest" placeholder="Score or notes"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="eNotes" placeholder="Any additional notes…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('addStudentModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="enrollStudent()">Enroll</button>
+    </div>
+  </div>
 </div>
 <!-- UNIT MODAL -->
 <div class="modal-overlay" id="unitModal">
@@ -547,51 +593,58 @@ if (!confirm(`Delete group "${group.name}"?`)) return;
 await apiDelete('/api/groups/'+groupId);
 window.location.replace('groups.html');
 }
+function fmtPhone(input) {
+  let v = input.value.replace(/\D/g,'').slice(0,9), o='';
+  if(v.length>0) o+=v.slice(0,2);
+  if(v.length>2) o+=' '+v.slice(2,5);
+  if(v.length>5) o+=' '+v.slice(5,7);
+  if(v.length>7) o+=' '+v.slice(7,9);
+  input.value = o;
+}
 function openAddStudent() {
-document.getElementById('studentSearchInput').value = '';
-filterStudentSearch();
-openModal('addStudentModal');
+  ['eFirst','eLast','ePhoneStudent','ePhoneFather','ePhoneMother','ePhoneOther','eLevel','eTest','eNotes']
+    .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('ePhoneError').style.display='none';
+  openModal('addStudentModal');
 }
-function filterStudentSearch() {
-const q = document.getElementById('studentSearchInput').value.toLowerCase();
-const enrolled = new Set(group.studentIds||[]);
-const results = allStudents.filter(s =>
-!q || (s.firstName+' '+s.lastName).toLowerCase().includes(q) || (s.phone||'').includes(q)
-);
-const el = document.getElementById('studentSearchResults');
-if (!results.length) {
-el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">No students found.</div>';
-return;
-}
-el.innerHTML = results.map(s => {
-const name = s.firstName+' '+s.lastName;
-const already = enrolled.has(s.id);
-return `<div class="student-search-result ${already?'already':''}" onclick="${already?'':'addStudentToGroup(\''+s.id+'\')'}">
-<div style="width:32px;height:32px;border-radius:50%;background:${avatarColor(name)};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0">${initials(name)}</div>
-<div style="flex:1">
-<div style="font-weight:600;font-size:13px">${name}</div>
-<div style="font-size:11px;color:var(--muted)">${s.phone||''}${s.level?' · '+s.level:''}</div>
-</div>
-${already ? '<span style="font-size:11px;color:var(--muted)">Already enrolled</span>' : '<span style="font-size:11px;color:var(--green);font-weight:700">+ Add</span>'}
-</div>`;
-}).join('');
-}
-async function addStudentToGroup(studentId) {
-try {
-const s = allStudents.find(s=>s.id===studentId);
-const ids = [...new Set([...(group.studentIds||[]), studentId])];
-await apiPatch('/api/groups/'+groupId+'/students', { studentIds: ids });
-group.studentIds = ids;
-// Set status to Trial automatically
-await apiPut('/api/students/'+studentId, { ...s, status: 'Trial' });
-if (s) s.status = 'Trial';
-if (s && !students.find(x=>x.id===studentId)) students.push(s);
-renderStudentList();
-renderAttendance();
-filterStudentSearch();
-logActivity(`Added student to ${group.name} as Trial`, 'green');
-showToast('Student added as Trial!');
-} catch(e) { showToast('Error: '+e.message, 'error'); }
+async function enrollStudent() {
+  const first = document.getElementById('eFirst').value.trim();
+  const last  = document.getElementById('eLast').value.trim();
+  if (!first || !last) { showToast('Name required.','error'); return; }
+  const phones = [
+    document.getElementById('ePhoneStudent').value.trim(),
+    document.getElementById('ePhoneFather').value.trim(),
+    document.getElementById('ePhoneMother').value.trim(),
+    document.getElementById('ePhoneOther').value.trim(),
+  ];
+  if (phones.filter(Boolean).length < 2) {
+    document.getElementById('ePhoneError').style.display='';
+    showToast('At least 2 phone numbers required.','error'); return;
+  }
+  document.getElementById('ePhoneError').style.display='none';
+  const studentId = genId();
+  const studentData = {
+    id: studentId,
+    firstName: first, lastName: last,
+    phone: phones[0]||null, phoneParent: phones[1]||null,
+    level: document.getElementById('eLevel').value || group.level || null,
+    status: 'Trial',
+    exam: null, examDate: null,
+    notes: document.getElementById('eNotes').value.trim() || null,
+  };
+  try {
+    await apiPost('/api/students', studentData);
+    const ids = [...new Set([...(group.studentIds||[]), studentId])];
+    await apiPatch('/api/groups/'+groupId+'/students', { studentIds: ids });
+    group.studentIds = ids;
+    allStudents.push(studentData);
+    students.push(studentData);
+    closeModal('addStudentModal');
+    renderStudentList();
+    renderAttendance();
+    logActivity(`Enrolled ${first} ${last} in ${group.name} as Trial`, 'green');
+    showToast(`${first} ${last} enrolled as Trial!`);
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 }
 
 async function activateEnrolledStudent(studentId) {
