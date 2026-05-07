@@ -32,7 +32,7 @@
 
 <!-- Add/Edit Modal -->
 <div class="modal-overlay" id="studentModal">
-  <div class="modal" style="width:560px">
+  <div class="modal" style="width:min(560px,96vw)">
     <div class="modal-header">
       <div class="modal-title" id="studentModalTitle">Enroll Student</div>
       <button class="modal-close" onclick="closeModal('studentModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -43,30 +43,54 @@
         <div class="form-group"><label>First Name *</label><input type="text" id="sFirst" placeholder="John"></div>
         <div class="form-group"><label>Last Name *</label><input type="text" id="sLast" placeholder="Smith"></div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label>Phone</label><div style="display:flex;align-items:stretch;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;transition:border-color 0.15s" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
-          <span style="padding:10px 12px;background:var(--crimson-soft);font-size:14px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);white-space:nowrap;user-select:none">+998</span>
-          <input type="tel" oninput="fmtPhone(this)" id="sPhone" placeholder="+998 90 123 45 67" style="border:none;outline:none;flex:1;padding:10px 12px;font-size:14px;font-family:'DM Sans',sans-serif;background:white">
-        </div></div>
-        <div class="form-group"><label>Status</label>
-          <select id="sStatus"><option>Active</option><option>Trial</option><option>Lead</option><option>Inactive</option></select>
+      <div class="form-group">
+        <label>Phone Numbers <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(at least 2 required)</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👤 Student</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="sPhoneStudent" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👨 Father</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="sPhoneFather" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👩 Mother</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="sPhoneMother" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👥 Other</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="sPhoneOther" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px 9px;font-size:13px;font-family:'Inter',sans-serif;background:white;min-width:0">
+            </div>
+          </div>
         </div>
+        <div id="sPhoneError" style="color:var(--crimson);font-size:12px;margin-top:6px;display:none">⚠️ At least 2 phone numbers required.</div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Level</label><select id="sLevel"><option value="">— Select level —</option>
-            <option>RoundUp</option>
-            <option>Beginner</option>
-            <option>Elementary</option>
-            <option>Pre-Intermediate</option>
-            <option>Intermediate</option>
-            <option>CEFR</option>
-            <option>IELTS</option></select></div>
-        <div class="form-group"><label>Exam / Goal</label><input type="text" id="sExam" placeholder="IELTS, TOEFL…"></div>
+            <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
+            <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
+        </select></div>
+        <div class="form-group"><label>Test Result</label><input type="text" id="sExam" placeholder="Score or notes"></div>
       </div>
-      <div class="form-row">
+      <div class="form-row" id="sStatusRow" style="display:none">
+        <div class="form-group"><label>Status</label>
+          <select id="sStatus"><option>Active</option><option>Trial</option><option>Lead</option><option>Inactive</option></select>
+        </div>
         <div class="form-group"><label>Exam Date</label><input type="date" id="sExamDate"></div>
       </div>
-      <div class="form-group"><label>Notes</label><textarea id="sNotes" placeholder="Any notes…"></textarea></div>
+      <div class="form-group"><label>Notes</label><textarea id="sNotes" placeholder="Any additional notes…"></textarea></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('studentModal')">Cancel</button>
@@ -136,23 +160,27 @@
   }
 
   function openAdd() {
-    clearForm(); document.getElementById('studentModalTitle').textContent = 'Enroll Student';
+    clearForm();
+    document.getElementById('studentModalTitle').textContent = 'Enroll Student';
+    document.getElementById('sStatusRow').style.display = 'none';
     openModal('studentModal');
   }
 
   function editStudent(id) {
     const s = students.find(s=>s.id===id); if (!s) return;
     clearForm();
-    document.getElementById('editStudentId').value = id;
-    document.getElementById('sFirst').value    = s.firstName;
-    document.getElementById('sLast').value     = s.lastName;
-    document.getElementById('sPhone').value    = s.phone||'';
-    document.getElementById('sStatus').value   = s.status||'Active';
-    document.getElementById('sLevel').value    = s.level||'';
-    document.getElementById('sExam').value     = s.exam||'';
-    document.getElementById('sExamDate').value = s.examDate ? s.examDate.split('T')[0] : '';
-    document.getElementById('sNotes').value    = s.notes||'';
+    document.getElementById('editStudentId').value       = id;
+    document.getElementById('sFirst').value              = s.firstName;
+    document.getElementById('sLast').value               = s.lastName;
+    document.getElementById('sPhoneStudent').value       = s.phone||'';
+    document.getElementById('sPhoneFather').value        = s.phoneParent||'';
+    document.getElementById('sStatus').value             = s.status||'Active';
+    document.getElementById('sLevel').value              = s.level||'';
+    document.getElementById('sExam').value               = s.exam||'';
+    document.getElementById('sExamDate').value           = s.examDate ? s.examDate.split('T')[0] : '';
+    document.getElementById('sNotes').value              = s.notes||'';
     document.getElementById('studentModalTitle').textContent = 'Edit Student';
+    document.getElementById('sStatusRow').style.display = '';
     openModal('studentModal');
   }
 
@@ -160,14 +188,27 @@
     const first = document.getElementById('sFirst').value.trim();
     const last  = document.getElementById('sLast').value.trim();
     if (!first||!last) { showToast('First and last name are required.','error'); return; }
-    const id  = document.getElementById('editStudentId').value;
+    const id = document.getElementById('editStudentId').value;
+    const phones = [
+      document.getElementById('sPhoneStudent').value.trim(),
+      document.getElementById('sPhoneFather').value.trim(),
+      document.getElementById('sPhoneMother').value.trim(),
+      document.getElementById('sPhoneOther').value.trim(),
+    ];
+    if (!id && phones.filter(Boolean).length < 2) {
+      document.getElementById('sPhoneError').style.display = '';
+      showToast('At least 2 phone numbers required.','error'); return;
+    }
+    document.getElementById('sPhoneError').style.display = 'none';
+    const parentPhone = phones[1] || phones[2] || phones[3] || null;
     const data = {
       firstName: first, lastName: last,
-      phone:    document.getElementById('sPhone').value.trim(),
-      status:   document.getElementById('sStatus').value,
+      phone:       phones[0] || null,
+      phoneParent: parentPhone,
+      status:   id ? document.getElementById('sStatus').value : 'Inactive',
       level:    document.getElementById('sLevel').value,
       exam:     document.getElementById('sExam').value.trim(),
-      examDate: document.getElementById('sExamDate').value||null,
+      examDate: id ? (document.getElementById('sExamDate').value||null) : null,
       notes:    document.getElementById('sNotes').value.trim(),
     };
     try {
@@ -188,8 +229,10 @@
   }
 
   function clearForm() {
-    ['editStudentId','sFirst','sLast','sPhone','sLevel','sExam','sExamDate','sNotes'].forEach(id=>document.getElementById(id).value='');
+    ['editStudentId','sFirst','sLast','sPhoneStudent','sPhoneFather','sPhoneMother','sPhoneOther','sLevel','sExam','sExamDate','sNotes']
+      .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('sStatus').value = 'Active';
+    document.getElementById('sPhoneError').style.display = 'none';
   }
 
   load();
