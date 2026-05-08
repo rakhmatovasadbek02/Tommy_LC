@@ -86,7 +86,6 @@
           <div class="tc-meta">
             ${t.phone?`<span>📞 ${t.phone}</span>`:''}
             ${t.rate?`<span>💰 $${t.rate}/hr</span>`:''}
-            <span class="badge ${t.status==='Active'?'badge-green':'badge-grey'}">${t.status||'Active'}</span>
           </div>
           ${specs.length?`<div style="margin-top:10px">${specs.map(s=>`<span class="tc-tag">${s}</span>`).join('')}</div>`:''}
           ${levels.length?`<div style="margin-top:6px">${levels.map(l=>`<span class="tc-tag" style="background:#FFF0F0;color:#990000">${l}</span>`).join('')}</div>`:''}
