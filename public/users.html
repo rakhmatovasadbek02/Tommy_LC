@@ -22,16 +22,6 @@
     <div class="topbar-right"><button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Staff</button></div>
   </div>
   <div class="page-content">
-    <div class="toolbar">
-      <div class="search-bar"><span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" id="searchInput" placeholder="Search staff…" oninput="renderUsers()">
-      </div>
-      <select id="filterRole" onchange="renderUsers()" style="width:auto;padding:9px 14px">
-        <option value="">All Roles</option>
-        <option>CEO</option><option>Admin</option><option>Teacher</option>
-      </select>
-      <span class="text-muted" id="userCount" style="margin-left:auto"></span>
-    </div>
     <div id="userCards"></div>
   </div>
 </div>
@@ -104,14 +94,8 @@
   async function load() { users = await apiGet('/api/users'); renderUsers(); }
 
   function renderUsers() {
-    const q = document.getElementById('searchInput').value.toLowerCase();
-    const fr= document.getElementById('filterRole').value;
     const session = getSession();
-    const filtered = users.filter(u =>
-      (!q || (u.firstName+' '+u.lastName).toLowerCase().includes(q) || (u.phone||'').includes(q))
-      && (!fr || u.role === fr)
-    );
-    document.getElementById('userCount').textContent = `${filtered.length} staff`;
+    const filtered = users;
     const el = document.getElementById('userCards');
     if (!filtered.length) { el.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><p>No staff found.</p></div>'; return; }
     el.innerHTML = filtered.map(u => {
