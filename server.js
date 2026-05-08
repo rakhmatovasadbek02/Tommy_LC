@@ -150,6 +150,14 @@ async function initDB() {
       created_at    TIMESTAMPTZ DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS group_comments (
+      id          SERIAL PRIMARY KEY,
+      group_id    TEXT NOT NULL,
+      text        TEXT NOT NULL,
+      actor       TEXT,
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS activity (
       id          SERIAL PRIMARY KEY,
       text        TEXT NOT NULL,
@@ -615,6 +623,31 @@ app.put('/api/groups/:id', async (req, res) => {
 app.delete('/api/groups/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM groups WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/groups/:id/comments', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM group_comments WHERE group_id=$1 ORDER BY created_at DESC', [req.params.id]);
+    res.json(rows.map(c => ({
+      id: c.id, text: c.text, actor: c.actor,
+      time: new Date(c.created_at).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false })
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/groups/:id/comments', async (req, res) => {
+  try {
+    const { text, actor } = req.body;
+    await pool.query('INSERT INTO group_comments(group_id,text,actor) VALUES($1,$2,$3)', [req.params.id, text, actor||null]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/groups/comments/:commentId', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM group_comments WHERE id=$1', [req.params.commentId]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
