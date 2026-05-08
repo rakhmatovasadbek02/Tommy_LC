@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Actions — TommyLC CRM</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .actions-feed { display:flex; flex-direction:column; gap:0; }
+    .action-item { display:flex; align-items:flex-start; gap:16px; padding:14px 0; border-bottom:1px solid var(--border); }
+    .action-item:last-child { border-bottom:none; }
+    .action-dot-col { display:flex; flex-direction:column; align-items:center; padding-top:3px; flex-shrink:0; }
+    .action-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .action-dot.green  { background:#22c55e; }
+    .action-dot.red    { background:#ef4444; }
+    .action-dot.blue   { background:#3b82f6; }
+    .action-dot.gold   { background:#f59e0b; }
+    .action-dot.grey   { background:#94a3b8; }
+    .action-dot.default{ background:#94a3b8; }
+    .action-line { width:1px; background:var(--border); flex:1; min-height:20px; margin-top:4px; }
+    .action-body { flex:1; min-width:0; }
+    .action-text { font-size:14px; color:var(--text); line-height:1.4; }
+    .action-meta { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+    .action-actor { font-size:12px; font-weight:600; color:var(--text); }
+    .action-role  { font-size:11px; padding:2px 8px; border-radius:100px; font-weight:600; }
+    .action-time  { font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap; }
+    .actions-empty { text-align:center; padding:60px 20px; color:var(--muted); }
+    .actions-empty .empty-icon { font-size:48px; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+<nav class="sidebar"></nav>
+<div class="main">
+  <div class="topbar">
+    <div class="page-title">Actions</div>
+    <div class="topbar-right">
+      <span class="text-muted" id="actionCount" style="font-size:13px"></span>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="card">
+      <div class="card-body" style="padding:0 24px">
+        <div id="actionsFeed" class="actions-feed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="shared.js"></script>
+<script>
+  requireAuth('actions');
+  renderSidebar('actions');
+
+  const ROLE_COLORS = {
+    'CEO':     { bg:'#FFF0F0', color:'#CC0000' },
+    'Admin':   { bg:'#E8F5E9', color:'#1E6B45' },
+    'Teacher': { bg:'#EFF6FF', color:'#1D4ED8' },
+  };
+
+  const DOT_CLASS = { green:'green', red:'red', blue:'blue', gold:'gold', '':'default', null:'default' };
+
+  async function load() {
+    const items = await apiGet('/api/activity');
+    document.getElementById('actionCount').textContent = `${items.length} action${items.length!==1?'s':''}`;
+    const feed = document.getElementById('actionsFeed');
+    if (!items.length) {
+      feed.innerHTML = '<div class="actions-empty"><div class="empty-icon">📋</div><p>No actions recorded yet.</p></div>';
+      return;
+    }
+    feed.innerHTML = items.map((a, i) => {
+      const dotClass = DOT_CLASS[a.color] || 'default';
+      const rc = ROLE_COLORS[a.role] || { bg:'#F1F5F9', color:'#64748b' };
+      const isLast = i === items.length - 1;
+      return `<div class="action-item">
+        <div class="action-dot-col">
+          <div class="action-dot ${dotClass}"></div>
+          ${!isLast ? '<div class="action-line"></div>' : ''}
+        </div>
+        <div class="action-body">
+          <div class="action-text">${a.text}</div>
+          <div class="action-meta">
+            ${a.actor ? `<span class="action-actor">${a.actor}</span>` : ''}
+            ${a.role  ? `<span class="action-role" style="background:${rc.bg};color:${rc.color}">${a.role}</span>` : ''}
+            <span class="action-time">${a.time}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  load();
+</script>
+</body>
+</html>

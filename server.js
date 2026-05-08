@@ -863,7 +863,8 @@ app.delete('/api/leads/:id', async (req, res) => {
 /* ACTIVITY */
 app.get('/api/activity', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM activity ORDER BY created_at DESC LIMIT 50');
+    const limit = parseInt(req.query.limit) || 500;
+    const { rows } = await pool.query('SELECT * FROM activity ORDER BY created_at DESC LIMIT $1', [limit]);
     res.json(rows.map(a => ({
       text: a.text, color: a.color, actor: a.actor, role: a.role,
       time: new Date(a.created_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
