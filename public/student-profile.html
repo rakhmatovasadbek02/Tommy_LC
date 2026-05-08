@@ -125,8 +125,6 @@
                 <span class="profile-meta-value" id="profCreated"></span>
               </div>
             </div>
-            <hr class="profile-divider">
-            <div id="profNotes" style="font-size:13px;color:var(--muted);line-height:1.6"></div>
           </div>
         </div>
 
@@ -231,7 +229,6 @@
         <div class="form-group"><label>Test Result</label><input type="text" id="eExam" placeholder="Score or notes"></div>
         <div class="form-group"><label>Exam Date</label><input type="date" id="eExamDate"></div>
       </div>
-      <div class="form-group"><label>Notes</label><textarea id="eNotes" placeholder="Any additional notes…"></textarea></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
@@ -357,7 +354,6 @@
       document.getElementById('profLevel').textContent   = s.level   || '—';
       document.getElementById('profExam').textContent    = s.exam    || '—';
       document.getElementById('profCreated').textContent = fmtDate(s.createdAt);
-      document.getElementById('profNotes').textContent   = s.notes   || '';
 
       renderGroups(grps);
       renderComments(cmts);
@@ -487,7 +483,6 @@
     document.getElementById('eStatus').value   = student.status||'Active';
     document.getElementById('eExam').value     = student.exam||'';
     document.getElementById('eExamDate').value = student.examDate ? student.examDate.split('T')[0] : '';
-    document.getElementById('eNotes').value    = student.notes||'';
     openModal('editModal');
   }
 
@@ -503,7 +498,6 @@
       status:      document.getElementById('eStatus').value,
       exam:        document.getElementById('eExam').value.trim(),
       examDate:    document.getElementById('eExamDate').value||null,
-      notes:       document.getElementById('eNotes').value.trim(),
     };
     await apiPut('/api/students/'+STUDENT_ID, data);
     logActivity(`Updated student: ${first} ${last}`, '');

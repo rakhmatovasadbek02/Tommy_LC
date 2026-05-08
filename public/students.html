@@ -161,7 +161,7 @@
         </div>
         <div class="form-group"><label>Exam Date</label><input type="date" id="sExamDate"></div>
       </div>
-      <div class="form-group"><label>Notes</label><textarea id="sNotes" placeholder="Any additional notes…"></textarea></div>
+      <div class="form-group"><label>Comment</label><textarea id="sNotes" placeholder="Add a comment…"></textarea></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('studentModal')">Cancel</button>
@@ -290,7 +290,7 @@
     document.getElementById('sLevel').value              = s.level||'';
     document.getElementById('sExam').value               = s.exam||'';
     document.getElementById('sExamDate').value           = s.examDate ? s.examDate.split('T')[0] : '';
-    document.getElementById('sNotes').value              = s.notes||'';
+    document.getElementById('sNotes').value              = '';
     document.getElementById('studentModalTitle').textContent = 'Edit Student';
     document.getElementById('sStatusRow').style.display = '';
     openModal('studentModal');
@@ -313,6 +313,7 @@
     }
     document.getElementById('sPhoneError').style.display = 'none';
     const parentPhone = phones[1] || phones[2] || phones[3] || null;
+    const comment = document.getElementById('sNotes').value.trim();
     const data = {
       firstName: first, lastName: last,
       phone:       phones[0] || null,
@@ -321,11 +322,18 @@
       level:    document.getElementById('sLevel').value,
       exam:     document.getElementById('sExam').value.trim(),
       examDate: id ? (document.getElementById('sExamDate').value||null) : null,
-      notes:    document.getElementById('sNotes').value.trim(),
     };
     try {
-      if (id) { await apiPut('/api/students/'+id, data); logActivity(`Updated student: ${first} ${last}`,''); }
-      else    { data.id = genId(); await apiPost('/api/students', data); logActivity(`Enrolled: ${first} ${last}`,'green'); }
+      if (id) {
+        await apiPut('/api/students/'+id, data);
+        if (comment) { const s = getSession(); await apiPost('/api/students/'+id+'/comments', { text: comment, actor: s?.name||'Unknown' }); }
+        logActivity(`Updated student: ${first} ${last}`,'');
+      } else {
+        data.id = genId();
+        await apiPost('/api/students', data);
+        if (comment) { const s = getSession(); await apiPost('/api/students/'+data.id+'/comments', { text: comment, actor: s?.name||'Unknown' }); }
+        logActivity(`Enrolled: ${first} ${last}`,'green');
+      }
       closeModal('studentModal');
       await load();
       showToast(id ? 'Student updated!' : 'Student enrolled!');
