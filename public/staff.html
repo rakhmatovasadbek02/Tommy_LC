@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff — TommyLC CRM</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .staff-tabs { display:flex; gap:4px; padding:12px 16px 0; border-bottom:1px solid var(--border); background:white; flex-shrink:0; }
+    .staff-tab { padding:8px 18px; font-size:13px; font-weight:600; border:none; background:none; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; font-family:'Inter',sans-serif; transition:all 0.14s; }
+    .staff-tab.active { color:var(--crimson); border-bottom-color:var(--crimson); }
+    .staff-tab:hover:not(.active) { color:var(--text); }
+
+    /* Teachers */
+    .teacher-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px; }
+    .tc-card { background:white; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); transition:box-shadow 0.15s,transform 0.15s; }
+    .tc-card:hover { box-shadow:var(--shadow-lg); transform:translateY(-2px); }
+    .tc-banner { height:72px; background:linear-gradient(135deg,#990000,#FF0000); position:relative; }
+    .tc-avatar { position:absolute; bottom:-28px; left:20px; width:56px; height:56px; border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; color:white; }
+    .tc-body { padding:36px 20px 16px; }
+    .tc-name { font-family:'Playfair Display',serif; font-size:17px; font-weight:900; color:var(--text); }
+    .tc-meta { font-size:12px; color:var(--muted); margin-top:4px; display:flex; gap:10px; flex-wrap:wrap; }
+    .tc-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+
+    /* Users */
+    .role-option input[type="radio"] { display:none; }
+    .role-opt-box { border:1.5px solid var(--border); border-radius:10px; padding:12px 14px; cursor:pointer; transition:all 0.15s; background:white; }
+    .role-option input:checked+.role-opt-box { border-color:var(--crimson); background:var(--crimson-soft); box-shadow:0 0 0 3px rgba(255,0,0,0.08); }
+    .role-opt-box:hover { border-color:var(--crimson); }
+    .role-opt-icon { font-size:20px; display:block; margin-bottom:6px; }
+    .role-opt-name { font-size:14px; font-weight:700; color:var(--text); }
+    .role-opt-desc { font-size:11px; color:var(--muted); margin-top:2px; }
+  </style>
+</head>
+<body>
+<nav class="sidebar"></nav>
+<div class="main">
+  <div class="topbar">
+    <div class="page-title">Staff</div>
+    <div class="topbar-right">
+      <button class="btn btn-primary" id="addBtn" onclick="openAdd()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span id="addBtnLabel">Add Teacher</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content" style="padding:0;display:flex;flex-direction:column;">
+    <!-- Tabs -->
+    <div class="staff-tabs">
+      <button class="staff-tab active" id="tabTeachers" onclick="setTab('teachers')">Teachers</button>
+      <button class="staff-tab" id="tabUsers" onclick="setTab('users')">Users</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-bar">
+        <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" id="searchInput" placeholder="Search…" oninput="renderActive()">
+      </div>
+      <select id="filterRole" onchange="renderUsers()" style="width:auto;padding:9px 14px;display:none">
+        <option value="">All Roles</option>
+        <option>CEO</option><option>Admin</option><option>Teacher</option>
+      </select>
+      <span class="text-muted" id="staffCount" style="margin-left:auto"></span>
+    </div>
+
+    <!-- Teachers tab -->
+    <div id="tabContentTeachers" style="padding:20px">
+      <div class="teacher-grid" id="teacherGrid"></div>
+    </div>
+
+    <!-- Users tab -->
+    <div id="tabContentUsers" style="padding:20px;display:none">
+      <div id="userCards"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Teacher Modal -->
+<div class="modal-overlay" id="teacherModal">
+  <div class="modal" style="width:440px">
+    <div class="modal-header">
+      <div class="modal-title" id="teacherModalTitle">Add Teacher</div>
+      <button class="modal-close" onclick="closeModal('teacherModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editTeacherId">
+      <div class="form-row">
+        <div class="form-group"><label>First Name *</label><input type="text" id="tFirst" placeholder="Sarah"></div>
+        <div class="form-group"><label>Last Name *</label><input type="text" id="tLast" placeholder="Thompson"></div>
+      </div>
+      <div class="form-group">
+        <label>Phone *</label>
+        <div style="display:flex;align-items:center">
+          <span style="padding:10px 14px;background:var(--crimson-soft);border:1.5px solid var(--border);border-right:none;border-radius:8px 0 0 8px;font-size:14px;font-weight:700;color:var(--crimson)">+998</span>
+          <input type="tel" id="tPhone" placeholder="90 123 45 67" oninput="fmtPhone(this)" style="border-radius:0 8px 8px 0;border-left:none">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password <span id="tPwLabel" style="font-weight:400;text-transform:none;letter-spacing:0">*</span></label>
+        <input type="password" id="tPassword" placeholder="Set a password for this teacher">
+        <div id="tPwHint" style="font-size:12px;color:var(--muted);margin-top:5px;display:none">Leave blank to keep existing password.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('teacherModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTeacher()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="userModalTitle">Add Staff Member</div>
+      <button class="modal-close" onclick="closeModal('userModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editUserId">
+      <div class="form-row">
+        <div class="form-group"><label>First Name *</label><input type="text" id="uFirst" placeholder="Tommy"></div>
+        <div class="form-group"><label>Last Name *</label><input type="text" id="uLast" placeholder="Smith"></div>
+      </div>
+      <div class="form-group">
+        <label>Phone *</label>
+        <div style="display:flex;align-items:center">
+          <span style="padding:10px 14px;background:var(--crimson-soft);border:1.5px solid var(--border);border-right:none;border-radius:8px 0 0 8px;font-size:14px;font-weight:700;color:var(--crimson)">+998</span>
+          <input type="tel" id="uPhone" placeholder="90 123 45 67" oninput="fmtPhone(this)" style="border-radius:0 8px 8px 0;border-left:none">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password <span id="pwLabel" style="font-weight:400;text-transform:none;letter-spacing:0">*</span></label>
+        <input type="password" id="uPassword" placeholder="Set a password">
+        <div id="pwHint" style="font-size:12px;color:var(--muted);margin-top:5px;display:none">Leave blank to keep existing password.</div>
+      </div>
+      <div class="form-group">
+        <label>Role *</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px">
+          <label class="role-option"><input type="radio" name="uRole" value="CEO" checked>
+            <div class="role-opt-box"><span class="role-opt-icon">👑</span><div class="role-opt-name">CEO</div><div class="role-opt-desc">Full access</div></div>
+          </label>
+          <label class="role-option"><input type="radio" name="uRole" value="Admin">
+            <div class="role-opt-box"><span class="role-opt-icon">🛡️</span><div class="role-opt-name">Admin</div><div class="role-opt-desc">Manage staff & data</div></div>
+          </label>
+          <label class="role-option"><input type="radio" name="uRole" value="Teacher">
+            <div class="role-opt-box"><span class="role-opt-icon">📚</span><div class="role-opt-name">Teacher</div><div class="role-opt-desc">Classes & students</div></div>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('userModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUser()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="shared.js"></script>
+<script>
+  requireAuth('staff');
+  renderSidebar('staff');
+
+  let teachers = [], users = [], activeTab = 'teachers';
+
+  const ROLE_STYLES = {
+    'CEO':     { bg:'#FFF0F0', color:'#CC0000', emoji:'👑' },
+    'Admin':   { bg:'#E8F5E9', color:'#1E6B45', emoji:'🛡️' },
+    'Teacher': { bg:'#EFF6FF', color:'#1D4ED8', emoji:'📚' },
+  };
+
+  function fmtPhone(input) {
+    let v=input.value.replace(/\D/g,'').slice(0,9),o='';
+    if(v.length>0)o+=v.slice(0,2);if(v.length>2)o+=' '+v.slice(2,5);if(v.length>5)o+=' '+v.slice(5,7);if(v.length>7)o+=' '+v.slice(7,9);
+    input.value=o;
+  }
+
+  async function load() {
+    [teachers, users] = await Promise.all([apiGet('/api/teachers'), apiGet('/api/users')]);
+    renderActive();
+  }
+
+  function setTab(tab) {
+    activeTab = tab;
+    document.getElementById('tabTeachers').classList.toggle('active', tab==='teachers');
+    document.getElementById('tabUsers').classList.toggle('active', tab==='users');
+    document.getElementById('tabContentTeachers').style.display = tab==='teachers' ? '' : 'none';
+    document.getElementById('tabContentUsers').style.display = tab==='users' ? '' : 'none';
+    document.getElementById('filterRole').style.display = tab==='users' ? '' : 'none';
+    document.getElementById('addBtnLabel').textContent = tab==='teachers' ? 'Add Teacher' : 'Add User';
+    document.getElementById('searchInput').value = '';
+    renderActive();
+  }
+
+  function renderActive() {
+    if (activeTab === 'teachers') renderTeachers();
+    else renderUsers();
+  }
+
+  /* ── Teachers ── */
+  function renderTeachers() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = teachers.filter(t => (t.firstName+' '+t.lastName).toLowerCase().includes(q)||(t.specs||'').toLowerCase().includes(q));
+    document.getElementById('staffCount').textContent = `${filtered.length} teacher${filtered.length!==1?'s':''}`;
+    const grid = document.getElementById('teacherGrid');
+    if (!filtered.length) { grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🎓</div><p>No teachers found.</p></div>'; return; }
+    grid.innerHTML = filtered.map(t => {
+      const name = t.firstName+' '+t.lastName;
+      const col  = avatarColor(name);
+      return `<div class="tc-card">
+        <div class="tc-banner"><div class="tc-avatar" style="background:${col}">${initials(name)}</div></div>
+        <div class="tc-body">
+          <div class="tc-name">${name}</div>
+          <div class="tc-meta">
+            ${t.phone?`<span>📞 ${t.phone}</span>`:''}
+            <span class="badge ${t.status==='Active'?'badge-green':'badge-grey'}">${t.status||'Active'}</span>
+          </div>
+        </div>
+        <div class="tc-footer">
+          <button class="btn btn-ghost btn-sm" onclick="editTeacher('${t.id}')">${IC.edit} Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTeacher('${t.id}')">${IC.trash}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function openAdd() {
+    if (activeTab === 'teachers') { clearTeacherForm(); document.getElementById('teacherModalTitle').textContent='Add Teacher'; openModal('teacherModal'); }
+    else { clearUserForm(); document.getElementById('userModalTitle').textContent='Add Staff Member'; openModal('userModal'); }
+  }
+
+  function editTeacher(id) {
+    const t=teachers.find(t=>t.id===id); if(!t) return;
+    clearTeacherForm();
+    document.getElementById('editTeacherId').value=id;
+    document.getElementById('tFirst').value=t.firstName;
+    document.getElementById('tLast').value=t.lastName;
+    document.getElementById('tPhone').value=t.phone||'';
+    document.getElementById('tPwHint').style.display='block';
+    document.getElementById('tPwLabel').textContent='(optional)';
+    document.getElementById('teacherModalTitle').textContent='Edit Teacher';
+    openModal('teacherModal');
+  }
+
+  async function saveTeacher() {
+    const first=document.getElementById('tFirst').value.trim();
+    const last =document.getElementById('tLast').value.trim();
+    const phone=document.getElementById('tPhone').value.trim();
+    const pass =document.getElementById('tPassword').value;
+    const id   =document.getElementById('editTeacherId').value;
+    if(!first||!last){showToast('Name required.','error');return;}
+    if(!phone){showToast('Phone required.','error');return;}
+    if(!id&&!pass){showToast('Password required.','error');return;}
+    const data={firstName:first,lastName:last,phone,status:'Active'};
+    if(pass)data.password=pass;
+    try {
+      if(id){await apiPut('/api/teachers/'+id,data);logActivity(`Updated teacher: ${first} ${last}`,'');}
+      else{data.id=genId();await apiPost('/api/teachers',data);logActivity(`Added teacher: ${first} ${last}`,'green');}
+      closeModal('teacherModal'); await load(); showToast(id?'Teacher updated!':'Teacher added!');
+    } catch(e){showToast('Error: '+e.message,'error');}
+  }
+
+  async function deleteTeacher(id) {
+    const t=teachers.find(t=>t.id===id);
+    if(!confirm(`Delete ${t?.firstName} ${t?.lastName}?`))return;
+    await apiDelete('/api/teachers/'+id);
+    logActivity(`Removed teacher: ${t?.firstName} ${t?.lastName}`,'red');
+    await load(); showToast('Teacher deleted.','error');
+  }
+
+  function clearTeacherForm() {
+    ['editTeacherId','tFirst','tLast','tPhone','tPassword'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('tPwHint').style.display='none';
+    document.getElementById('tPwLabel').textContent='*';
+  }
+
+  /* ── Users ── */
+  function renderUsers() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const fr= document.getElementById('filterRole').value;
+    const session = getSession();
+    const filtered = users.filter(u =>
+      (!q || (u.firstName+' '+u.lastName).toLowerCase().includes(q) || (u.phone||'').includes(q))
+      && (!fr || u.role === fr)
+    );
+    document.getElementById('staffCount').textContent = `${filtered.length} staff`;
+    const el = document.getElementById('userCards');
+    if (!filtered.length) { el.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><p>No staff found.</p></div>'; return; }
+    el.innerHTML = filtered.map(u => {
+      const name = u.firstName+' '+u.lastName;
+      const col  = avatarColor(name);
+      const rs   = ROLE_STYLES[u.role]||ROLE_STYLES['Admin'];
+      const isMe = session && session.id === u.id;
+      return `<div class="card" style="margin-bottom:12px">
+        <div class="card-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div class="avatar" style="background:${col};width:44px;height:44px;font-size:16px;flex-shrink:0">${initials(name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:15px">${name} ${isMe?'<span style="font-size:11px;color:var(--muted)">(you)</span>':''}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">📞 +998 ${u.phone}</div>
+          </div>
+          <span style="background:${rs.bg};color:${rs.color};padding:4px 12px;border-radius:100px;font-size:12px;font-weight:700">${rs.emoji} ${u.role}</span>
+          ${!isMe?`<div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">${IC.edit} Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">${IC.trash}</button>
+          </div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function editUser(id) {
+    const u=users.find(u=>u.id===id); if(!u) return;
+    clearUserForm();
+    document.getElementById('editUserId').value=id;
+    document.getElementById('uFirst').value=u.firstName;
+    document.getElementById('uLast').value=u.lastName;
+    document.getElementById('uPhone').value=u.phone||'';
+    const radio=document.querySelector(`input[name="uRole"][value="${u.role}"]`);
+    if(radio)radio.checked=true;
+    document.getElementById('pwHint').style.display='block';
+    document.getElementById('pwLabel').textContent='(optional)';
+    document.getElementById('userModalTitle').textContent='Edit Staff Member';
+    openModal('userModal');
+  }
+
+  async function saveUser() {
+    const first=document.getElementById('uFirst').value.trim();
+    const last =document.getElementById('uLast').value.trim();
+    const phone=document.getElementById('uPhone').value.trim();
+    const pass =document.getElementById('uPassword').value;
+    const role =document.querySelector('input[name="uRole"]:checked')?.value||'Admin';
+    const id   =document.getElementById('editUserId').value;
+    if(!first||!last){showToast('Name required.','error');return;}
+    if(!phone){showToast('Phone required.','error');return;}
+    if(!id&&!pass){showToast('Password required.','error');return;}
+    const data={firstName:first,lastName:last,phone,role};
+    if(pass)data.password=pass;
+    try {
+      if(id){await apiPut('/api/users/'+id,data);logActivity(`Updated staff: ${first} ${last}`,'');}
+      else{data.id=genId();await apiPost('/api/users',data);logActivity(`Added staff: ${first} ${last}`,'green');}
+      closeModal('userModal'); await load(); showToast(id?'Updated!':'Staff added!');
+    } catch(e){showToast('Error saving.','error');}
+  }
+
+  async function deleteUser(id) {
+    const u=users.find(u=>u.id===id);
+    if(!confirm(`Delete ${u?.firstName} ${u?.lastName}?`))return;
+    await apiDelete('/api/users/'+id);
+    logActivity(`Removed staff: ${u?.firstName} ${u?.lastName}`,'red');
+    await load(); showToast('Deleted.','error');
+  }
+
+  function clearUserForm() {
+    ['editUserId','uFirst','uLast','uPhone','uPassword'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('input[name="uRole"]')[0].checked=true;
+    document.getElementById('pwHint').style.display='none';
+    document.getElementById('pwLabel').textContent='*';
+  }
+
+  load();
+</script>
+</body>
+</html>

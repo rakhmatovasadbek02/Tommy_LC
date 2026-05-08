@@ -112,7 +112,7 @@ function checkAccessDeniedMessage() {
  const denied = sessionStorage.getItem('lc_access_denied');
  if (denied) {
  sessionStorage.removeItem('lc_access_denied');
- const labels = { payments:'Payments', teachers:'Teachers', settings:'Users', groups:'Groups', classrooms:'Classrooms', leads:'Leads', students:'Students' };
+ const labels = { payments:'Payments', teachers:'Teachers', staff:'Staff', settings:'Users', groups:'Groups', classrooms:'Classrooms', leads:'Leads', students:'Students' };
  showToast(`Your role does not have access to ${labels[denied]||denied}.`, 'error');
  }
 }
@@ -160,8 +160,7 @@ function renderSidebar(activePage) {
    { feature:'payments',  href:'finance.html',  iconKey:'payments',  label:'Finance'   },
  ]},
  { label: 'Staff', items: [
-   { feature:'teachers', href:'teachers.html', iconKey:'teachers', label:'Teachers' },
-   { feature:'settings', href:'users.html',    iconKey:'settings',  label:'Users'    },
+   { feature:'staff', href:'staff.html', iconKey:'teachers', label:'Staff' },
  ]},
  { label: 'Settings', items: [
    { feature:'classrooms', href:'classrooms.html', iconKey:'classrooms', label:'Classrooms' },
