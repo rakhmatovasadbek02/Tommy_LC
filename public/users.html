@@ -28,7 +28,7 @@
       </div>
       <select id="filterRole" onchange="renderUsers()" style="width:auto;padding:9px 14px">
         <option value="">All Roles</option>
-        <option>CEO</option>
+        <option>CEO</option><option>Admin</option><option>Teacher</option>
       </select>
       <span class="text-muted" id="userCount" style="margin-left:auto"></span>
     </div>
@@ -62,9 +62,15 @@
       </div>
       <div class="form-group">
         <label>Role *</label>
-        <div style="margin-top:4px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px">
           <label class="role-option"><input type="radio" name="uRole" value="CEO" checked>
             <div class="role-opt-box"><span class="role-opt-icon">👑</span><div class="role-opt-name">CEO</div><div class="role-opt-desc">Full access</div></div>
+          </label>
+          <label class="role-option"><input type="radio" name="uRole" value="Admin">
+            <div class="role-opt-box"><span class="role-opt-icon">🛡️</span><div class="role-opt-name">Admin</div><div class="role-opt-desc">Manage staff & data</div></div>
+          </label>
+          <label class="role-option"><input type="radio" name="uRole" value="Teacher">
+            <div class="role-opt-box"><span class="role-opt-icon">📚</span><div class="role-opt-name">Teacher</div><div class="role-opt-desc">Classes & students</div></div>
           </label>
         </div>
       </div>
@@ -84,7 +90,9 @@
 
   let users = [];
   const ROLE_STYLES = {
-    'CEO': { bg:'#FFF0F0', color:'#CC0000', emoji:'👑' },
+    'CEO':     { bg:'#FFF0F0', color:'#CC0000', emoji:'👑' },
+    'Admin':   { bg:'#E8F5E9', color:'#1E6B45', emoji:'🛡️' },
+    'Teacher': { bg:'#EFF6FF', color:'#1D4ED8', emoji:'📚' },
   };
 
   function fmtPhone(input) {

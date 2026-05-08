@@ -51,7 +51,11 @@ function initials(name) {
 }
 
 const ROLE_PERMISSIONS = { 'CEO': '*' };
-const ROLE_META = { 'CEO': { color:'#FF0000', badge:'badge-red', label:'CEO' } };
+const ROLE_META = {
+ 'CEO':     { color:'#FF0000', badge:'badge-red',  label:'CEO'     },
+ 'Teacher': { color:'#1D4ED8', badge:'badge-blue', label:'Teacher' },
+ 'Admin':   { color:'#1E6B45', badge:'badge-green',label:'Admin'   },
+};
 
 function getSession() {
  try { return JSON.parse(sessionStorage.getItem('lc_session') || localStorage.getItem('lc_session') || 'null'); }
@@ -147,23 +151,36 @@ function renderSidebar(activePage) {
  const session = getSession();
  if (!session) return;
 
- const NAV_ITEMS = [
- { feature:'dashboard', href:'index.html', iconKey:'dashboard', label:'Dashboard' },
- { feature:'leads', href:'leads.html', iconKey:'leads', label:'Leads' },
- { feature:'students', href:'students.html', iconKey:'students', label:'Students' },
- { feature:'groups', href:'groups.html', iconKey:'groups', label:'Groups' },
- { feature:'payments', href:'finance.html', iconKey:'payments', label:'Finance' },
- { feature:'teachers', href:'teachers.html', iconKey:'teachers', label:'Teachers' },
- { feature:'classrooms', href:'classrooms.html', iconKey:'classrooms', label:'Classrooms' },
- { feature:'settings', href:'users.html', iconKey:'settings', label:'Users' },
+ const NAV_SECTIONS = [
+ { label: null, items: [
+   { feature:'dashboard', href:'index.html',    iconKey:'dashboard', label:'Dashboard' },
+   { feature:'leads',     href:'leads.html',    iconKey:'leads',     label:'Leads'     },
+   { feature:'students',  href:'students.html', iconKey:'students',  label:'Students'  },
+   { feature:'groups',    href:'groups.html',   iconKey:'groups',    label:'Groups'    },
+   { feature:'payments',  href:'finance.html',  iconKey:'payments',  label:'Finance'   },
+ ]},
+ { label: 'Staff', items: [
+   { feature:'teachers', href:'teachers.html', iconKey:'teachers', label:'Teachers' },
+   { feature:'settings', href:'users.html',    iconKey:'settings',  label:'Users'    },
+ ]},
+ { label: 'Settings', items: [
+   { feature:'classrooms', href:'classrooms.html', iconKey:'classrooms', label:'Classrooms' },
+ ]},
  ];
 
  const meta = ROLE_META[session.role] || ROLE_META['CEO'];
- const navHTML = NAV_ITEMS
- .filter(item => can(item.feature))
- .map(item => {
- const isActive = item.feature === activePage;
- return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span>${item.label}</a>`;
+ const navHTML = NAV_SECTIONS.map(section => {
+   const links = section.items
+     .filter(item => can(item.feature))
+     .map(item => {
+       const isActive = item.feature === activePage;
+       return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span>${item.label}</a>`;
+     }).join('');
+   if (!links) return '';
+   return `<div class="nav-section">
+     ${section.label ? `<div class="nav-label">${section.label}</div>` : ''}
+     ${links}
+   </div>`;
  }).join('');
 
  const sidebarHTML = `
@@ -171,10 +188,7 @@ function renderSidebar(activePage) {
  <div class="brand-name">Tommy LC</div>
  <div class="brand-sub">Learning Center</div>
  </a>
- <div class="nav-section">
- <div class="nav-label">Navigation</div>
  ${navHTML}
- </div>
  <div class="sidebar-footer">
  <div class="user-pill" style="margin-bottom:10px">
  <div class="user-avatar" style="background:${meta.color}">${session.avatar||initials(session.name)}</div>
