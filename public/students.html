@@ -13,9 +13,10 @@
     .students-table thead th { background:#fafafa; padding:10px 12px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; }
     .students-table thead th.sortable { cursor:pointer; user-select:none; }
     .students-table thead th.sortable:hover { color:var(--text); }
-    .students-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.1s; }
+    .students-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.1s; cursor:pointer; }
     .students-table tbody tr:last-child { border-bottom:none; }
     .students-table tbody tr:hover { background:var(--crimson-soft); }
+    .students-table tbody tr:hover .st-name { color:var(--crimson); }
     .students-table td { padding:10px 12px; vertical-align:middle; }
     .st-num { color:var(--muted); font-size:12px; width:32px; text-align:center; }
     .st-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:white; flex-shrink:0; }
@@ -247,8 +248,8 @@
       const commentHTML = lc
         ? `<div class="st-comment-text">${lc.text}</div><div class="st-comment-meta">${lc.time}${lc.actor?' • '+lc.actor:''}</div>`
         : `<span style="color:var(--muted);font-size:12px">—</span>`;
-      return `<tr>
-        <td class="st-check"><input type="checkbox" class="row-check" ${selectedIds.has(s.id)?'checked':''}></td>
+      return `<tr onclick="location.href='student-profile.html?id=${s.id}'">
+        <td class="st-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${selectedIds.has(s.id)?'checked':''}></td>
         <td class="st-num">${i+1}</td>
         <td><div class="st-avatar" style="background:${col}">${initials(name)}</div></td>
         <td>
@@ -262,7 +263,7 @@
         <td class="st-dates">${dateHTML}</td>
         <td><span class="st-balance ${balClass}">${balStr}</span></td>
         <td class="st-comment">${commentHTML}</td>
-        <td class="st-actions">
+        <td class="st-actions" onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">${IC.edit}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">${IC.trash}</button>
         </td>

@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Profile — TommyLC CRM</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .profile-layout { display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start; }
+    @media(max-width:768px){ .profile-layout{grid-template-columns:1fr} }
+
+    /* Left card */
+    .profile-card { background:white; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .profile-banner { height:80px; background:linear-gradient(135deg,#990000,#FF0000); }
+    .profile-avatar-wrap { padding:0 24px; margin-top:-32px; margin-bottom:12px; }
+    .profile-avatar { width:64px; height:64px; border-radius:50%; border:3px solid white; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:22px; color:white; }
+    .profile-info { padding:0 24px 20px; }
+    .profile-name { font-size:18px; font-weight:800; color:var(--text); margin-bottom:4px; }
+    .profile-meta { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+    .profile-meta-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; }
+    .profile-meta-label { color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+    .profile-meta-value { font-weight:600; color:var(--text); text-align:right; }
+    .profile-divider { border:none; border-top:1px solid var(--border); margin:14px 0; }
+    .balance-big { font-size:22px; font-weight:800; }
+    .balance-big.pos { color:#16a34a; }
+    .balance-big.neg { color:#dc2626; }
+    .balance-big.zero { color:var(--muted); }
+
+    /* Right panel */
+    .profile-main { display:flex; flex-direction:column; gap:20px; }
+    .profile-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:0; }
+    .profile-tab { padding:10px 18px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.15s; background:none; border-left:none; border-right:none; border-top:none; }
+    .profile-tab:hover { color:var(--text); }
+    .profile-tab.active { color:var(--crimson); border-bottom-color:var(--crimson); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* Groups tab */
+    .group-row { display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+    .group-row:last-child { border-bottom:none; }
+    .group-badge { background:#F1F5F9; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; }
+    .group-detail { flex:1; min-width:0; }
+    .group-detail-name { font-weight:700; font-size:14px; }
+    .group-detail-sub { font-size:12px; color:var(--muted); margin-top:2px; display:flex; gap:12px; flex-wrap:wrap; }
+
+    /* Comments / Calls */
+    .feed-item { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .feed-item:last-child { border-bottom:none; }
+    .feed-avatar { width:32px; height:32px; border-radius:50%; background:var(--crimson-soft); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--crimson); flex-shrink:0; }
+    .feed-body { flex:1; min-width:0; }
+    .feed-actor { font-size:12px; font-weight:700; color:var(--text); }
+    .feed-time  { font-size:11px; color:var(--muted); margin-left:6px; }
+    .feed-text  { font-size:13px; color:var(--text); margin-top:3px; line-height:1.5; }
+    .feed-add { display:flex; gap:10px; margin-top:16px; }
+    .feed-add textarea { flex:1; resize:none; height:70px; }
+
+    /* Invoices */
+    .inv-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .inv-table th { text-align:left; padding:8px 12px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); border-bottom:1px solid var(--border); }
+    .inv-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
+    .inv-table tbody tr:last-child td { border-bottom:none; }
+    .inv-table tbody tr:hover { background:var(--crimson-soft); }
+
+    /* Payment modal */
+    .pay-types { display:flex; gap:8px; flex-wrap:wrap; }
+    .pay-type-btn { padding:7px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; cursor:pointer; background:white; font-weight:600; transition:all 0.15s; }
+    .pay-type-btn.selected { border-color:var(--crimson); background:var(--crimson-soft); color:var(--crimson); }
+
+    .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .section-title { font-size:14px; font-weight:700; color:var(--text); }
+    .empty-feed { text-align:center; padding:32px; color:var(--muted); font-size:13px; }
+  </style>
+</head>
+<body>
+<nav class="sidebar"></nav>
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <a href="students.html" style="display:flex;align-items:center;color:var(--muted);text-decoration:none;gap:6px;font-size:13px;font-weight:600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Students
+      </a>
+      <span style="color:var(--border)">/</span>
+      <div class="page-title" id="pageTitle" style="font-size:18px">Profile</div>
+    </div>
+    <div class="topbar-right" id="topbarActions"></div>
+  </div>
+  <div class="page-content">
+    <div class="profile-layout" id="profileLayout" style="display:none">
+
+      <!-- LEFT: info card -->
+      <div>
+        <div class="profile-card">
+          <div class="profile-banner"></div>
+          <div class="profile-avatar-wrap">
+            <div class="profile-avatar" id="profAvatar"></div>
+          </div>
+          <div class="profile-info">
+            <div class="profile-name" id="profName"></div>
+            <div id="profStatusBadge"></div>
+            <hr class="profile-divider">
+            <div class="profile-meta">
+              <div>
+                <div class="profile-meta-label">Balance</div>
+                <div class="balance-big" id="profBalance"></div>
+              </div>
+              <hr class="profile-divider" style="margin:8px 0">
+              <div class="profile-meta-row">
+                <span class="profile-meta-label">Student phone</span>
+                <span class="profile-meta-value" id="profPhone"></span>
+              </div>
+              <div class="profile-meta-row" id="profParentRow">
+                <span class="profile-meta-label">Parent phone</span>
+                <span class="profile-meta-value" id="profParentPhone"></span>
+              </div>
+              <div class="profile-meta-row">
+                <span class="profile-meta-label">Level</span>
+                <span class="profile-meta-value" id="profLevel"></span>
+              </div>
+              <div class="profile-meta-row">
+                <span class="profile-meta-label">Test result</span>
+                <span class="profile-meta-value" id="profExam"></span>
+              </div>
+              <div class="profile-meta-row">
+                <span class="profile-meta-label">Enrolled</span>
+                <span class="profile-meta-value" id="profCreated"></span>
+              </div>
+            </div>
+            <hr class="profile-divider">
+            <div id="profNotes" style="font-size:13px;color:var(--muted);line-height:1.6"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" style="width:100%" onclick="openPayModal()">+ Add Payment</button>
+          <button class="btn btn-outline" style="width:100%" onclick="openEditModal()">Edit Profile</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: tabs -->
+      <div class="profile-main">
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="profile-tabs" style="padding:0 20px">
+            <button class="profile-tab active" onclick="switchTab('groups',this)">Groups</button>
+            <button class="profile-tab" onclick="switchTab('comments',this)">Comments</button>
+            <button class="profile-tab" onclick="switchTab('calls',this)">Calls</button>
+            <button class="profile-tab" onclick="switchTab('invoices',this)">Payments</button>
+          </div>
+          <div style="padding:20px">
+
+            <!-- GROUPS -->
+            <div class="tab-panel active" id="tab-groups">
+              <div id="groupsList"><div class="empty-feed">No groups.</div></div>
+            </div>
+
+            <!-- COMMENTS -->
+            <div class="tab-panel" id="tab-comments">
+              <div id="commentsList"></div>
+              <div class="feed-add">
+                <textarea id="commentInput" placeholder="Add a comment…"></textarea>
+                <button class="btn btn-primary" style="align-self:flex-end" onclick="addComment()">Post</button>
+              </div>
+            </div>
+
+            <!-- CALLS -->
+            <div class="tab-panel" id="tab-calls">
+              <div id="callsList"></div>
+              <div class="feed-add">
+                <textarea id="callInput" placeholder="Log a call note…"></textarea>
+                <button class="btn btn-primary" style="align-self:flex-end" onclick="addCall()">Log</button>
+              </div>
+            </div>
+
+            <!-- INVOICES -->
+            <div class="tab-panel" id="tab-invoices">
+              <div id="invoicesList"></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div id="loadingMsg" style="text-align:center;padding:60px;color:var(--muted)">Loading…</div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal" style="width:min(560px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">Edit Student</div>
+      <button class="modal-close" onclick="closeModal('editModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>First Name *</label><input type="text" id="eFirst"></div>
+        <div class="form-group"><label>Last Name *</label><input type="text" id="eLast"></div>
+      </div>
+      <div class="form-group">
+        <label>Phone Numbers</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👤 Student</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="ePhone" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px;font-size:13px;background:white;min-width:0">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600">👨 Parent</div>
+            <div style="display:flex;border:1.5px solid var(--border);border-radius:8px;overflow:hidden" onfocusin="this.style.borderColor='var(--crimson)'" onfocusout="this.style.borderColor='var(--border)'">
+              <span style="padding:9px 9px;background:var(--crimson-soft);font-size:12px;font-weight:700;color:var(--crimson);border-right:1.5px solid var(--border);user-select:none">+998</span>
+              <input type="tel" oninput="fmtPhone(this)" id="eParent" placeholder="90 …" style="border:none;outline:none;flex:1;padding:9px;font-size:13px;background:white;min-width:0">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Level</label>
+          <select id="eLevel">
+            <option value="">— Select —</option>
+            <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
+            <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="eStatus"><option>Active</option><option>Trial</option><option>Lead</option><option>Inactive</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Test Result</label><input type="text" id="eExam" placeholder="Score or notes"></div>
+        <div class="form-group"><label>Exam Date</label><input type="date" id="eExamDate"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="eNotes" placeholder="Any additional notes…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="payModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Add Payment</div>
+      <button class="modal-close" onclick="closeModal('payModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Amount *</label>
+        <input type="number" id="payAmount" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Payment type</label>
+        <div class="pay-types" id="payTypes">
+          <button class="pay-type-btn selected" onclick="selectPayType(this,'Cash')">💵 Cash</button>
+          <button class="pay-type-btn" onclick="selectPayType(this,'Card')">💳 Card</button>
+          <button class="pay-type-btn" onclick="selectPayType(this,'Transfer')">🏦 Transfer</button>
+        </div>
+        <input type="hidden" id="payType" value="Cash">
+      </div>
+      <div class="form-group">
+        <label>Group</label>
+        <select id="payGroup"><option value="">— No group —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="payDesc" placeholder="Monthly payment…">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="payNotes" style="height:60px" placeholder="Optional…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('payModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitPayment()">Add Payment</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="shared.js"></script>
+<script>
+  requireAuth('students');
+  renderSidebar('students');
+
+  const params = new URLSearchParams(location.search);
+  const STUDENT_ID = params.get('id');
+  if (!STUDENT_ID) location.replace('students.html');
+
+  let student = null, studentGroups = [];
+
+  function fmtPhone(input) {
+    let v = input.value.replace(/\D/g,'').slice(0,9), o='';
+    if(v.length>0) o+=v.slice(0,2);
+    if(v.length>2) o+=' '+v.slice(2,5);
+    if(v.length>5) o+=' '+v.slice(5,7);
+    if(v.length>7) o+=' '+v.slice(7,9);
+    input.value = o;
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+  }
+
+  function fmtDateTime(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleString('en-GB', {
+      timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit', hour12:false
+    });
+  }
+
+  const SBADGE = { Active:'badge-green', Trial:'badge-gold', Lead:'badge-blue', Inactive:'badge-grey' };
+  const SCHED = { odd:'Mon / Wed / Fri', even:'Tue / Thu / Sat', daily:'Daily' };
+
+  async function loadProfile() {
+    try {
+      const [s, grps, cmts, calls, invs] = await Promise.all([
+        apiGet('/api/students/'+STUDENT_ID),
+        apiGet('/api/students/'+STUDENT_ID+'/groups'),
+        apiGet('/api/students/'+STUDENT_ID+'/comments'),
+        apiGet('/api/students/'+STUDENT_ID+'/calls'),
+        apiGet('/api/students/'+STUDENT_ID+'/invoices'),
+      ]);
+      student = s;
+      studentGroups = grps;
+
+      const name = s.firstName+' '+s.lastName;
+      document.title = name+' — TommyLC CRM';
+      document.getElementById('pageTitle').textContent = name;
+      document.getElementById('loadingMsg').style.display = 'none';
+      document.getElementById('profileLayout').style.display = '';
+
+      // Avatar
+      const col = avatarColor(name);
+      const av = document.getElementById('profAvatar');
+      av.textContent = initials(name);
+      av.style.background = col;
+
+      document.getElementById('profName').textContent = name;
+      document.getElementById('profStatusBadge').innerHTML = `<span class="badge ${SBADGE[s.status]||'badge-grey'}">${s.status}</span>`;
+
+      const bal = Number(s.balance||0);
+      const balEl = document.getElementById('profBalance');
+      balEl.textContent = bal !== 0 ? bal.toLocaleString() : '0';
+      balEl.className = 'balance-big ' + (bal > 0 ? 'pos' : bal < 0 ? 'neg' : 'zero');
+
+      document.getElementById('profPhone').textContent   = s.phone   ? '+998 '+s.phone   : '—';
+      document.getElementById('profParentPhone').textContent = s.phoneParent ? '+998 '+s.phoneParent : '—';
+      document.getElementById('profParentRow').style.display = s.phoneParent ? '' : 'none';
+      document.getElementById('profLevel').textContent   = s.level   || '—';
+      document.getElementById('profExam').textContent    = s.exam    || '—';
+      document.getElementById('profCreated').textContent = fmtDate(s.createdAt);
+      document.getElementById('profNotes').textContent   = s.notes   || '';
+
+      renderGroups(grps);
+      renderComments(cmts);
+      renderCalls(calls);
+      renderInvoices(invs);
+
+    } catch(e) { document.getElementById('loadingMsg').textContent = 'Failed to load student.'; }
+  }
+
+  function renderGroups(grps) {
+    const el = document.getElementById('groupsList');
+    if (!grps.length) { el.innerHTML='<div class="empty-feed">Not enrolled in any group.</div>'; return; }
+    el.innerHTML = grps.map(g => `
+      <div class="group-row">
+        <div class="group-badge">${g.name}</div>
+        <div class="group-detail">
+          <div class="group-detail-name">${g.level||''} ${g.time?'('+g.time+')':''}</div>
+          <div class="group-detail-sub">
+            ${g.teacher?`<span>👤 ${g.teacher}</span>`:''}
+            ${g.room?`<span>🏫 ${g.room}</span>`:''}
+            ${g.schedType?`<span>📅 ${SCHED[g.schedType]||g.schedType}</span>`:''}
+            ${g.startDate?`<span>📆 From ${fmtDate(g.startDate)}</span>`:''}
+          </div>
+        </div>
+        ${g.price?`<span style="font-weight:700;color:var(--text);white-space:nowrap">${Number(g.price).toLocaleString()} <span style="font-size:11px;color:var(--muted)">/ mo</span></span>`:''}
+      </div>`).join('');
+  }
+
+  function renderComments(cmts) {
+    const el = document.getElementById('commentsList');
+    if (!cmts.length) { el.innerHTML='<div class="empty-feed">No comments yet.</div>'; return; }
+    el.innerHTML = cmts.map(c => `
+      <div class="feed-item">
+        <div class="feed-avatar">${(c.actor||'?').charAt(0).toUpperCase()}</div>
+        <div class="feed-body">
+          <span class="feed-actor">${c.actor||'Unknown'}</span>
+          <span class="feed-time">${fmtDateTime(c.created_at)}</span>
+          <div class="feed-text">${c.text}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteComment(${c.id})">${IC.trash}</button>
+      </div>`).join('');
+  }
+
+  function renderCalls(calls) {
+    const el = document.getElementById('callsList');
+    if (!calls.length) { el.innerHTML='<div class="empty-feed">No calls logged yet.</div>'; return; }
+    el.innerHTML = calls.map(c => `
+      <div class="feed-item">
+        <div class="feed-avatar">📞</div>
+        <div class="feed-body">
+          <span class="feed-actor">${c.actor||'Unknown'}</span>
+          <span class="feed-time">${fmtDateTime(c.created_at)}</span>
+          <div class="feed-text">${c.note}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteCall(${c.id})">${IC.trash}</button>
+      </div>`).join('');
+  }
+
+  function renderInvoices(invs) {
+    const el = document.getElementById('invoicesList');
+    if (!invs.length) { el.innerHTML='<div class="empty-feed">No payments recorded.</div>'; return; }
+    el.innerHTML = `<table class="inv-table">
+      <thead><tr><th>#</th><th>Date</th><th>Description</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody>${invs.map(i=>`
+        <tr>
+          <td style="color:var(--muted);font-size:12px">${i.number||''}</td>
+          <td style="white-space:nowrap;font-size:12px">${fmtDate(i.createdAt)}</td>
+          <td>${i.desc||'Payment'}</td>
+          <td style="font-size:12px">${i.paymentType||''}</td>
+          <td style="font-weight:700;color:#16a34a">${Number(i.total).toLocaleString()}</td>
+          <td><span class="badge badge-green" style="font-size:10px">${i.status}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+name).classList.add('active');
+  }
+
+  async function addComment() {
+    const text = document.getElementById('commentInput').value.trim();
+    if (!text) return;
+    const session = getSession();
+    await apiPost('/api/students/'+STUDENT_ID+'/comments', { text, actor: session?.name||'Unknown' });
+    document.getElementById('commentInput').value = '';
+    const cmts = await apiGet('/api/students/'+STUDENT_ID+'/comments');
+    renderComments(cmts);
+    showToast('Comment added.');
+  }
+
+  async function deleteComment(id) {
+    if (!confirm('Delete this comment?')) return;
+    await apiDelete('/api/students/comments/'+id);
+    const cmts = await apiGet('/api/students/'+STUDENT_ID+'/comments');
+    renderComments(cmts);
+  }
+
+  async function addCall() {
+    const note = document.getElementById('callInput').value.trim();
+    if (!note) return;
+    const session = getSession();
+    await apiPost('/api/students/'+STUDENT_ID+'/calls', { note, actor: session?.name||'Unknown' });
+    document.getElementById('callInput').value = '';
+    const calls = await apiGet('/api/students/'+STUDENT_ID+'/calls');
+    renderCalls(calls);
+    showToast('Call logged.');
+  }
+
+  async function deleteCall(id) {
+    if (!confirm('Delete this call log?')) return;
+    await apiDelete('/api/students/calls/'+id);
+    const calls = await apiGet('/api/students/'+STUDENT_ID+'/calls');
+    renderCalls(calls);
+  }
+
+  function openEditModal() {
+    if (!student) return;
+    document.getElementById('eFirst').value    = student.firstName;
+    document.getElementById('eLast').value     = student.lastName;
+    document.getElementById('ePhone').value    = student.phone||'';
+    document.getElementById('eParent').value   = student.phoneParent||'';
+    document.getElementById('eLevel').value    = student.level||'';
+    document.getElementById('eStatus').value   = student.status||'Active';
+    document.getElementById('eExam').value     = student.exam||'';
+    document.getElementById('eExamDate').value = student.examDate ? student.examDate.split('T')[0] : '';
+    document.getElementById('eNotes').value    = student.notes||'';
+    openModal('editModal');
+  }
+
+  async function saveEdit() {
+    const first = document.getElementById('eFirst').value.trim();
+    const last  = document.getElementById('eLast').value.trim();
+    if (!first||!last) { showToast('Name required.','error'); return; }
+    const data = {
+      firstName: first, lastName: last,
+      phone:       document.getElementById('ePhone').value.trim()||null,
+      phoneParent: document.getElementById('eParent').value.trim()||null,
+      level:       document.getElementById('eLevel').value,
+      status:      document.getElementById('eStatus').value,
+      exam:        document.getElementById('eExam').value.trim(),
+      examDate:    document.getElementById('eExamDate').value||null,
+      notes:       document.getElementById('eNotes').value.trim(),
+    };
+    await apiPut('/api/students/'+STUDENT_ID, data);
+    logActivity(`Updated student: ${first} ${last}`, '');
+    closeModal('editModal');
+    showToast('Saved!');
+    loadProfile();
+  }
+
+  function openPayModal() {
+    document.getElementById('payAmount').value = '';
+    document.getElementById('payDesc').value = '';
+    document.getElementById('payNotes').value = '';
+    document.getElementById('payType').value = 'Cash';
+    document.querySelectorAll('.pay-type-btn').forEach((b,i)=>b.classList.toggle('selected',i===0));
+    const sel = document.getElementById('payGroup');
+    sel.innerHTML = '<option value="">— No group —</option>' +
+      studentGroups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+    openModal('payModal');
+  }
+
+  function selectPayType(btn, type) {
+    document.querySelectorAll('.pay-type-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('payType').value = type;
+  }
+
+  async function submitPayment() {
+    const amount = Number(document.getElementById('payAmount').value);
+    if (!amount || amount <= 0) { showToast('Enter a valid amount.','error'); return; }
+    const data = {
+      amount,
+      paymentType: document.getElementById('payType').value,
+      groupId:     document.getElementById('payGroup').value||null,
+      desc:        document.getElementById('payDesc').value.trim()||'Payment',
+      notes:       document.getElementById('payNotes').value.trim(),
+    };
+    await apiPost('/api/students/'+STUDENT_ID+'/payment', data);
+    logActivity(`Payment ${amount.toLocaleString()} for ${student?.firstName} ${student?.lastName}`, 'green');
+    closeModal('payModal');
+    showToast('Payment added!');
+    loadProfile();
+  }
+
+  loadProfile();
+</script>
+</body>
+</html>
