@@ -867,7 +867,7 @@ app.get('/api/activity', async (req, res) => {
     const { rows } = await pool.query('SELECT * FROM activity ORDER BY created_at DESC LIMIT $1', [limit]);
     res.json(rows.map(a => ({
       text: a.text, color: a.color, actor: a.actor, role: a.role,
-      time: new Date(a.created_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+      time: new Date(a.created_at).toLocaleString('en-US', { timeZone:'Asia/Tashkent', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
