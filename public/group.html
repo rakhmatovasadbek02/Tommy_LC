@@ -87,12 +87,6 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .chip-empty { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s; }
 .chip-empty:hover { border-color: var(--crimson); background: var(--crimson-soft); }
 .att-save-row { display: none; }
-/* Inline note bar inside left panel */
-.note-bar-inline { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: var(--surface); }
-.note-bar-inline input { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 7px 11px; font-size: 13px; font-family: 'Inter', sans-serif; color: var(--text); background: white; outline: none; transition: border-color 0.14s; }
-.note-bar-inline input:focus { border-color: var(--crimson); }
-.note-send-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--crimson-soft); border: 1.5px solid var(--crimson-light); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--crimson); transition: all 0.14s; flex-shrink: 0; }
-.note-send-btn:hover { background: var(--crimson); color: white; border-color: var(--crimson); }
 /* Auto-save indicator */
 .att-autosave { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; transition: opacity 0.3s; }
 .student-search-result { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-radius: 8px; transition: background 0.1s; font-size: 13px; }
@@ -151,15 +145,6 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <div class="student-list" id="studentList"></div>
 <!-- Archive -->
 <button class="archive-btn">Show archived students</button>
-<!-- Notes feed -->
-<div id="notesFeed" style="max-height:220px;overflow-y:auto;border-top:1px solid var(--border)"></div>
-<!-- Note bar -->
-<div class="note-bar-inline">
-<input type="text" placeholder="Add a note…" id="noteInput" onkeydown="if(event.key==='Enter')sendNote()">
-<button class="note-send-btn" onclick="sendNote()" title="Save note">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-</button>
-</div>
 <!-- Bottom action bar: horizontal buttons -->
 <div class="left-action-bar">
 <button class="icon-btn" title="Edit group" onclick="goEdit()">
@@ -524,36 +509,6 @@ else if (next==='absent') td.innerHTML = `<button class="chip chip-absent" data-
 else td.innerHTML = `<span class="chip-empty" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></span>`;
 scheduleAutoSave();
 }
-async function loadNotes() {
-  const notes = await apiGet('/api/groups/'+groupId+'/comments');
-  const feed = document.getElementById('notesFeed');
-  if (!notes.length) { feed.innerHTML = ''; return; }
-  feed.innerHTML = notes.map(n => `
-    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border)">
-      <div style="width:26px;height:26px;border-radius:50%;background:var(--crimson-soft);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--crimson);flex-shrink:0">${(n.actor||'?').charAt(0).toUpperCase()}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:11px;color:var(--muted)">${n.actor||'Unknown'} · ${n.time}</div>
-        <div style="font-size:12px;color:var(--text);margin-top:2px;line-height:1.4">${n.text}</div>
-      </div>
-      <button onclick="deleteNote(${n.id})" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0;flex-shrink:0">×</button>
-    </div>`).join('');
-}
-
-async function sendNote() {
-  const input = document.getElementById('noteInput');
-  const text = input.value.trim();
-  if (!text) return;
-  const session = getSession();
-  await apiPost('/api/groups/'+groupId+'/comments', { text, actor: session?.name||'Unknown' });
-  input.value = '';
-  await loadNotes();
-  showToast('Note saved');
-}
-
-async function deleteNote(id) {
-  await apiDelete('/api/groups/comments/'+id);
-  await loadNotes();
-}
 async function saveAttendance() {
 try {
 await Promise.all(Object.entries(attData).map(([date, records]) => {
@@ -566,37 +521,6 @@ showToast('Attendance saved!');
 }
 function goEdit() { window.location.href = `groups.html?edit=${groupId}`; }
 
-async function loadNotes() {
-  const notes = await apiGet('/api/groups/'+groupId+'/comments');
-  const feed = document.getElementById('notesFeed');
-  if (!notes.length) { feed.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">No notes yet.</div>'; return; }
-  feed.innerHTML = notes.map(n => `
-    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
-      <div style="width:32px;height:32px;border-radius:50%;background:var(--crimson-soft);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--crimson);flex-shrink:0">${(n.actor||'?').charAt(0).toUpperCase()}</div>
-      <div style="flex:1;min-width:0">
-        <span style="font-size:12px;font-weight:700;color:var(--text)">${n.actor||'Unknown'}</span>
-        <span style="font-size:11px;color:var(--muted);margin-left:8px">${n.time}</span>
-        <div style="font-size:13px;color:var(--text);margin-top:3px;line-height:1.5">${n.text}</div>
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteNote(${n.id})">${IC.trash}</button>
-    </div>`).join('');
-}
-
-async function postNote() {
-  const text = document.getElementById('noteInput').value.trim();
-  if (!text) return;
-  const session = getSession();
-  await apiPost('/api/groups/'+groupId+'/comments', { text, actor: session?.name||'Unknown' });
-  document.getElementById('noteInput').value = '';
-  await loadNotes();
-  showToast('Note added.');
-}
-
-async function deleteNote(id) {
-  if (!confirm('Delete this note?')) return;
-  await apiDelete('/api/groups/comments/'+id);
-  await loadNotes();
-}
 async function doDeleteGroup() {
 if (!confirm(`Delete group "${group.name}"?`)) return;
 await apiDelete('/api/groups/'+groupId);
@@ -661,7 +585,6 @@ showToast(name + ' activated!');
 } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 load();
-loadNotes();
 </script>
 </body>
 </html>
