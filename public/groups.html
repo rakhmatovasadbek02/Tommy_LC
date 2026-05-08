@@ -286,7 +286,7 @@ name:code, level, teacher:teacher||null, room, time, lang, startDate:date, durat
 schedType:type, customDays:type==='custom'?days:[],
 studentIds:id?(groups.find(g=>g.id===id)?.studentIds||[]):[],
 price: levelPrices[level] || 0,
-maxStudents:null, notes:''
+maxStudents:null
 };
 try {
 if(id){await apiPut('/api/groups/'+id,data);logActivity(`Updated group: ${code}`,'');}
