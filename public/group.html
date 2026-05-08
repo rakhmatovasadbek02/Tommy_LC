@@ -151,6 +151,8 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <div class="student-list" id="studentList"></div>
 <!-- Archive -->
 <button class="archive-btn">Show archived students</button>
+<!-- Notes feed -->
+<div id="notesFeed" style="max-height:220px;overflow-y:auto;border-top:1px solid var(--border)"></div>
 <!-- Note bar -->
 <div class="note-bar-inline">
 <input type="text" placeholder="Add a note…" id="noteInput" onkeydown="if(event.key==='Enter')sendNote()">
@@ -181,7 +183,6 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <button class="tab-nav-btn active" onclick="setTab('attendance',this)">Attendance</button>
 <button class="tab-nav-btn" onclick="setTab('exams',this)">Exams</button>
 <button class="tab-nav-btn" onclick="setTab('history',this)">History</button>
-<button class="tab-nav-btn" onclick="setTab('notes',this);loadNotes()">Notes</button>
 </div>
 <div class="tab-content active" id="tab-attendance">
 <div class="att-header">
@@ -206,15 +207,6 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 </div>
 <div class="tab-content" id="tab-exams"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>Exams coming soon.</p></div></div>
 <div class="tab-content" id="tab-history"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>History coming soon.</p></div></div>
-<div class="tab-content" id="tab-notes">
-  <div style="padding:20px">
-    <div id="notesFeed" style="margin-bottom:16px"></div>
-    <div style="display:flex;gap:10px">
-      <textarea id="noteInput" placeholder="Add a note…" style="flex:1;resize:none;height:70px"></textarea>
-      <button class="btn btn-primary" style="align-self:flex-end" onclick="postNote()">Post</button>
-    </div>
-  </div>
-</div>
 </div>
 </div>
 <div id="loadingState" style="text-align:center;padding:60px;color:var(--muted)">Loading…</div>
@@ -532,14 +524,35 @@ else if (next==='absent') td.innerHTML = `<button class="chip chip-absent" data-
 else td.innerHTML = `<span class="chip-empty" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></span>`;
 scheduleAutoSave();
 }
-function sendNote() {
+async function loadNotes() {
+  const notes = await apiGet('/api/groups/'+groupId+'/comments');
+  const feed = document.getElementById('notesFeed');
+  if (!notes.length) { feed.innerHTML = ''; return; }
+  feed.innerHTML = notes.map(n => `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border)">
+      <div style="width:26px;height:26px;border-radius:50%;background:var(--crimson-soft);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--crimson);flex-shrink:0">${(n.actor||'?').charAt(0).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:var(--muted)">${n.actor||'Unknown'} · ${n.time}</div>
+        <div style="font-size:12px;color:var(--text);margin-top:2px;line-height:1.4">${n.text}</div>
+      </div>
+      <button onclick="deleteNote(${n.id})" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0;flex-shrink:0">×</button>
+    </div>`).join('');
+}
+
+async function sendNote() {
   const input = document.getElementById('noteInput');
   const text = input.value.trim();
   if (!text) return;
-  apiPost('/api/activity', { text: `[${group.name}] ${text}`, color: '', actor: getSession()?.name||'', role: getSession()?.role||'' })
-    .catch(()=>{});
+  const session = getSession();
+  await apiPost('/api/groups/'+groupId+'/comments', { text, actor: session?.name||'Unknown' });
   input.value = '';
+  await loadNotes();
   showToast('Note saved');
+}
+
+async function deleteNote(id) {
+  await apiDelete('/api/groups/comments/'+id);
+  await loadNotes();
 }
 async function saveAttendance() {
 try {
@@ -648,6 +661,7 @@ showToast(name + ' activated!');
 } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 load();
+loadNotes();
 </script>
 </body>
 </html>
