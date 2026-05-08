@@ -294,19 +294,45 @@ app.delete('/api/users/:id', async (req, res) => {
 /* STUDENTS */
 app.get('/api/students', async (req, res) => {
   try {
-    const [studRes, grpRes] = await Promise.all([
+    const [studRes, grpRes, cmtRes] = await Promise.all([
       pool.query('SELECT * FROM students ORDER BY created_at DESC'),
-      pool.query('SELECT student_ids FROM groups')
+      pool.query('SELECT id,name,teacher,level,time,start_date,student_ids FROM groups'),
+      pool.query(`SELECT DISTINCT ON (student_id) student_id, text, actor, created_at
+                  FROM student_comments ORDER BY student_id, created_at DESC`)
     ]);
-    const enrolled = new Set(grpRes.rows.flatMap(g => g.student_ids || []));
-    res.json(studRes.rows.map(s => ({
-      id: s.id, firstName: s.first_name, lastName: s.last_name,
-      phone: s.phone, phoneParent: s.phone_parent,
-      level: s.level,
-      status: enrolled.has(s.id) ? s.status : 'Inactive',
-      balance: Number(s.balance || 0),
-      exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at
-    })));
+    const groups = grpRes.rows;
+    const studentGroups = {};
+    for (const g of groups) {
+      for (const sid of (g.student_ids || [])) {
+        if (!studentGroups[sid]) studentGroups[sid] = [];
+        studentGroups[sid].push(g);
+      }
+    }
+    const lastComment = {};
+    for (const c of cmtRes.rows) lastComment[c.student_id] = c;
+    const enrolled = new Set(groups.flatMap(g => g.student_ids || []));
+    res.json(studRes.rows.map(s => {
+      const lc = lastComment[s.id];
+      return {
+        id: s.id, firstName: s.first_name, lastName: s.last_name,
+        phone: s.phone, phoneParent: s.phone_parent,
+        level: s.level,
+        status: enrolled.has(s.id) ? s.status : 'Inactive',
+        balance: Number(s.balance || 0),
+        exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
+        groups: (studentGroups[s.id] || []).map(g => ({
+          id: g.id, name: g.name, level: g.level, teacher: g.teacher,
+          time: g.time, startDate: g.start_date
+        })),
+        lastComment: lc ? {
+          text: lc.text, actor: lc.actor,
+          time: new Date(lc.created_at).toLocaleString('en-GB', {
+            timeZone: 'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric',
+            hour:'2-digit', minute:'2-digit', hour12: false
+          })
+        } : null
+      };
+    }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
