@@ -181,6 +181,9 @@ async function initDB() {
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS sub_container TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS balance NUMERIC DEFAULT 0`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_parent TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -303,7 +306,7 @@ app.delete('/api/users/:id', async (req, res) => {
 app.get('/api/students', async (req, res) => {
   try {
     const [studRes, grpRes, cmtRes] = await Promise.all([
-      pool.query('SELECT * FROM students ORDER BY created_at DESC'),
+      pool.query('SELECT * FROM students WHERE archived IS NOT TRUE ORDER BY created_at DESC'),
       pool.query('SELECT id,name,teacher,level,time,start_date,student_ids FROM groups'),
       pool.query(`SELECT DISTINCT ON (student_id) student_id, text, actor, created_at
                   FROM student_comments ORDER BY student_id, created_at DESC`)
@@ -368,8 +371,44 @@ app.put('/api/students/:id', async (req, res) => {
 
 app.delete('/api/students/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM students WHERE id=$1', [req.params.id]);
+    const { reason } = req.body || {};
+    await pool.query(
+      `UPDATE students SET archived=TRUE, archive_reason=$1, archived_at=NOW(), status='Inactive' WHERE id=$2`,
+      [reason||null, req.params.id]
+    );
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/students/archived', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM students WHERE archived=TRUE ORDER BY archived_at DESC`
+    );
+    res.json(rows.map(s => ({
+      id: s.id, firstName: s.first_name, lastName: s.last_name,
+      phone: s.phone, level: s.level, status: s.status,
+      archiveReason: s.archive_reason,
+      archivedAt: s.archived_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/groups/:id/archived-students', async (req, res) => {
+  try {
+    const grp = await pool.query('SELECT student_ids FROM groups WHERE id=$1', [req.params.id]);
+    const ids = grp.rows[0]?.student_ids || [];
+    if (!ids.length) return res.json([]);
+    const { rows } = await pool.query(
+      `SELECT * FROM students WHERE id=ANY($1) AND archived=TRUE ORDER BY archived_at DESC`,
+      [ids]
+    );
+    res.json(rows.map(s => ({
+      id: s.id, firstName: s.first_name, lastName: s.last_name,
+      phone: s.phone, level: s.level,
+      archiveReason: s.archive_reason,
+      archivedAt: s.archived_at
+    })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -401,7 +440,11 @@ app.post('/api/students/:id/activate', async (req, res) => {
     // Activate student
     await pool.query("UPDATE students SET status='Active' WHERE id=$1", [studentId]);
 
-    const monthlyPrice = Number(g.price || 0);
+    let monthlyPrice = Number(g.price || 0);
+    if (monthlyPrice === 0 && g.level) {
+      const prRes = await pool.query('SELECT price FROM pricing WHERE level=$1', [g.level]);
+      monthlyPrice = Number(prRes.rows[0]?.price || 0);
+    }
 
     if (monthlyPrice > 0) {
       // Calculate pro-rated amount based on remaining lessons this month
