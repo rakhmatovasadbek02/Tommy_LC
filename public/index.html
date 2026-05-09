@@ -291,7 +291,8 @@ const cStart = timeToMin(cls.time);
 const cEnd = cStart + Number(cls.duration || 90);
 const spanSlots = slots.filter(s2 => s2 >= cStart && s2 < cEnd).length;
 const blockW = spanSlots * COL_W - 4;
-const enrolled = (cls.studentIds || []).length;
+const _studs = window._students || [];
+const enrolled = (cls.studentIds || []).filter(id => _studs.some(s => s.id === id)).length;
 return `<div onclick="window.location.href='group.html?id=${cls.id}'"
 style="position:absolute;top:2px;left:2px;width:${blockW}px;bottom:2px;background:${c};border-radius:6px;padding:5px 8px;cursor:pointer;overflow:hidden;z-index:3;box-sizing:border-box;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto 1fr auto;gap:1px 4px;"
 onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">
