@@ -440,6 +440,27 @@
   </div>
 </div>
 
+<!-- Archive Modal -->
+<div class="modal-overlay" id="archiveModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Archive Student</div>
+      <button class="modal-close" onclick="closeModal('archiveModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 12px;color:var(--muted)" id="archiveStudentName"></p>
+      <div class="form-group">
+        <label>Reason for archiving *</label>
+        <textarea id="archiveReason" style="height:80px" placeholder="e.g. Finished course, moved abroad…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('archiveModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmArchive()">Archive</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
@@ -685,7 +706,7 @@ async function savePayment() {
   const desc = document.getElementById('payDesc').value.trim() || 'Payment';
   const notes = document.getElementById('payNotes').value.trim();
   try {
-    await apiPost('/api/students/'+studentId+'/payment', { amount, paymentType: payType, groupId: groupId||null, desc, notes });
+    await apiPost('/api/students/'+studentId+'/payment', { amount, paymentType: payType, groupId: groupId||null, desc, notes, creator: actorName });
     closeModal('paymentModal');
     // Reload data
     [student, invoices] = await Promise.all([
@@ -731,12 +752,21 @@ async function saveEdit() {
   } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
-async function doDelete() {
+function doDelete() {
   const name = student.firstName + ' ' + student.lastName;
-  if (!confirm(`Delete ${name}? This cannot be undone.`)) return;
-  await apiDelete('/api/students/'+studentId);
-  logActivity(`Deleted student: ${name}`, 'red');
-  showToast('Student deleted.', 'error');
+  document.getElementById('archiveStudentName').textContent = name;
+  document.getElementById('archiveReason').value = '';
+  openModal('archiveModal');
+}
+
+async function confirmArchive() {
+  const reason = document.getElementById('archiveReason').value.trim();
+  if (!reason) { showToast('Please enter a reason.', 'error'); return; }
+  const name = student.firstName + ' ' + student.lastName;
+  await apiDelete('/api/students/'+studentId, { reason });
+  logActivity(`Archived student: ${name} — ${reason}`, 'red');
+  closeModal('archiveModal');
+  showToast('Student archived.');
   setTimeout(() => window.location.replace('students.html'), 800);
 }
 

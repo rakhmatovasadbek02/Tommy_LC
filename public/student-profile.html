@@ -523,6 +523,8 @@
   function editInvoice(id) {
     const i = _invoices?.find(x => x.id === id);
     if (!i) return;
+    toggleInvDropdown(id);
+    openPayModal();
     document.getElementById('payAmount').value = i.total;
     document.getElementById('payType').value = i.paymentType || 'Cash';
     document.querySelectorAll('.pay-type-btn').forEach(b => {
@@ -530,8 +532,6 @@
     });
     document.getElementById('payDesc').value = i.desc || '';
     document.getElementById('payGroup').value = i.groupId || '';
-    openModal('payModal');
-    toggleInvDropdown(id);
   }
 
   async function removeInvoice(id) {

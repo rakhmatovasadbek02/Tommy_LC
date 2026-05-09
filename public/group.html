@@ -316,7 +316,7 @@ return;
 const active = sorted.filter(s => s.status !== 'Trial');
 const trialReg = sorted.filter(s => s.status === 'Trial');
 el.innerHTML = active.map((s,i) => `
-<div class="student-list-item" style="cursor:pointer" onclick="window.location.href='student.html?id=${s.id}'">
+<div class="student-list-item" style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'">
 <span class="student-num">${i+1}.</span>
 <span class="student-dot${s.balance < 0 ? ' debt' : ''}"></span>
 <span class="student-list-name">${s.firstName} ${s.lastName}</span>
@@ -437,7 +437,7 @@ tbody += `<tr>
 <td class="name-col">
 <div class="att-name-cell">
 <div class="att-avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
-<span style="cursor:pointer" onclick="window.location.href='student.html?id=${s.id}'">${name}</span>
+<span style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'">${name}</span>
 </div>
 </td>
 ${days.map(d => {
