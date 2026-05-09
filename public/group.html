@@ -40,7 +40,7 @@ min-width: 56px;
 /* Three-dot menu */
 .stu-menu-btn { width: 28px; height: 28px; border: none; background: none; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0; transition: background 0.1s; }
 .stu-menu-btn:hover { background: var(--border); color: var(--text); }
-.stu-dropdown { position: absolute; right: 8px; top: calc(100% - 4px); background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.13); min-width: 200px; z-index: 200; display: none; overflow: hidden; }
+.stu-dropdown { position: fixed; background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); min-width: 220px; z-index: 9999; display: none; overflow: hidden; }
 .stu-dropdown.open { display: block; }
 .stu-dd-item { display: flex; align-items: center; gap: 12px; padding: 11px 16px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text); transition: background 0.1s; }
 .stu-dd-item:hover { background: #f9fafb; }
@@ -718,7 +718,15 @@ function toggleStudentMenu(id, e) {
   const dd = document.getElementById('smenu-'+id);
   const wasOpen = dd.classList.contains('open');
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
-  if (!wasOpen) dd.classList.add('open');
+  if (!wasOpen) {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const ddH = 260;
+    const top = (rect.bottom + ddH > window.innerHeight) ? rect.top - ddH : rect.bottom + 4;
+    dd.style.top = top + 'px';
+    dd.style.left = (rect.right - 220) + 'px';
+    dd.classList.add('open');
+  }
 }
 document.addEventListener('click', () => {
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
