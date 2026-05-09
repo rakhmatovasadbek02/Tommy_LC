@@ -47,10 +47,8 @@
     <div class="summary-row" id="summaryRow"></div>
 
     <div class="tab-row">
-      <button class="tab-btn active" onclick="setTab('all',this)">All</button>
-      <button class="tab-btn" onclick="setTab('Pending',this)">Pending</button>
-      <button class="tab-btn" onclick="setTab('Paid',this)">Paid</button>
-      <button class="tab-btn" onclick="setTab('Overdue',this)">Overdue</button>
+      <button class="tab-btn active" onclick="setTab('Paid',this)">Paid</button>
+      <button class="tab-btn" onclick="setTab('debtors',this)">Debtors</button>
     </div>
 
     <div class="toolbar" style="margin-bottom:16px">
@@ -132,7 +130,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Status</label>
-          <select id="invStatus"><option>Pending</option><option>Paid</option><option>Overdue</option></select>
+          <select id="invStatus"><option>Paid</option></select>
         </div>
         <div class="form-group">
           <label>Due Date</label>
@@ -162,7 +160,7 @@
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   let invoices=[], students=[], groups=[];
-  let currentTab = 'all';
+  let currentTab = 'Paid';
 
   async function load() {
     try {
@@ -173,28 +171,27 @@
       invoices=[]; students=[]; groups=[];
     }
     renderSummary();
-    renderInvoices();
+    if (currentTab === 'debtors') renderDebtors();
+    else renderInvoices();
   }
 
   function renderSummary() {
-    const paid    = invoices.filter(i=>i.status==='Paid').reduce((s,i)=>s+Number(i.total||0),0);
-    const pending = invoices.filter(i=>i.status==='Pending').reduce((s,i)=>s+Number(i.total||0),0);
-    const overdue = invoices.filter(i=>i.status==='Overdue').reduce((s,i)=>s+Number(i.total||0),0);
+    const paid      = invoices.filter(i=>i.status==='Paid').reduce((s,i)=>s+Number(i.total||0),0);
+    const debtors   = students.filter(s=>Number(s.balance||0)<0);
+    const totalDebt = debtors.reduce((s,st)=>s+Math.abs(Number(st.balance||0)),0);
     const fmt = n => n.toLocaleString('uz-UZ') + ' UZS';
     document.getElementById('summaryRow').innerHTML = `
-      <div class="sum-card green"><div class="sum-card-label">Paid</div><div class="sum-card-val">${fmt(paid)}</div></div>
-      <div class="sum-card amber"><div class="sum-card-label">Pending</div><div class="sum-card-val">${fmt(pending)}</div></div>
-      <div class="sum-card red"><div class="sum-card-label">Overdue</div><div class="sum-card-val">${fmt(overdue)}</div></div>
-      <div class="sum-card"><div class="sum-card-label">Total</div><div class="sum-card-val">${invoices.length}</div></div>
-      <div class="sum-card"><div class="sum-card-label">💵 Cash</div><div class="sum-card-val">${invoices.filter(i=>i.paymentType==='Cash'&&i.status==='Paid').length}</div></div>
-      <div class="sum-card"><div class="sum-card-label">📱 Click</div><div class="sum-card-val">${invoices.filter(i=>i.paymentType==='Click'&&i.status==='Paid').length}</div></div>`;
+      <div class="sum-card green"><div class="sum-card-label">Paid Total</div><div class="sum-card-val">${fmt(paid)}</div></div>
+      <div class="sum-card red"><div class="sum-card-label">Total Debt</div><div class="sum-card-val">${fmt(totalDebt)}</div></div>
+      <div class="sum-card red"><div class="sum-card-label">Debtors</div><div class="sum-card-val">${debtors.length}</div></div>`;
   }
 
   function setTab(tab, btn) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    renderInvoices();
+    if (tab === 'debtors') renderDebtors();
+    else renderInvoices();
   }
 
   function renderInvoices() {
@@ -205,7 +202,7 @@
       const stu  = students.find(s=>s.id===i.studentId);
       const name = stu ? (stu.firstName+' '+stu.lastName).toLowerCase() : '';
       const grp  = groups.find(g=>g.id===i.groupId);
-      return (currentTab==='all' || i.status===currentTab)
+      return i.status === currentTab
           && (!fl || i.level===fl)
           && (!q || name.includes(q) || (i.level||'').toLowerCase().includes(q) || (grp?.name||'').toLowerCase().includes(q));
     });
@@ -245,6 +242,39 @@
           <button class="btn btn-ghost btn-sm" onclick="editInvoice('${i.id}')">${IC.edit}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteInvoice('${i.id}')">${IC.trash}</button>
         </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderDebtors() {
+    const q  = document.getElementById('searchInput').value.toLowerCase();
+    const debtors = students.filter(s => {
+      const bal = Number(s.balance||0);
+      if (bal >= 0) return false;
+      const name = (s.firstName+' '+s.lastName).toLowerCase();
+      return !q || name.includes(q) || (s.phone||'').includes(q);
+    }).sort((a,b)=>Number(a.balance||0)-Number(b.balance||0));
+
+    document.getElementById('invoiceCount').textContent = `${debtors.length} debtor${debtors.length!==1?'s':''}`;
+
+    const el = document.getElementById('invoiceList');
+    if (!debtors.length) {
+      el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><p>No debtors found.</p></div>';
+      return;
+    }
+
+    const fmt = n => Number(n||0).toLocaleString('uz-UZ') + ' UZS';
+    el.innerHTML = debtors.map(s => {
+      const name = s.firstName+' '+s.lastName;
+      const bal  = Number(s.balance||0);
+      return `<div class="inv-row">
+        <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px;flex-shrink:0">${initials(name)}</div>
+        <div style="flex:1;min-width:120px">
+          <div style="font-weight:700"><a href="student-profile.html?id=${s.id}" style="color:inherit;text-decoration:none">${name}</a></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${s.phone||''}</div>
+        </div>
+        <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--crimson);white-space:nowrap">${fmt(Math.abs(bal))}</div>
+        <a href="student-profile.html?id=${s.id}" class="btn btn-outline btn-sm">View Profile</a>
       </div>`;
     }).join('');
   }
@@ -300,7 +330,7 @@
     document.getElementById('invLevel').value    = i.level||'';
     document.getElementById('invMonth').value    = i.month||'';
     document.getElementById('invTotal').value    = i.total||'';
-    document.getElementById('invStatus').value   = i.status||'Pending';
+    document.getElementById('invStatus').value   = 'Paid';
     document.getElementById('invDue').value      = i.dueDate?i.dueDate.split('T')[0]:'';
     document.getElementById('invNotes').value    = i.notes||'';
     const radio = document.querySelector(`input[name="payType"][value="${i.paymentType||'Cash'}"]`);
@@ -364,7 +394,7 @@
     ['editInvId','invStudent','invGroup','invLevel','invMonth','invTotal','invDue','invNotes'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
     });
-    document.getElementById('invStatus').value='Pending';
+    document.getElementById('invStatus').value='Paid';
     const cash=document.querySelector('input[name="payType"][value="Cash"]');
     if(cash){cash.checked=true;onPayType();}
   }
