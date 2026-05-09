@@ -451,10 +451,10 @@ app.post('/api/students/:id/activate', async (req, res) => {
     // Activate student
     await pool.query("UPDATE students SET status='Active' WHERE id=$1", [studentId]);
 
-    let monthlyPrice = Number(g.price || 0);
+    let monthlyPrice = Math.abs(Number(g.price || 0));
     if (monthlyPrice === 0 && g.level) {
       const prRes = await pool.query('SELECT price FROM pricing WHERE level=$1', [g.level]);
-      monthlyPrice = Number(prRes.rows[0]?.price || 0);
+      monthlyPrice = Math.abs(Number(prRes.rows[0]?.price || 0));
     }
 
     if (monthlyPrice > 0) {
@@ -481,7 +481,7 @@ app.post('/api/students/:id/activate', async (req, res) => {
       const now        = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
       const year       = now.getFullYear(), month = now.getMonth(), today = now.getDate();
       const lessonDays = getLessonDays(g.sched_type, g.custom_days);
-      const remaining = countLessons(year, month, lessonDays, today);
+      const remaining = Math.max(0, countLessons(year, month, lessonDays, today));
       const amount    = Math.round((monthlyPrice / 12) * remaining);
 
       // Record invoice + update balance

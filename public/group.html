@@ -702,7 +702,7 @@ async function activateEnrolledStudent(studentId) {
 try {
 const s = students.find(s=>s.id===studentId) || allStudents.find(s=>s.id===studentId);
 const result = await apiPost('/api/students/'+studentId+'/activate', { groupId });
-if (s) { s.status = 'Active'; s.balance = (Number(s.balance) || 0) - (result.amount || 0); }
+if (s) { s.status = 'Active'; s.balance = (Number(s.balance) || 0) - Math.abs(result.amount || 0); }
 renderStudentList();
 renderAttendance();
 const name = s ? s.firstName+' '+s.lastName : 'Student';
