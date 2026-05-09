@@ -478,12 +478,11 @@ app.post('/api/students/:id/activate', async (req, res) => {
         return n;
       }
 
-      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
-      const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+      const now        = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+      const year       = now.getFullYear(), month = now.getMonth(), today = now.getDate();
       const lessonDays = getLessonDays(g.sched_type, g.custom_days);
-      const total     = countLessons(year, month, lessonDays, 1);
       const remaining = countLessons(year, month, lessonDays, today);
-      const amount    = total > 0 ? Math.round((monthlyPrice / total) * remaining) : monthlyPrice;
+      const amount    = Math.round((monthlyPrice / 12) * remaining);
 
       // Record invoice + update balance
       const invId  = 'inv-' + Date.now();
@@ -493,7 +492,7 @@ app.post('/api/students/:id/activate', async (req, res) => {
         `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type)
          VALUES($1,$2,$3,$4,$5,$6,$7,'Pending','Auto')`,
         [invId, invNum, studentId, groupId, mStr,
-         `Activation – ${remaining} of ${total} lessons (${g.name})`, amount]
+         `Activation – ${remaining} of 12 lessons (${g.name})`, amount]
       );
 
       const stuRes = await pool.query('SELECT balance FROM students WHERE id=$1', [studentId]);
