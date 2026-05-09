@@ -42,6 +42,12 @@
     .sort-arrow { display:inline-flex; flex-direction:column; gap:1px; margin-left:4px; vertical-align:middle; opacity:0.4; }
     .sort-arrow svg { display:block; }
     th.sort-asc .sort-arrow, th.sort-desc .sort-arrow { opacity:1; }
+
+    @media(max-width:640px){
+      .students-toolbar { gap:6px; }
+      .students-toolbar .search-bar { max-width:100%; flex:1 1 100%; }
+      .st-comment, .st-teacher, .st-dates { display:none; }
+    }
   </style>
 </head>
 <body>

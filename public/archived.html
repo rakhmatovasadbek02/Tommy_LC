@@ -5,7 +5,8 @@
   <title>Archived Students — TommyLC CRM</title>
   <link rel="stylesheet" href="shared.css">
   <style>
-    .arch-table{width:100%;border-collapse:collapse;background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+    .arch-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .arch-table{width:100%;border-collapse:collapse;background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);min-width:560px}
     .arch-table th{background:var(--bg);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
     .arch-table td{padding:11px 14px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border-light,#f1f1f1);vertical-align:middle}
     .arch-table tr:last-child td{border-bottom:none}
@@ -30,7 +31,7 @@
       <input type="text" id="searchInput" placeholder="Search by name or phone…" oninput="filterList()">
     </div>
     <div id="tableWrap">
-      <table class="arch-table" id="archTable">
+      <div class="arch-table-wrap"><table class="arch-table" id="archTable">
         <thead>
           <tr>
             <th style="width:36px"></th>
@@ -42,7 +43,7 @@
           </tr>
         </thead>
         <tbody id="archBody"></tbody>
-      </table>
+      </table></div>
     </div>
   </div>
 </div>
@@ -74,7 +75,7 @@
       wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">🗃️</div><p>No archived students.</p></div>';
       return;
     }
-    wrap.innerHTML = `<table class="arch-table" id="archTable">
+    wrap.innerHTML = `<div class="arch-table-wrap"><table class="arch-table" id="archTable">
       <thead><tr>
         <th style="width:36px"></th>
         <th>Name</th><th>Phone</th><th>Archive Reason</th><th>Archived At</th>
@@ -94,7 +95,7 @@
           <td><button class="btn btn-outline btn-sm" onclick="restoreStudent('${s.id}','${name.replace(/'/g,"\\'")}')">Restore</button></td>
         </tr>`;
       }).join('')}</tbody>
-    </table>`;
+    </table></div>`;
   }
 
   async function restoreStudent(id, name) {

@@ -7,6 +7,14 @@
   <style>
     .profile-layout { display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start; }
     @media(max-width:768px){ .profile-layout{grid-template-columns:1fr} }
+    @media(max-width:640px){
+      .profile-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; }
+      .profile-tab  { white-space:nowrap; flex-shrink:0; padding:10px 14px; }
+      .pay-tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      .pay-tbl { min-width:540px; }
+      .section-header { flex-wrap:wrap; gap:8px; }
+      .feed-add { flex-direction:column; }
+    }
 
     /* Left card */
     .profile-card { background:white; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
@@ -438,7 +446,7 @@
     const el = document.getElementById('invoicesList');
     if (!invs.length) { el.innerHTML='<div class="empty-feed">No payments recorded.</div>'; return; }
     const isSystem = i => i.paymentType === 'Auto' || (i.desc||'').toLowerCase().startsWith('activation');
-    el.innerHTML = `<table class="pay-tbl">
+    el.innerHTML = `<div class="pay-tbl-wrap"><table class="pay-tbl">
       <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Comment</th><th>Creator</th><th></th></tr></thead>
       <tbody>${invs.map(i => {
         const sys = isSystem(i);
@@ -482,7 +490,7 @@
         </tr>`;
       }).join('')}
       </tbody>
-    </table>`;
+    </table></div>`;
   }
 
   function toggleMore(btn, id) {

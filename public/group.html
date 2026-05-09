@@ -6,6 +6,8 @@
 <link rel="stylesheet" href="shared.css">
 <style>
 .group-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+@media(max-width:900px){ .group-layout { grid-template-columns: 280px 1fr; } }
+@media(max-width:768px){ .group-layout { grid-template-columns: 1fr; } .left-panel { position: static; } }
 /* LEFT PANEL */
 .left-panel { background: white; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; position: sticky; top: 84px; }
 .group-info-block { padding: 20px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: flex-start; }
