@@ -190,15 +190,6 @@
 .log-delete { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 0; }
 .log-delete:hover { color: var(--crimson); }
 
-/* SMS tab */
-.sms-section { padding: 20px; }
-.sms-input-row { display: flex; gap: 10px; margin-bottom: 20px; }
-.sms-input { flex: 1; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: 'Inter', sans-serif; outline: none; resize: none; }
-.sms-input:focus { border-color: var(--crimson); }
-.sms-quick { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-.sms-quick-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.14s; }
-.sms-quick-btn:hover { border-color: var(--crimson); color: var(--crimson); background: var(--crimson-soft); }
-
 /* History tab */
 .history-empty { padding: 40px; text-align: center; color: var(--muted); font-size: 14px; }
 
@@ -279,8 +270,6 @@
     <div class="tab-nav">
       <button class="tab-nav-btn active" data-tab="groups" onclick="setTab('groups',this)">Groups</button>
       <button class="tab-nav-btn" data-tab="comments" onclick="setTab('comments',this)">Comments</button>
-      <button class="tab-nav-btn" data-tab="calls" onclick="setTab('calls',this)">Call history</button>
-      <button class="tab-nav-btn" data-tab="sms" onclick="setTab('sms',this)">SMS</button>
       <button class="tab-nav-btn" data-tab="payments" onclick="setTab('payments',this)">Payments</button>
       <button class="tab-nav-btn" data-tab="history" onclick="setTab('history',this)">History</button>
     </div>
@@ -298,36 +287,6 @@
           <button class="btn btn-primary" style="align-self:flex-end" onclick="addComment()">Add</button>
         </div>
         <div id="commentsList"></div>
-      </div>
-    </div>
-
-    <!-- CALL HISTORY -->
-    <div class="tab-content" id="tab-calls">
-      <div class="log-section">
-        <div class="log-input-row">
-          <textarea class="log-input" id="callInput" placeholder="Log a call note…" rows="2"></textarea>
-          <button class="btn btn-primary" style="align-self:flex-end" onclick="addCall()">Log</button>
-        </div>
-        <div id="callsList"></div>
-      </div>
-    </div>
-
-    <!-- SMS -->
-    <div class="tab-content" id="tab-sms">
-      <div class="sms-section">
-        <div class="sms-quick">
-          <button class="sms-quick-btn" onclick="setSmsText('Your next lesson is tomorrow. Tommy LC.')">📅 Tomorrow reminder</button>
-          <button class="sms-quick-btn" onclick="setSmsText('Please pay your monthly fee. Tommy LC.')">💰 Payment reminder</button>
-          <button class="sms-quick-btn" onclick="setSmsText('Your child was absent today. Tommy LC.')">❌ Absence notice</button>
-        </div>
-        <div class="sms-input-row">
-          <textarea class="sms-input" id="smsText" placeholder="Type SMS message…" rows="3"></textarea>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div style="font-size:12px;color:var(--muted)" id="smsPhoneLabel"></div>
-          <button class="btn btn-primary" onclick="sendSms()">📤 Send SMS</button>
-        </div>
-        <div id="smsStatus" style="margin-top:12px;font-size:13px;color:var(--muted)"></div>
       </div>
     </div>
 
@@ -503,17 +462,16 @@ if (!studentId) window.location.replace('students.html');
 const session = getSession();
 const actorName = session ? session.name : 'Admin';
 
-let student = null, studentGroups = [], allGroups = [], invoices = [], comments = [], calls = [];
+let student = null, studentGroups = [], allGroups = [], invoices = [], comments = [];
 
 async function load() {
   try {
-    [student, studentGroups, allGroups, invoices, comments, calls] = await Promise.all([
+    [student, studentGroups, allGroups, invoices, comments] = await Promise.all([
       apiGet('/api/students/'+studentId),
       apiGet('/api/students/'+studentId+'/groups'),
       apiGet('/api/groups'),
       apiGet('/api/students/'+studentId+'/invoices'),
       apiGet('/api/students/'+studentId+'/comments'),
-      apiGet('/api/students/'+studentId+'/calls'),
     ]);
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('studentLayout').style.display = 'grid';
@@ -521,8 +479,6 @@ async function load() {
     renderGroups();
     renderPayments();
     renderComments();
-    renderCalls();
-    renderSmsPhone();
     populatePayGroup();
   } catch(e) {
     document.getElementById('loadingState').textContent = 'Error loading student.';
@@ -675,32 +631,6 @@ function renderComments() {
     </div>`).join('');
 }
 
-function renderCalls() {
-  const el = document.getElementById('callsList');
-  if (!calls.length) {
-    el.innerHTML = `<div class="tab-empty"><div class="tab-empty-text">No calls logged yet.</div></div>`;
-    return;
-  }
-  el.innerHTML = calls.map(c => `
-    <div class="log-entry">
-      <div class="log-bar blue"></div>
-      <div class="log-body">
-        <div class="log-text">${escHtml(c.note)}</div>
-        <div class="log-meta">
-          <span>${c.actor||'Admin'}</span>
-          <span>${formatDateFull(c.created_at)}</span>
-          <button class="log-delete" onclick="deleteCall(${c.id})">${IC.close}</button>
-        </div>
-      </div>
-    </div>`).join('');
-}
-
-function renderSmsPhone() {
-  const phones = [student.phone, student.phoneParent].filter(Boolean);
-  document.getElementById('smsPhoneLabel').textContent =
-    phones.length ? 'To: +998 ' + phones.join(', +998 ') : 'No phone number on file.';
-}
-
 /* ── Actions ── */
 function setTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -729,43 +659,6 @@ async function deleteComment(id) {
     renderComments();
     showToast('Deleted.', 'error');
   } catch(e) { showToast('Error: '+e.message, 'error'); }
-}
-
-async function addCall() {
-  const note = document.getElementById('callInput').value.trim();
-  if (!note) return;
-  try {
-    await apiPost('/api/students/'+studentId+'/calls', { note, actor: actorName });
-    document.getElementById('callInput').value = '';
-    calls = await apiGet('/api/students/'+studentId+'/calls');
-    renderCalls();
-    showToast('Call logged!');
-  } catch(e) { showToast('Error: '+e.message, 'error'); }
-}
-
-async function deleteCall(id) {
-  if (!confirm('Delete this call log?')) return;
-  try {
-    await apiDelete('/api/students/calls/'+id);
-    calls = await apiGet('/api/students/'+studentId+'/calls');
-    renderCalls();
-    showToast('Deleted.', 'error');
-  } catch(e) { showToast('Error: '+e.message, 'error'); }
-}
-
-function setSmsText(t) { document.getElementById('smsText').value = t; }
-
-async function sendSms() {
-  const text = document.getElementById('smsText').value.trim();
-  if (!text) { showToast('Enter a message.', 'error'); return; }
-  const phones = [student.phone, student.phoneParent].filter(Boolean);
-  if (!phones.length) { showToast('No phone number on file.', 'error'); return; }
-  // Simulate SMS (no real SMS integration — log as call)
-  await apiPost('/api/students/'+studentId+'/calls', { note: 'SMS sent: '+text, actor: actorName });
-  document.getElementById('smsStatus').innerHTML = `<span style="color:#1E6B45;font-weight:600">✅ SMS logged to: +998 ${phones.join(', +998 ')}</span>`;
-  document.getElementById('smsText').value = '';
-  calls = await apiGet('/api/students/'+studentId+'/calls');
-  showToast('SMS logged!');
 }
 
 /* Payment */

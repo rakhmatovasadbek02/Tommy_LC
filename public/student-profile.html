@@ -141,7 +141,6 @@
           <div class="profile-tabs" style="padding:0 20px">
             <button class="profile-tab active" onclick="switchTab('groups',this)">Groups</button>
             <button class="profile-tab" onclick="switchTab('comments',this)">Comments</button>
-            <button class="profile-tab" onclick="switchTab('calls',this)">Calls</button>
             <button class="profile-tab" onclick="switchTab('invoices',this)">Payments</button>
           </div>
           <div style="padding:20px">
@@ -157,15 +156,6 @@
               <div class="feed-add">
                 <textarea id="commentInput" placeholder="Add a comment…"></textarea>
                 <button class="btn btn-primary" style="align-self:flex-end" onclick="addComment()">Post</button>
-              </div>
-            </div>
-
-            <!-- CALLS -->
-            <div class="tab-panel" id="tab-calls">
-              <div id="callsList"></div>
-              <div class="feed-add">
-                <textarea id="callInput" placeholder="Log a call note…"></textarea>
-                <button class="btn btn-primary" style="align-self:flex-end" onclick="addCall()">Log</button>
               </div>
             </div>
 
@@ -340,11 +330,10 @@
 
   async function loadProfile() {
     try {
-      const [s, grps, cmts, calls, invs] = await Promise.all([
+      const [s, grps, cmts, invs] = await Promise.all([
         apiGet('/api/students/'+STUDENT_ID),
         apiGet('/api/students/'+STUDENT_ID+'/groups'),
         apiGet('/api/students/'+STUDENT_ID+'/comments'),
-        apiGet('/api/students/'+STUDENT_ID+'/calls'),
         apiGet('/api/students/'+STUDENT_ID+'/invoices'),
       ]);
       student = s;
@@ -379,7 +368,6 @@
 
       renderGroups(grps);
       renderComments(cmts);
-      renderCalls(calls);
       renderInvoices(invs);
 
     } catch(e) { document.getElementById('loadingMsg').textContent = 'Failed to load student.'; }
@@ -416,21 +404,6 @@
           <div class="feed-text">${c.text}</div>
         </div>
         <button class="btn btn-danger btn-sm" onclick="deleteComment(${c.id})">${IC.trash}</button>
-      </div>`).join('');
-  }
-
-  function renderCalls(calls) {
-    const el = document.getElementById('callsList');
-    if (!calls.length) { el.innerHTML='<div class="empty-feed">No calls logged yet.</div>'; return; }
-    el.innerHTML = calls.map(c => `
-      <div class="feed-item">
-        <div class="feed-avatar">📞</div>
-        <div class="feed-body">
-          <span class="feed-actor">${c.actor||'Unknown'}</span>
-          <span class="feed-time">${fmtDateTime(c.created_at)}</span>
-          <div class="feed-text">${c.note}</div>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="deleteCall(${c.id})">${IC.trash}</button>
       </div>`).join('');
   }
 
@@ -482,24 +455,6 @@
     await apiDelete('/api/students/comments/'+id);
     const cmts = await apiGet('/api/students/'+STUDENT_ID+'/comments');
     renderComments(cmts);
-  }
-
-  async function addCall() {
-    const note = document.getElementById('callInput').value.trim();
-    if (!note) return;
-    const session = getSession();
-    await apiPost('/api/students/'+STUDENT_ID+'/calls', { note, actor: session?.name||'Unknown' });
-    document.getElementById('callInput').value = '';
-    const calls = await apiGet('/api/students/'+STUDENT_ID+'/calls');
-    renderCalls(calls);
-    showToast('Call logged.');
-  }
-
-  async function deleteCall(id) {
-    if (!confirm('Delete this call log?')) return;
-    await apiDelete('/api/students/calls/'+id);
-    const calls = await apiGet('/api/students/'+STUDENT_ID+'/calls');
-    renderCalls(calls);
   }
 
   function openEditModal() {
