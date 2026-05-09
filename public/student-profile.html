@@ -473,7 +473,7 @@
           <td>${commentHtml}</td>
           <td>${creatorHtml}</td>
           <td style="white-space:nowrap">
-            ${!sys ? `<button class="btn btn-ghost btn-sm" onclick="editInvoice('${i.id}')">${IC.edit}</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="editInvoice('${i.id}')">${IC.edit}</button>
             <button class="btn btn-danger btn-sm" onclick="removeInvoice('${i.id}')">${IC.trash}</button>
           </td>
         </tr>`;
