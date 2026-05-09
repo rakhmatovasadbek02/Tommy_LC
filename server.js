@@ -387,6 +387,72 @@ app.get('/api/students/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Activate student: set status Active + auto-calculate pro-rated payment
+app.post('/api/students/:id/activate', async (req, res) => {
+  try {
+    const { groupId } = req.body;
+    const studentId = req.params.id;
+
+    // Fetch group
+    const grpRes = await pool.query('SELECT * FROM groups WHERE id=$1', [groupId]);
+    const g = grpRes.rows[0];
+    if (!g) return res.status(404).json({ error: 'Group not found' });
+
+    // Activate student
+    await pool.query("UPDATE students SET status='Active' WHERE id=$1", [studentId]);
+
+    const monthlyPrice = Number(g.price || 0);
+
+    if (monthlyPrice > 0) {
+      // Calculate pro-rated amount based on remaining lessons this month
+      function getLessonDays(schedType, customDays) {
+        if (schedType === 'odd')    return [1, 3, 5];
+        if (schedType === 'even')   return [2, 4, 6];
+        if (schedType === 'daily')  return [1, 2, 3, 4, 5];
+        if (schedType === 'custom' && customDays?.length) {
+          const map = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+          return customDays.map(d => map[d]).filter(d => d !== undefined);
+        }
+        return [1, 3, 5];
+      }
+      function countLessons(year, month, days, fromDay) {
+        const last = new Date(year, month + 1, 0).getDate();
+        let n = 0;
+        for (let d = fromDay; d <= last; d++) {
+          if (days.includes(new Date(year, month, d).getDay())) n++;
+        }
+        return n;
+      }
+
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+      const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+      const lessonDays = getLessonDays(g.sched_type, g.custom_days);
+      const total     = countLessons(year, month, lessonDays, 1);
+      const remaining = countLessons(year, month, lessonDays, today);
+      const amount    = total > 0 ? Math.round((monthlyPrice / total) * remaining) : monthlyPrice;
+
+      // Record invoice + update balance
+      const invId  = 'inv-' + Date.now();
+      const invNum = 'INV-' + Date.now().toString().slice(-6);
+      const mStr   = `${year}-${String(month + 1).padStart(2, '0')}`;
+      await pool.query(
+        `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type)
+         VALUES($1,$2,$3,$4,$5,$6,$7,'Pending','Auto')`,
+        [invId, invNum, studentId, groupId, mStr,
+         `Activation – ${remaining} of ${total} lessons (${g.name})`, amount]
+      );
+
+      const stuRes = await pool.query('SELECT balance FROM students WHERE id=$1', [studentId]);
+      const newBal = Number(stuRes.rows[0]?.balance || 0) - amount;
+      await pool.query('UPDATE students SET balance=$1 WHERE id=$2', [newBal, studentId]);
+
+      return res.json({ ok: true, amount, remaining, total });
+    }
+
+    res.json({ ok: true, amount: 0 });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Adjust balance (add payment)
 app.post('/api/students/:id/payment', async (req, res) => {
   try {
