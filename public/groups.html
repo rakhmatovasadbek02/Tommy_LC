@@ -183,7 +183,7 @@ const SCHED_LABEL={odd:'Odd days',even:'Even days',custom:'Custom'};
 if(!filtered.length){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"></div><p>No groups yet. Click "+ Add Group" to create one.</p></div>';return;}
 grid.innerHTML=filtered.map(g=>{
 const col=groupColor(g.id);
-const enrolled=(g.studentIds||[]).length;
+const enrolled=(g.studentIds||[]).filter(id=>students.some(s=>s.id===id)).length;
 const daysLabel=g.schedType==='custom'&&g.customDays?.length?g.customDays.map(d=>DAY_NAMES[d]).join('·'):'';
 const endTime=(()=>{
 if(!g.time)return '';

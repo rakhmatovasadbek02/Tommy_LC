@@ -242,10 +242,6 @@
         <span class="badge ${i.paymentType==='Click'?'badge-click':'badge-cash'}">${i.paymentType==='Click'?'📱':'💵'} ${i.paymentType||'Cash'}</span>
         <span class="badge ${STATUS_BADGE[i.status]||'badge-grey'}">${i.status}</span>
         <div style="display:flex;gap:6px">
-          ${i.status!=='Paid' ? `
-            <button class="btn btn-ghost btn-sm" onclick="quickPay('${i.id}','Cash')" title="Mark paid — Cash">Cash ✓</button>
-            <button class="btn btn-ghost btn-sm" onclick="quickPay('${i.id}','Click')" title="Mark paid — Click">Click ✓</button>
-          ` : ''}
           <button class="btn btn-ghost btn-sm" onclick="editInvoice('${i.id}')">${IC.edit}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteInvoice('${i.id}')">${IC.trash}</button>
         </div>
