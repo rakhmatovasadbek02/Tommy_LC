@@ -501,7 +501,7 @@ app.post('/api/students/:id/activate', async (req, res) => {
       const newBal = Number(stuRes.rows[0]?.balance || 0) - amount;
       await pool.query('UPDATE students SET balance=$1 WHERE id=$2', [newBal, studentId]);
 
-      return res.json({ ok: true, amount, remaining, total });
+      return res.json({ ok: true, amount, remaining });
     }
 
     res.json({ ok: true, amount: 0 });
