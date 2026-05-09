@@ -170,6 +170,27 @@
   </div>
 </div>
 
+<!-- Archive reason modal -->
+<div class="modal-overlay" id="archiveModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Archive Student</div>
+      <button class="modal-close" onclick="closeModal('archiveModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="archiveStudentName" style="font-weight:700;font-size:15px;margin-bottom:12px"></div>
+      <div class="form-group">
+        <label>Reason for archiving *</label>
+        <textarea id="archiveReason" placeholder="e.g. Finished course, moved abroad, stopped paying…" style="height:80px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('archiveModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmArchive()">Archive</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
@@ -235,7 +256,7 @@
       const balClass = s.balance > 0 ? 'pos' : s.balance < 0 ? 'neg' : 'zero';
       const balStr = s.balance !== 0 ? s.balance.toLocaleString() : '0';
       const groupsHTML = (s.groups||[]).map(g =>
-        `<div class="group-pill"><span class="group-pill-name">${g.name}</span><span class="group-pill-sub">${g.level||''}${g.time?' ('+g.time+')':''}</span></div>`
+        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="text-decoration:none"><div class="group-pill"><span class="group-pill-name">${g.name}</span><span class="group-pill-sub">${g.level||''}${g.time?' ('+g.time+')':''}</span></div></a>`
       ).join('') || '<span style="color:var(--muted);font-size:12px">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
       const teacherHTML = teachers.length ? teachers.map(t=>`<div>${t}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
@@ -253,7 +274,7 @@
         <td class="st-num">${i+1}</td>
         <td><div class="st-avatar" style="background:${col}">${initials(name)}</div></td>
         <td>
-          <div class="st-name">${name}</div>
+          <div class="st-name"><a href="student-profile.html?id=${s.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none">${name}</a></div>
           ${s.level?`<div class="st-sub">${s.level}</div>`:''}
         </td>
         <td class="st-phone">${s.phone?'+998 '+s.phone:'<span style="color:var(--muted)">—</span>'}</td>
@@ -340,12 +361,23 @@
     } catch(e) { showToast('Error saving student.','error'); }
   }
 
-  async function deleteStudent(id) {
+  let _archiveId = null;
+  function deleteStudent(id) {
     const s = students.find(s=>s.id===id);
-    if (!confirm(`Delete ${s?.firstName} ${s?.lastName}?`)) return;
-    await apiDelete('/api/students/'+id);
-    logActivity(`Removed student: ${s?.firstName} ${s?.lastName}`,'red');
-    await load(); showToast('Student deleted.','error');
+    _archiveId = id;
+    document.getElementById('archiveStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+    document.getElementById('archiveReason').value = '';
+    openModal('archiveModal');
+  }
+  async function confirmArchive() {
+    const reason = document.getElementById('archiveReason').value.trim();
+    if (!reason) { showToast('Please enter a reason.','error'); return; }
+    const s = students.find(s=>s.id===_archiveId);
+    await apiDelete('/api/students/'+_archiveId, { reason });
+    logActivity(`Archived student: ${s?.firstName} ${s?.lastName} — ${reason}`, 'red');
+    closeModal('archiveModal');
+    await load();
+    showToast('Student archived.');
   }
 
   function clearForm() {

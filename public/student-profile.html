@@ -402,7 +402,7 @@
     if (!grps.length) { el.innerHTML='<div class="empty-feed">Not enrolled in any group.</div>'; return; }
     el.innerHTML = grps.map(g => `
       <div class="group-row">
-        <div class="group-badge">${g.name}</div>
+        <a href="group.html?id=${g.id}" style="text-decoration:none"><div class="group-badge">${g.name}</div></a>
         <div class="group-detail">
           <div class="group-detail-name">${g.level||''} ${g.time?'('+g.time+')':''}</div>
           <div class="group-detail-sub">

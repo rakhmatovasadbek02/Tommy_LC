@@ -178,7 +178,7 @@ dd.innerHTML = !results.length
 : results.map(s => {
 const name = s.firstName+' '+s.lastName;
 const col = avatarColor(name);
-return `<div onclick="window.location.href='students.html'"
+return `<div onclick="window.location.href='student-profile.html?id=${s.id}'"
 style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.1s;"
 onmouseover="this.style.background='var(--crimson-soft)'" onmouseout="this.style.background=''">
 <div style="width:32px;height:32px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0">${initials(name)}</div>

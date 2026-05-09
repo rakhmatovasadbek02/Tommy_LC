@@ -195,7 +195,7 @@ return `<div class="group-card">
 <div class="group-card-top">
 <div class="group-color-bar" style="background:${col}"></div>
 <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-top:6px">
-<div class="group-name">${g.name}</div>
+<a href="group.html?id=${g.id}" style="text-decoration:none;color:inherit"><div class="group-name">${g.name}</div></a>
 ${g.lang?`<span style="font-size:20px">${LANG_FLAG[g.lang]||''}</span>`:''}
 </div>
 <div class="group-meta">
