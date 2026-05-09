@@ -33,6 +33,7 @@ min-width: 56px;
 .student-list-item:hover { background: var(--crimson-soft); }
 .student-num { font-size: 11px; color: var(--muted); min-width: 18px; }
 .student-dot { width: 8px; height: 8px; border-radius: 50%; background: #1E6B45; flex-shrink: 0; }
+.student-dot.debt { background: #dc2626; }
 .student-list-name { flex: 1; font-weight: 500; }
 .student-phone { font-size: 11px; color: var(--muted); }
 .archive-btn { margin: 12px 16px 0; width: calc(100% - 32px); padding: 8px; background: var(--crimson); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s; }
@@ -316,7 +317,7 @@ const trialReg = sorted.filter(s => s.status === 'Trial');
 el.innerHTML = active.map((s,i) => `
 <div class="student-list-item" style="cursor:pointer" onclick="window.location.href='student.html?id=${s.id}'">
 <span class="student-num">${i+1}.</span>
-<span class="student-dot"></span>
+<span class="student-dot${s.balance < 0 ? ' debt' : ''}"></span>
 <span class="student-list-name">${s.firstName} ${s.lastName}</span>
 <span class="student-phone">${s.phone||''}</span>
 </div>`).join('');

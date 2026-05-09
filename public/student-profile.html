@@ -417,15 +417,22 @@
     if (!invs.length) { el.innerHTML='<div class="empty-feed">No payments recorded.</div>'; return; }
     el.innerHTML = `<table class="inv-table">
       <thead><tr><th>#</th><th>Date</th><th>Description</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
-      <tbody>${invs.map(i=>`
-        <tr>
+      <tbody>${invs.map(i=>{
+        const isCharge  = i.status === 'Pending' || i.paymentType === 'Auto';
+        const amtColor  = isCharge ? '#dc2626' : '#16a34a';
+        const amtSign   = isCharge ? '−' : '+';
+        const statusBadge = i.status === 'Paid'
+          ? `<span class="badge badge-green" style="font-size:10px">Paid</span>`
+          : `<span class="badge badge-gold" style="font-size:10px">${i.status}</span>`;
+        return `<tr>
           <td style="color:var(--muted);font-size:12px">${i.number||''}</td>
           <td style="white-space:nowrap;font-size:12px">${fmtDate(i.createdAt)}</td>
-          <td>${i.desc||'Payment'}</td>
-          <td style="font-size:12px">${i.paymentType||''}</td>
-          <td style="font-weight:700;color:#16a34a">${Number(i.total).toLocaleString()}</td>
-          <td><span class="badge badge-green" style="font-size:10px">${i.status}</span></td>
-        </tr>`).join('')}
+          <td style="font-size:13px">${i.desc||'Payment'}</td>
+          <td style="font-size:12px;color:var(--muted)">${i.paymentType||''}</td>
+          <td style="font-weight:700;color:${amtColor};white-space:nowrap">${amtSign} ${Number(i.total).toLocaleString()}</td>
+          <td>${statusBadge}</td>
+        </tr>`;
+      }).join('')}
       </tbody>
     </table>`;
   }

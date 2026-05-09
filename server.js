@@ -463,14 +463,16 @@ app.post('/api/students/:id/payment', async (req, res) => {
     // Create invoice
     const id = 'inv-' + Date.now();
     const number = 'INV-' + Date.now().toString().slice(-6);
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
     const month = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
     await pool.query(
       `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type,notes)
        VALUES($1,$2,$3,$4,$5,$6,$7,'Paid',$8,$9)`,
       [id, number, req.params.id, groupId||null, month, desc||'Payment', num, paymentType||'Cash', notes||null]
     );
-    res.json({ ok: true, newBalance: num });
+    const balRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
+    const newBalance = Number(balRes.rows[0]?.balance || 0);
+    res.json({ ok: true, newBalance });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
