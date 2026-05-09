@@ -177,6 +177,7 @@ async function initDB() {
     `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS level        TEXT`,
     `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS month        TEXT`,
     `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'Cash'`,
+    `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS creator      TEXT`,
     `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS password TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS sub_container TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS balance NUMERIC DEFAULT 0`,
@@ -499,7 +500,7 @@ app.post('/api/students/:id/activate', async (req, res) => {
 // Adjust balance (add payment)
 app.post('/api/students/:id/payment', async (req, res) => {
   try {
-    const { amount, paymentType, groupId, desc, notes } = req.body;
+    const { amount, paymentType, groupId, desc, notes, creator } = req.body;
     const num = Number(amount);
     // Update balance
     await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [num, req.params.id]);
@@ -509,9 +510,9 @@ app.post('/api/students/:id/payment', async (req, res) => {
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
     const month = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
     await pool.query(
-      `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type,notes)
-       VALUES($1,$2,$3,$4,$5,$6,$7,'Paid',$8,$9)`,
-      [id, number, req.params.id, groupId||null, month, desc||'Payment', num, paymentType||'Cash', notes||null]
+      `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type,notes,creator)
+       VALUES($1,$2,$3,$4,$5,$6,$7,'Paid',$8,$9,$10)`,
+      [id, number, req.params.id, groupId||null, month, desc||'Payment', num, paymentType||'Cash', notes||null, creator||null]
     );
     const balRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
     const newBalance = Number(balRes.rows[0]?.balance || 0);
@@ -589,7 +590,7 @@ app.get('/api/students/:id/invoices', async (req, res) => {
       level: i.level, month: i.month, desc: i.description,
       total: Number(i.total), dueDate: i.due_date,
       status: i.status, paymentType: i.payment_type,
-      notes: i.notes, createdAt: i.created_at
+      notes: i.notes, creator: i.creator, createdAt: i.created_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -887,6 +888,15 @@ app.patch('/api/invoices/:id/status', async (req, res) => {
 
 app.delete('/api/invoices/:id', async (req, res) => {
   try {
+    const { rows } = await pool.query('SELECT * FROM invoices WHERE id=$1', [req.params.id]);
+    const inv = rows[0];
+    if (inv) {
+      const isCharge = inv.payment_type === 'Auto' || (inv.description||'').toLowerCase().startsWith('activation');
+      const delta = isCharge ? Number(inv.total) : -Number(inv.total);
+      if (inv.student_id) {
+        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [delta, inv.student_id]);
+      }
+    }
     await pool.query('DELETE FROM invoices WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

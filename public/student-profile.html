@@ -53,12 +53,35 @@
     .feed-add { display:flex; gap:10px; margin-top:16px; }
     .feed-add textarea { flex:1; resize:none; height:70px; }
 
-    /* Invoices */
-    .inv-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .inv-table th { text-align:left; padding:8px 12px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); border-bottom:1px solid var(--border); }
-    .inv-table td { padding:10px 12px; border-bottom:1px solid var(--border); }
-    .inv-table tbody tr:last-child td { border-bottom:none; }
-    .inv-table tbody tr:hover { background:var(--crimson-soft); }
+    /* Payments table */
+    .pay-tbl { width:100%; border-collapse:collapse; }
+    .pay-tbl th { text-align:left; padding:12px 16px; font-size:12px; font-weight:700; color:var(--muted); border-bottom:2px solid var(--border); white-space:nowrap; }
+    .pay-tbl td { padding:14px 16px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .pay-tbl tbody tr:last-child td { border-bottom:none; }
+    .pay-tbl tbody tr:hover { background:#fafafa; }
+    .pay-date { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; }
+    .type-badge-sys { display:inline-block; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; background:#e5e7eb; color:#6b7280; }
+    .type-badge-pay { display:inline-block; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; background:#dcfce7; color:#16a34a; }
+    .pay-amount-neg { font-size:20px; font-weight:800; color:var(--text); white-space:nowrap; }
+    .pay-amount-pos { font-size:20px; font-weight:800; color:#16a34a; white-space:nowrap; }
+    .pay-amount-unit { font-size:13px; font-weight:600; color:var(--muted); margin-left:3px; }
+    .pay-grp-badge { display:inline-block; background:#f1f5f9; border-radius:6px; padding:3px 9px; font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .pay-comment-detail { font-size:12px; color:var(--muted); margin-top:2px; }
+    .pay-more-btn { display:inline-block; margin-top:4px; padding:3px 12px; border:1px solid var(--border); border-radius:20px; font-size:11px; cursor:pointer; background:white; color:var(--muted); font-family:inherit; }
+    .pay-more-btn:hover { border-color:var(--crimson); color:var(--crimson); }
+    .pay-creator-name { font-size:12px; font-weight:600; color:var(--text); }
+    .pay-creator-time { font-size:11px; color:var(--muted); margin-top:2px; }
+    .pay-print-wrap { position:relative; display:inline-flex; }
+    .pay-print-btn { display:flex; align-items:center; gap:6px; padding:7px 13px; border:1.5px solid #0ea5e9; border-radius:8px 0 0 8px; background:white; color:#0ea5e9; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
+    .pay-print-btn:hover { background:#e0f2fe; }
+    .pay-print-arr { padding:7px 8px; border:1.5px solid #0ea5e9; border-left:none; border-radius:0 8px 8px 0; background:white; color:#0ea5e9; cursor:pointer; }
+    .pay-print-arr:hover { background:#e0f2fe; }
+    .pay-dropdown { position:absolute; top:calc(100% + 4px); right:0; background:white; border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,0.12); min-width:130px; z-index:100; display:none; overflow:hidden; }
+    .pay-dropdown.open { display:block; }
+    .pay-dropdown-item { display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:13px; font-weight:600; cursor:pointer; }
+    .pay-dropdown-item:hover { background:#f9fafb; }
+    .pay-dropdown-item.edit { color:#d97706; }
+    .pay-dropdown-item.remove { color:#dc2626; }
 
     /* Payment modal */
     .pay-types { display:flex; gap:8px; flex-wrap:wrap; }
@@ -243,9 +266,9 @@
       <div class="form-group">
         <label>Payment type</label>
         <div class="pay-types" id="payTypes">
-          <button class="pay-type-btn selected" onclick="selectPayType(this,'Cash')">💵 Cash</button>
-          <button class="pay-type-btn" onclick="selectPayType(this,'Card')">💳 Card</button>
-          <button class="pay-type-btn" onclick="selectPayType(this,'Transfer')">🏦 Transfer</button>
+          <button class="pay-type-btn selected" data-type="Cash" onclick="selectPayType(this,'Cash')">💵 Cash</button>
+          <button class="pay-type-btn" data-type="Card" onclick="selectPayType(this,'Card')">💳 Card</button>
+          <button class="pay-type-btn" data-type="Transfer" onclick="selectPayType(this,'Transfer')">🏦 Transfer</button>
         </div>
         <input type="hidden" id="payType" value="Cash">
       </div>
@@ -366,6 +389,7 @@
       document.getElementById('profExam').textContent    = s.exam    || '—';
       document.getElementById('profCreated').textContent = fmtDate(s.createdAt);
 
+      _invoices = invs;
       renderGroups(grps);
       renderComments(cmts);
       renderInvoices(invs);
@@ -410,27 +434,115 @@
   function renderInvoices(invs) {
     const el = document.getElementById('invoicesList');
     if (!invs.length) { el.innerHTML='<div class="empty-feed">No payments recorded.</div>'; return; }
-    el.innerHTML = `<table class="inv-table">
-      <thead><tr><th>#</th><th>Date</th><th>Description</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
-      <tbody>${invs.map(i=>{
-        const isCharge  = i.status === 'Pending' || i.paymentType === 'Auto';
-        const amtColor  = isCharge ? '#dc2626' : '#16a34a';
-        const amtSign   = isCharge ? '−' : '+';
-        const statusBadge = i.status === 'Paid'
-          ? `<span class="badge badge-green" style="font-size:10px">Paid</span>`
-          : `<span class="badge badge-gold" style="font-size:10px">${i.status}</span>`;
+    const isSystem = i => i.paymentType === 'Auto' || (i.desc||'').toLowerCase().startsWith('activation');
+    el.innerHTML = `<table class="pay-tbl">
+      <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Comment</th><th>Creator</th><th></th></tr></thead>
+      <tbody>${invs.map(i => {
+        const sys = isSystem(i);
+        const grp = studentGroups.find(g => g.id === i.groupId);
+        const grpName = grp ? grp.name : (i.groupId ? i.groupId : '');
+
+        // Amount
+        const amt = Number(i.total);
+        const amtFmt = amt.toLocaleString('uz-UZ').replace(/\s/g, ' ');
+        const amtHtml = sys
+          ? `<span class="pay-amount-neg">−${amtFmt}<span class="pay-amount-unit">UZS</span></span>`
+          : `<span class="pay-amount-pos">+${amtFmt}<span class="pay-amount-unit">UZS</span></span>`;
+
+        // Comment
+        let commentHtml = grpName ? `<div class="pay-grp-badge">${grpName}</div>` : '';
+        if (sys) {
+          const lesMatch = (i.desc||'').match(/(\d+)\s*of\s*(\d+)/i);
+          if (lesMatch) commentHtml += `<div class="pay-comment-detail">${lesMatch[1]} les.</div>`;
+          commentHtml += `<button class="pay-more-btn" onclick="event.stopPropagation();toggleMore(this,'${i.id}')">more</button>
+            <div id="more-${i.id}" style="display:none;font-size:12px;color:var(--muted);margin-top:4px">${i.desc||''}</div>`;
+        } else {
+          if (i.paymentType && i.paymentType !== 'Auto') commentHtml += `<div class="pay-comment-detail">${i.paymentType}</div>`;
+        }
+
+        // Creator
+        const creatorHtml = sys
+          ? `<div class="pay-creator-time">${fmtDateTime(i.createdAt)}</div>`
+          : `${i.creator ? `<div class="pay-creator-name">${i.creator}</div>` : ''}
+             <div class="pay-creator-time">${fmtDateTime(i.createdAt)}</div>`;
+
         return `<tr>
-          <td style="color:var(--muted);font-size:12px">${i.number||''}</td>
-          <td style="white-space:nowrap;font-size:12px">${fmtDate(i.createdAt)}</td>
-          <td style="font-size:13px">${i.desc||'Payment'}</td>
-          <td style="font-size:12px;color:var(--muted)">${i.paymentType||''}</td>
-          <td style="font-weight:700;color:${amtColor};white-space:nowrap">${amtSign} ${Number(i.total).toLocaleString()}</td>
-          <td>${statusBadge}</td>
+          <td><div class="pay-date">${fmtDate(i.createdAt)}</div></td>
+          <td>${sys ? '<span class="type-badge-sys">system</span>' : '<span class="type-badge-pay">payment</span>'}</td>
+          <td>${amtHtml}</td>
+          <td>${commentHtml}</td>
+          <td>${creatorHtml}</td>
+          <td>
+            <div class="pay-print-wrap" id="wrap-${i.id}">
+              <button class="pay-print-btn" onclick="printInvoice('${i.id}')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Print out
+              </button>
+              <button class="pay-print-arr" onclick="toggleInvDropdown('${i.id}')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="pay-dropdown" id="dd-${i.id}">
+                <div class="pay-dropdown-item edit" onclick="editInvoice('${i.id}')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Edit
+                </div>
+                <div class="pay-dropdown-item remove" onclick="removeInvoice('${i.id}')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  Remove
+                </div>
+              </div>
+            </div>
+          </td>
         </tr>`;
       }).join('')}
       </tbody>
     </table>`;
   }
+
+  function toggleMore(btn, id) {
+    const el = document.getElementById('more-'+id);
+    if (!el) return;
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    btn.textContent = open ? 'more' : 'less';
+  }
+
+  function toggleInvDropdown(id) {
+    document.querySelectorAll('.pay-dropdown').forEach(d => { if (d.id !== 'dd-'+id) d.classList.remove('open'); });
+    document.getElementById('dd-'+id)?.classList.toggle('open');
+  }
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.pay-print-wrap')) {
+      document.querySelectorAll('.pay-dropdown').forEach(d => d.classList.remove('open'));
+    }
+  });
+
+  function printInvoice(id) { window.print(); }
+
+  function editInvoice(id) {
+    const i = _invoices?.find(x => x.id === id);
+    if (!i) return;
+    document.getElementById('payAmount').value = i.total;
+    document.getElementById('payType').value = i.paymentType || 'Cash';
+    document.querySelectorAll('.pay-type-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.type === (i.paymentType||'Cash'));
+    });
+    document.getElementById('payDesc').value = i.desc || '';
+    document.getElementById('payGroup').value = i.groupId || '';
+    openModal('payModal');
+    toggleInvDropdown(id);
+  }
+
+  async function removeInvoice(id) {
+    if (!confirm('Remove this payment?')) return;
+    await apiDelete('/api/invoices/'+id);
+    logActivity(`Removed invoice for ${student?.firstName} ${student?.lastName}`, 'red');
+    loadProfile();
+    showToast('Removed.');
+  }
+
+  let _invoices = [];
 
   function switchTab(name, btn) {
     document.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));
@@ -511,12 +623,14 @@
   async function submitPayment() {
     const amount = Number(document.getElementById('payAmount').value);
     if (!amount || amount <= 0) { showToast('Enter a valid amount.','error'); return; }
+    const session = getSession();
     const data = {
       amount,
       paymentType: document.getElementById('payType').value,
       groupId:     document.getElementById('payGroup').value||null,
       desc:        document.getElementById('payDesc').value.trim()||'Payment',
       notes:       document.getElementById('payNotes').value.trim(),
+      creator:     session?.name || null,
     };
     await apiPost('/api/students/'+STUDENT_ID+'/payment', data);
     logActivity(`Payment ${amount.toLocaleString()} for ${student?.firstName} ${student?.lastName}`, 'green');
