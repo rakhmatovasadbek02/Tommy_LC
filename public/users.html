@@ -21,16 +21,6 @@
     .sf-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:900;color:var(--text)}
     .sf-meta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .sf-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
-    .section-heading{font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:var(--text);margin:36px 0 16px}
-    .arch-table{width:100%;border-collapse:collapse;background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
-    .arch-table th{background:var(--bg);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
-    .arch-table td{padding:11px 14px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border-light,#f1f1f1);vertical-align:middle}
-    .arch-table tr:last-child td{border-bottom:none}
-    .arch-table tr:hover td{background:#fafafa}
-    .arch-avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:white;flex-shrink:0}
-    .arch-name{font-weight:600;color:var(--text)}
-    .arch-reason{max-width:220px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .arch-date{color:var(--muted);font-size:12px;white-space:nowrap}
   </style>
 </head>
 <body>
@@ -42,23 +32,6 @@
   </div>
   <div class="page-content">
     <div class="staff-grid" id="userCards"></div>
-
-    <div class="section-heading">Archived Students</div>
-    <div id="archivedWrap">
-      <table class="arch-table" id="archivedTable">
-        <thead>
-          <tr>
-            <th style="width:36px"></th>
-            <th>Name</th>
-            <th>Phone</th>
-            <th>Archive Reason</th>
-            <th>Archived At</th>
-            <th style="width:90px"></th>
-          </tr>
-        </thead>
-        <tbody id="archivedBody"></tbody>
-      </table>
-    </div>
   </div>
 </div>
 
@@ -127,48 +100,7 @@
     input.value=o;
   }
 
-  async function load() {
-    users = await apiGet('/api/users');
-    renderUsers();
-    loadArchived();
-  }
-
-  async function loadArchived() {
-    const list = await apiGet('/api/students/archived');
-    renderArchived(list);
-  }
-
-  function renderArchived(list) {
-    const tbody = document.getElementById('archivedBody');
-    if (!list.length) {
-      document.getElementById('archivedTable').style.display = 'none';
-      document.getElementById('archivedWrap').innerHTML = '<div class="empty-state"><div class="empty-icon">🗃️</div><p>No archived students.</p></div>';
-      return;
-    }
-    tbody.innerHTML = list.map(s => {
-      const name = s.firstName + ' ' + s.lastName;
-      const col  = avatarColor(name);
-      const dt   = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-      const phone = s.phone ? '+998 ' + s.phone : '—';
-      return `<tr>
-        <td><span class="arch-avatar" style="background:${col}">${initials(name)}</span></td>
-        <td><div class="arch-name"><a href="student-profile.html?id=${s.id}" style="color:inherit;text-decoration:none">${name}</a></div></td>
-        <td style="color:var(--muted);font-size:13px">${phone}</td>
-        <td><div class="arch-reason" title="${s.archiveReason||''}">${s.archiveReason||'—'}</div></td>
-        <td><div class="arch-date">${dt}</div></td>
-        <td><button class="btn btn-outline btn-sm" onclick="restoreStudent('${s.id}','${name.replace(/'/g,"\\'")}')">Restore</button></td>
-      </tr>`;
-    }).join('');
-  }
-
-  async function restoreStudent(id, name) {
-    if (!confirm(`Restore ${name} as Inactive student?`)) return;
-    try {
-      await apiPut('/api/students/' + id + '/restore', {});
-      showToast(name + ' restored.');
-      loadArchived();
-    } catch(e) { showToast('Error restoring student.','error'); }
-  }
+  async function load() { users = await apiGet('/api/users'); renderUsers(); }
 
   function renderUsers() {
     const session = getSession();
