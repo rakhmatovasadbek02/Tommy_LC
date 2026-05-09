@@ -447,34 +447,21 @@
       <button class="modal-close" onclick="closeModal('activateModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
-      <div id="activateLeadName" style="font-size:16px;font-weight:700;margin-bottom:2px;color:var(--text)"></div>
-      <div id="activateGroupName" style="font-size:13px;color:var(--muted);margin-bottom:14px"></div>
-      <div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:12px 14px;font-size:13px;color:#1B5E20;margin-bottom:14px;line-height:1.6">
-        ✅ Confirm payment received. The student will be activated and moved to Converted.
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Amount (UZS)</label>
-          <input type="number" id="activateAmount" placeholder="0" min="0" step="1000">
+      <p style="margin:0 0 16px;font-size:15px;font-weight:700" id="activateLeadName"></p>
+      <div id="actLeadChargeRow" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Activation charge</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px" id="actLeadLessonNote"></div>
         </div>
-        <div class="form-group">
-          <label>Payment Type</label>
-          <select id="activatePayType">
-            <option value="Cash">💵 Cash</option>
-            <option value="Click">📱 Click</option>
-            <option value="Payme">📱 Payme</option>
-            <option value="Bank transfer">🏦 Bank transfer</option>
-          </select>
-        </div>
+        <div style="font-size:20px;font-weight:900;color:var(--crimson)" id="actLeadAmount"></div>
       </div>
-      <div class="form-group">
-        <label>Notes (optional)</label>
-        <input type="text" id="activateNotes" placeholder="Optional notes…">
+      <div id="actLeadNoPriceWarn" style="display:none;margin-top:12px;font-size:12px;color:#d97706;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px">
+        ⚠️ This group has no price configured. Set a price in group settings first.
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('activateModal')">Cancel</button>
-      <button class="btn-activate" style="padding:9px 16px;font-size:13px;border-radius:8px;display:inline-flex;align-items:center;gap:6px" onclick="confirmActivate()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirm & Activate</button>
+      <button class="btn-activate" style="padding:9px 16px;font-size:13px;border-radius:8px;display:inline-flex;align-items:center;gap:6px" onclick="confirmActivate()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Activate</button>
     </div>
   </div>
 </div>
@@ -850,46 +837,59 @@ async function confirmTrial() {
 }
 
 /* Trial → Activate */
+function calcLeadActivation(group) {
+  const price = Math.abs(Number(group?.price || 0));
+  if (!price) return { amount: 0, remaining: 0 };
+  const schedType = group.schedType;
+  let customDays = group.customDays;
+  if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
+  const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+  let lessonDays;
+  if (schedType === 'odd')        lessonDays = [1,3,5];
+  else if (schedType === 'even')  lessonDays = [2,4,6];
+  else if (schedType === 'daily') lessonDays = [1,2,3,4,5];
+  else if (schedType === 'custom') lessonDays = (customDays||[]).map(d=>dayMap[d]).filter(d=>d!==undefined);
+  else                            lessonDays = [1,3,5];
+  const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+  const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+  const last = new Date(year, month+1, 0).getDate();
+  let remaining = 0;
+  for (let d = today; d <= last; d++) {
+    if (lessonDays.includes(new Date(year, month, d).getDay())) remaining++;
+  }
+  return { amount: Math.round((price / 12) * Math.max(0, remaining)), remaining };
+}
+
 function openActivate(id) {
   activateLeadId = id;
   const l     = leads.find(l => l.id === id);
   const group = groups.find(g => g.id === l?.groupId);
-  document.getElementById('activateLeadName').textContent  = l ? l.firstName+' '+l.lastName : '';
-  document.getElementById('activateGroupName').textContent = group ? 'Group: '+group.name : '';
-  document.getElementById('activateAmount').value  = group?.price || '';
-  document.getElementById('activateNotes').value   = '';
+  document.getElementById('activateLeadName').textContent = l ? l.firstName+' '+l.lastName : '';
+  const hasPrice = Math.abs(Number(group?.price || 0)) > 0;
+  document.getElementById('actLeadNoPriceWarn').style.display = hasPrice ? 'none' : '';
+  document.getElementById('actLeadChargeRow').style.display   = hasPrice ? '' : 'none';
+  if (hasPrice) {
+    const { amount, remaining } = calcLeadActivation(group);
+    const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('actLeadAmount').textContent     = amount.toLocaleString()+' UZS';
+    document.getElementById('actLeadLessonNote').textContent = remaining+' of 12 lessons · '+MONTHS[now.getMonth()]+' '+now.getFullYear();
+  }
   openModal('activateModal');
 }
 
 async function confirmActivate() {
-  const l       = leads.find(l => l.id === activateLeadId);
-  const amount  = document.getElementById('activateAmount').value;
-  const payType = document.getElementById('activatePayType').value;
-  const notes   = document.getElementById('activateNotes').value.trim();
-  if (!amount) { showToast('Enter payment amount.', 'error'); return; }
+  const l = leads.find(l => l.id === activateLeadId);
+  if (!l) return;
+  closeModal('activateModal');
   try {
-    const group = groups.find(g => g.id === l?.groupId);
-    const now   = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    await apiPost('/api/invoices', {
-      id: genId(),
-      number: 'INV-'+Date.now().toString().slice(-6),
-      studentId: l.id,
-      groupId: l.groupId || null,
-      level: group?.level || l.currentLevel || null,
-      month,
-      total: Number(amount),
-      status: 'Paid',
-      paymentType: payType,
-      dueDate: null,
-      notes: notes || `Activation — ${l.firstName} ${l.lastName}`,
-      desc: `Activation — ${month}`,
-    });
     await apiPost('/api/leads/'+activateLeadId+'/convert', {});
+    if (l.groupId) {
+      await apiPost('/api/students/'+l.id+'/activate', { groupId: l.groupId });
+    }
     logActivity(`Activated: ${l.firstName} ${l.lastName}`, 'green');
-    closeModal('activateModal');
     await load();
-    showToast('Student activated! ✅');
+    showToast('Student activated!');
   } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
