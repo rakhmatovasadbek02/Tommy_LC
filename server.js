@@ -480,7 +480,9 @@ app.post('/api/students/:id/activate', async (req, res) => {
 
       const now        = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
       const year       = now.getFullYear(), month = now.getMonth(), today = now.getDate();
-      const lessonDays = getLessonDays(g.sched_type, g.custom_days);
+      let customDays = g.custom_days;
+      if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
+      const lessonDays = getLessonDays(g.sched_type, customDays);
       const remaining = Math.max(0, countLessons(year, month, lessonDays, today));
       const amount    = Math.round((monthlyPrice / 12) * remaining);
 

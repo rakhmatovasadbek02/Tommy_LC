@@ -297,6 +297,33 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
   </div>
 </div>
 
+<!-- Activation Confirm Modal -->
+<div class="modal-overlay" id="activateModal">
+  <div class="modal" style="width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Activate Student</div>
+      <button class="modal-close" onclick="closeModal('activateModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 16px;font-size:15px;font-weight:700" id="actStudentName"></p>
+      <div id="actChargeRow" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Activation charge</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px" id="actLessonNote"></div>
+        </div>
+        <div style="font-size:20px;font-weight:900;color:var(--crimson)" id="actAmount"></div>
+      </div>
+      <div id="actNoPriceWarn" style="display:none;margin-top:12px;font-size:12px;color:#d97706;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px">
+        ⚠️ This group has no price configured. Set a price in the group settings first.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('activateModal')">Cancel</button>
+      <button class="btn btn-primary" id="actConfirmBtn" onclick="confirmActivation()">Activate</button>
+    </div>
+  </div>
+</div>
+
 <!-- Move to Group Modal -->
 <div class="modal-overlay" id="moveGroupModal">
   <div class="modal" style="width:380px">
@@ -698,20 +725,63 @@ showToast('Student added as Trial!');
 } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
-async function activateEnrolledStudent(studentId) {
-try {
-const s = students.find(s=>s.id===studentId) || allStudents.find(s=>s.id===studentId);
-const result = await apiPost('/api/students/'+studentId+'/activate', { groupId });
-if (s) { s.status = 'Active'; s.balance = (Number(s.balance) || 0) - Math.abs(result.amount || 0); }
-renderStudentList();
-renderAttendance();
-const name = s ? s.firstName+' '+s.lastName : 'Student';
-logActivity(`Activated student ${name} in ${group.name}`, 'green');
-const msg = result.amount > 0
-  ? `${name} activated! Invoice: ${result.amount.toLocaleString()} (${result.remaining}/${result.total} lessons)`
-  : `${name} activated!`;
-showToast(msg);
-} catch(e) { showToast('Error: '+e.message, 'error'); }
+let _activatingStudentId = null;
+
+function calcActivation() {
+  const price = Math.abs(Number(group.price || 0));
+  if (!price) return { amount: 0, remaining: 0 };
+  const schedType = group.schedType;
+  let customDays = group.customDays;
+  if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
+  const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+  let lessonDays;
+  if (schedType === 'odd')         lessonDays = [1,3,5];
+  else if (schedType === 'even')   lessonDays = [2,4,6];
+  else if (schedType === 'daily')  lessonDays = [1,2,3,4,5];
+  else if (schedType === 'custom') lessonDays = (customDays||[]).map(d=>dayMap[d]).filter(d=>d!==undefined);
+  else                             lessonDays = [1,3,5];
+  const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+  const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+  const last = new Date(year, month+1, 0).getDate();
+  let remaining = 0;
+  for (let d = today; d <= last; d++) {
+    if (lessonDays.includes(new Date(year, month, d).getDay())) remaining++;
+  }
+  remaining = Math.max(0, remaining);
+  return { amount: Math.round((price / 12) * remaining), remaining };
+}
+
+function activateEnrolledStudent(studentId) {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  _activatingStudentId = studentId;
+  const s = students.find(s=>s.id===studentId) || allStudents.find(s=>s.id===studentId);
+  const name = s ? s.firstName+' '+s.lastName : 'Student';
+  document.getElementById('actStudentName').textContent = name;
+  const { amount, remaining } = calcActivation();
+  const hasPrice = Math.abs(Number(group.price||0)) > 0;
+  document.getElementById('actNoPriceWarn').style.display = hasPrice ? 'none' : '';
+  document.getElementById('actChargeRow').style.display = hasPrice ? '' : 'none';
+  if (hasPrice) {
+    const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+    document.getElementById('actAmount').textContent = amount.toLocaleString()+' UZS';
+    document.getElementById('actLessonNote').textContent = remaining+' of 12 lessons · '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][now.getMonth()]+' '+now.getFullYear();
+  }
+  openModal('activateModal');
+}
+
+async function confirmActivation() {
+  if (!_activatingStudentId) return;
+  closeModal('activateModal');
+  try {
+    const s = students.find(s=>s.id===_activatingStudentId) || allStudents.find(s=>s.id===_activatingStudentId);
+    const result = await apiPost('/api/students/'+_activatingStudentId+'/activate', { groupId });
+    if (s) { s.status = 'Active'; s.balance = (Number(s.balance)||0) - Math.abs(result.amount||0); }
+    renderStudentList();
+    renderAttendance();
+    const name = s ? s.firstName+' '+s.lastName : 'Student';
+    logActivity(`Activated student ${name} in ${group.name}`, 'green');
+    showToast(result.amount > 0 ? `${name} activated! −${result.amount.toLocaleString()} UZS` : `${name} activated!`);
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 /* ── Student menu ── */
 function toggleStudentMenu(id, e) {
