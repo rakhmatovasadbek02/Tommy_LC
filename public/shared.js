@@ -24,8 +24,10 @@ async function apiPatch(path, data) {
  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || r.statusText); }
  return r.json();
 }
-async function apiDelete(path) {
- const r = await fetch(API + path, { method:'DELETE' });
+async function apiDelete(path, body) {
+ const opts = { method:'DELETE' };
+ if (body) { opts.headers = {'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
+ const r = await fetch(API + path, opts);
  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || r.statusText); }
  return r.json();
 }

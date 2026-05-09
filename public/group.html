@@ -145,7 +145,8 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <!-- Student list -->
 <div class="student-list" id="studentList"></div>
 <!-- Archive -->
-<button class="archive-btn">Show archived students</button>
+<button class="archive-btn" id="archiveToggleBtn" onclick="toggleArchivedStudents()">Show archived students</button>
+<div id="archivedStudentsList" style="display:none;margin:8px 16px 0"></div>
 <!-- Bottom action bar: horizontal buttons -->
 <div class="left-action-bar">
 <button class="icon-btn" title="Edit group" onclick="goEdit()">
@@ -588,6 +589,35 @@ const msg = result.amount > 0
 showToast(msg);
 } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
+let archivedVisible = false;
+async function toggleArchivedStudents() {
+  const btn = document.getElementById('archiveToggleBtn');
+  const container = document.getElementById('archivedStudentsList');
+  if (archivedVisible) {
+    archivedVisible = false;
+    container.style.display = 'none';
+    container.innerHTML = '';
+    btn.textContent = 'Show archived students';
+    return;
+  }
+  try {
+    const list = await apiGet('/api/groups/'+groupId+'/archived-students');
+    archivedVisible = true;
+    btn.textContent = 'Hide archived students';
+    if (!list.length) {
+      container.innerHTML = '<div style="padding:10px;text-align:center;color:var(--muted);font-size:13px">No archived students.</div>';
+    } else {
+      container.innerHTML = list.map(s => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="width:8px;height:8px;border-radius:50%;background:#6b7280;flex-shrink:0"></span>
+          <span style="flex:1;font-size:13px;color:var(--muted)">${s.firstName} ${s.lastName}</span>
+          <span style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.archive_reason||''}">${s.archive_reason||''}</span>
+        </div>`).join('');
+    }
+    container.style.display = 'block';
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
+}
+
 load();
 </script>
 </body>

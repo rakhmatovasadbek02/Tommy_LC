@@ -131,6 +131,7 @@
         <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
           <button class="btn btn-primary" style="width:100%" onclick="openPayModal()">+ Add Payment</button>
           <button class="btn btn-outline" style="width:100%" onclick="openEditModal()">Edit Profile</button>
+          <button class="btn btn-danger" style="width:100%" onclick="openArchiveModal()">Archive Student</button>
         </div>
       </div>
 
@@ -274,6 +275,27 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('payModal')">Cancel</button>
       <button class="btn btn-primary" onclick="submitPayment()">Add Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Archive Modal -->
+<div class="modal-overlay" id="archiveModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Archive Student</div>
+      <button class="modal-close" onclick="closeModal('archiveModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 12px;color:var(--muted)" id="archiveStudentName"></p>
+      <div class="form-group">
+        <label>Reason for archiving *</label>
+        <textarea id="archiveReason" style="height:80px" placeholder="e.g. Finished course, moved abroad…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('archiveModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmArchive()">Archive</button>
     </div>
   </div>
 </div>
@@ -546,6 +568,23 @@
     closeModal('payModal');
     showToast('Payment added!');
     loadProfile();
+  }
+
+  function openArchiveModal() {
+    document.getElementById('archiveStudentName').textContent =
+      student ? `${student.firstName} ${student.lastName}` : '';
+    document.getElementById('archiveReason').value = '';
+    openModal('archiveModal');
+  }
+
+  async function confirmArchive() {
+    const reason = document.getElementById('archiveReason').value.trim();
+    if (!reason) { showToast('Please enter a reason.', 'error'); return; }
+    await apiDelete('/api/students/' + STUDENT_ID, { reason });
+    logActivity(`Archived student: ${student?.firstName} ${student?.lastName} — ${reason}`, 'red');
+    closeModal('archiveModal');
+    showToast('Student archived.');
+    setTimeout(() => location.replace('students.html'), 800);
   }
 
   loadProfile();
