@@ -26,16 +26,27 @@ min-width: 56px;
 .unit-badge:hover { background: var(--crimson-dark); }
 .unit-badge-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.7); display: block; margin-bottom: 2px; }
 .sort-bar { padding: 10px 16px; border-bottom: 1px solid var(--border); }
-.sort-bar select { width: 100%; padding: 7px 10px; font-size: 13px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; color: var(--text); background: white; outline: none; }
-.student-list { max-height: 380px; overflow-y: auto; }
-.student-list-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px; transition: background 0.1s; }
+.sort-bar select { width: 100%; padding: 9px 12px; font-size: 13px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; color: var(--text); background: white; outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
+.student-list { max-height: 420px; overflow-y: auto; }
+.student-list-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; transition: background 0.1s; position: relative; }
 .student-list-item:last-child { border-bottom: none; }
-.student-list-item:hover { background: var(--crimson-soft); }
-.student-num { font-size: 11px; color: var(--muted); min-width: 18px; }
-.student-dot { width: 8px; height: 8px; border-radius: 50%; background: #1E6B45; flex-shrink: 0; }
+.student-list-item:hover { background: #fafafa; }
+.student-num { font-size: 12px; color: var(--muted); min-width: 22px; text-align: right; }
+.student-dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
 .student-dot.debt { background: #dc2626; }
-.student-list-name { flex: 1; font-weight: 500; }
-.student-phone { font-size: 11px; color: var(--muted); }
+.student-dot.frozen { background: #94a3b8; }
+.student-list-name { flex: 1; font-weight: 500; font-size: 13px; }
+.student-phone { font-size: 12px; color: #6366f1; font-weight: 500; }
+/* Three-dot menu */
+.stu-menu-btn { width: 28px; height: 28px; border: none; background: none; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0; transition: background 0.1s; }
+.stu-menu-btn:hover { background: var(--border); color: var(--text); }
+.stu-dropdown { position: absolute; right: 8px; top: calc(100% - 4px); background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.13); min-width: 200px; z-index: 200; display: none; overflow: hidden; }
+.stu-dropdown.open { display: block; }
+.stu-dd-item { display: flex; align-items: center; gap: 12px; padding: 11px 16px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text); transition: background 0.1s; }
+.stu-dd-item:hover { background: #f9fafb; }
+.stu-dd-item svg { flex-shrink: 0; color: #6b7280; }
+.stu-dd-item.danger { color: #dc2626; }
+.stu-dd-item.danger svg { color: #dc2626; }
 .archive-btn { margin: 12px 16px 0; width: calc(100% - 32px); padding: 8px; background: var(--crimson); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s; }
 .archive-btn:hover { background: var(--crimson-dark); }
 /* Bottom action bar — horizontal */
@@ -110,6 +121,8 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .unit-opt { padding: 10px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; transition: all 0.15s; }
 .unit-opt:hover { border-color: var(--crimson); background: var(--crimson-soft); color: var(--crimson); }
 .unit-opt.active { background: var(--crimson); color: white; border-color: var(--crimson); }
+.pay-type-btn { padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; cursor: pointer; background: white; font-weight: 600; transition: all 0.15s; font-family: 'Inter', sans-serif; }
+.pay-type-btn.selected { border-color: var(--crimson); background: var(--crimson-soft); color: var(--crimson); }
 </style>
 </head>
 <body>
@@ -138,8 +151,8 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <!-- Sort -->
 <div class="sort-bar">
 <select id="sortSelect" onchange="renderStudentList();renderAttendance()">
-<option value="az">A → Z</option>
-<option value="za">Z → A</option>
+<option value="az">By A-Z</option>
+<option value="za">By Z-A</option>
 </select>
 </div>
 <!-- Student list -->
@@ -233,6 +246,78 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 </div>
 </div>
 </div>
+<!-- Quick Payment Modal -->
+<div class="modal-overlay" id="quickPayModal">
+  <div class="modal" style="width:380px">
+    <div class="modal-header">
+      <div class="modal-title">Add Payment</div>
+      <button class="modal-close" onclick="closeModal('quickPayModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;font-weight:600;font-size:14px" id="qpStudentName"></p>
+      <div class="form-group">
+        <label>Amount (UZS) *</label>
+        <input type="number" id="qpAmount" placeholder="0" min="0" step="1000">
+      </div>
+      <div class="form-group">
+        <label>Payment type</label>
+        <div style="display:flex;gap:8px">
+          <button class="pay-type-btn qp-type-btn selected" onclick="selectQpType(this,'Cash')">💵 Cash</button>
+          <button class="pay-type-btn qp-type-btn" onclick="selectQpType(this,'Card')">💳 Card</button>
+          <button class="pay-type-btn qp-type-btn" onclick="selectQpType(this,'Transfer')">🏦 Transfer</button>
+        </div>
+        <input type="hidden" id="qpType" value="Cash">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('quickPayModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitQuickPayment()">Add Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Note Modal -->
+<div class="modal-overlay" id="quickNoteModal">
+  <div class="modal" style="width:380px">
+    <div class="modal-header">
+      <div class="modal-title">Add Note</div>
+      <button class="modal-close" onclick="closeModal('quickNoteModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;font-weight:600;font-size:14px" id="qnStudentName"></p>
+      <div class="form-group">
+        <label>Note *</label>
+        <textarea id="qnText" style="height:90px" placeholder="Write a note…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('quickNoteModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitQuickNote()">Add Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move to Group Modal -->
+<div class="modal-overlay" id="moveGroupModal">
+  <div class="modal" style="width:380px">
+    <div class="modal-header">
+      <div class="modal-title">Move to Group</div>
+      <button class="modal-close" onclick="closeModal('moveGroupModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;font-weight:600;font-size:14px" id="mvStudentName"></p>
+      <div class="form-group">
+        <label>Select new group *</label>
+        <select id="mvGroupSelect"><option value="">— Select group —</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('moveGroupModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitMoveToGroup()">Move</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
@@ -301,6 +386,13 @@ ${price ? `<div class="gi-row" style="margin-top:6px"><span style="display:inlin
 <div class="gi-row" style="margin-top:4px"><span style="color:var(--muted);font-size:11px">id: ${group.id}</span></div>
 `;
 }
+function fmtPhone(p) {
+  if (!p) return '';
+  const d = p.replace(/\D/g,'');
+  if (d.length >= 9) return `(${d.slice(0,2)}) ${d.slice(2,5)}-${d.slice(5,7)}-${d.slice(7,9)}`;
+  return p;
+}
+
 function renderStudentList() {
 const sort = document.getElementById('sortSelect').value;
 const sorted = [...students].sort((a,b) => {
@@ -315,17 +407,50 @@ return;
 }
 const active = sorted.filter(s => s.status !== 'Trial');
 const trialReg = sorted.filter(s => s.status === 'Trial');
-el.innerHTML = active.map((s,i) => `
-<div class="student-list-item" style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'">
-<span class="student-num">${i+1}.</span>
-<span class="student-dot${s.balance < 0 ? ' debt' : ''}"></span>
-<span class="student-list-name">${s.firstName} ${s.lastName}</span>
-<span class="student-phone">${s.phone||''}</span>
-</div>`).join('');
-// Trial enrolled students (added but not yet activated)
+
+const menuIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>`;
+
+el.innerHTML = active.map((s,i) => {
+const frozen = s.status === 'Inactive';
+const dotClass = frozen ? 'frozen' : (s.balance < 0 ? 'debt' : '');
+return `
+<div class="student-list-item" onclick="window.location.href='student-profile.html?id=${s.id}'" style="cursor:pointer">
+  <span class="student-num">${i+1}.</span>
+  <span class="student-dot${dotClass ? ' '+dotClass : ''}"></span>
+  <span class="student-list-name">${s.firstName} ${s.lastName}${frozen ? ' <span style="font-size:10px;color:#94a3b8;font-weight:700">FROZEN</span>' : ''}</span>
+  <span class="student-phone">${fmtPhone(s.phone)}</span>
+  <button class="stu-menu-btn" onclick="event.stopPropagation();toggleStudentMenu('${s.id}',event)">${menuIcon}</button>
+  <div class="stu-dropdown" id="smenu-${s.id}">
+    <div class="stu-dd-item" onclick="event.stopPropagation();makeStudentFrozen('${s.id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      ${frozen ? 'Unfreeze' : 'Make Frozen'}
+    </div>
+    <div class="stu-dd-item" onclick="event.stopPropagation();openQuickPayment('${s.id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Add payment
+    </div>
+    <div class="stu-dd-item" onclick="event.stopPropagation();openQuickNote('${s.id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+      Add new note
+    </div>
+    <div class="stu-dd-item" onclick="event.stopPropagation();openMoveToGroup('${s.id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3l-4 4-4-4"/></svg>
+      Move student to group
+    </div>
+    <div class="stu-dd-item danger" onclick="event.stopPropagation();removeStudentFromGroup('${s.id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      Remove from group
+    </div>
+    <div class="stu-dd-item" onclick="event.stopPropagation();openReminders('${s.id}')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Reminders
+    </div>
+  </div>
+</div>`}).join('');
+
 if (trialReg.length) {
 el.innerHTML += trialReg.map((s,i) => `
-<div class="student-list-item trial-student" style="display:flex;align-items:center">
+<div class="student-list-item trial-student">
 <span class="student-num">${active.length+i+1}.</span>
 <span class="student-dot trial"></span>
 <span class="student-list-name" style="color:#777;flex:1">${s.firstName} ${s.lastName}</span>
@@ -333,7 +458,6 @@ el.innerHTML += trialReg.map((s,i) => `
 <button class="btn-activate-sm" onclick="event.stopPropagation();activateEnrolledStudent('${s.id}')">Activate</button>
 </div>`).join('');
 }
-// Leads on trial
 if (trialStudents.length) {
 el.innerHTML += trialStudents.map((s,i) => `
 <div class="student-list-item trial-student">
@@ -589,6 +713,137 @@ const msg = result.amount > 0
 showToast(msg);
 } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
+/* ── Student menu ── */
+function toggleStudentMenu(id, e) {
+  const dd = document.getElementById('smenu-'+id);
+  const wasOpen = dd.classList.contains('open');
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  if (!wasOpen) dd.classList.add('open');
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+});
+
+async function makeStudentFrozen(id) {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  const s = students.find(s => s.id === id);
+  if (!s) return;
+  const freeze = s.status !== 'Inactive';
+  await apiPut('/api/students/'+id, { ...s, status: freeze ? 'Inactive' : 'Active' });
+  s.status = freeze ? 'Inactive' : 'Active';
+  renderStudentList();
+  logActivity(`${freeze ? 'Frozen' : 'Unfrozen'} student: ${s.firstName} ${s.lastName}`, '');
+  showToast(freeze ? `${s.firstName} frozen.` : `${s.firstName} unfrozen.`);
+}
+
+let _qpStudentId = null;
+function openQuickPayment(id) {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  _qpStudentId = id;
+  const s = students.find(s => s.id === id);
+  document.getElementById('qpStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+  document.getElementById('qpAmount').value = '';
+  document.querySelectorAll('.qp-type-btn').forEach((b,i) => b.classList.toggle('selected', i===0));
+  document.getElementById('qpType').value = 'Cash';
+  openModal('quickPayModal');
+}
+async function submitQuickPayment() {
+  const amount = Number(document.getElementById('qpAmount').value);
+  if (!amount || amount <= 0) { showToast('Enter a valid amount.','error'); return; }
+  const s = students.find(s => s.id === _qpStudentId);
+  const session = getSession();
+  await apiPost('/api/students/'+_qpStudentId+'/payment', {
+    amount, paymentType: document.getElementById('qpType').value,
+    groupId, desc: 'Payment', creator: session?.name||null
+  });
+  s && (s.balance = (Number(s.balance)||0) + amount);
+  renderStudentList();
+  closeModal('quickPayModal');
+  logActivity(`Payment ${amount.toLocaleString()} for ${s?.firstName} ${s?.lastName}`, 'green');
+  showToast('Payment added!');
+}
+function selectQpType(btn, type) {
+  document.querySelectorAll('.qp-type-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('qpType').value = type;
+}
+
+let _qnStudentId = null;
+function openQuickNote(id) {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  _qnStudentId = id;
+  const s = students.find(s => s.id === id);
+  document.getElementById('qnStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+  document.getElementById('qnText').value = '';
+  openModal('quickNoteModal');
+}
+async function submitQuickNote() {
+  const text = document.getElementById('qnText').value.trim();
+  if (!text) { showToast('Enter a note.','error'); return; }
+  const session = getSession();
+  const s = students.find(s => s.id === _qnStudentId);
+  await apiPost('/api/students/'+_qnStudentId+'/comments', { text, actor: session?.name||'Unknown' });
+  closeModal('quickNoteModal');
+  logActivity(`Note added for ${s?.firstName} ${s?.lastName}`, '');
+  showToast('Note added!');
+}
+
+let _mvStudentId = null;
+async function openMoveToGroup(id) {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  _mvStudentId = id;
+  const s = students.find(s => s.id === id);
+  document.getElementById('mvStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+  const allGrps = await apiGet('/api/groups');
+  const sel = document.getElementById('mvGroupSelect');
+  sel.innerHTML = '<option value="">— Select group —</option>' +
+    allGrps.filter(g => g.id !== groupId).map(g =>
+      `<option value="${g.id}">${g.name}${g.level?' · '+g.level:''}</option>`
+    ).join('');
+  openModal('moveGroupModal');
+}
+async function submitMoveToGroup() {
+  const targetId = document.getElementById('mvGroupSelect').value;
+  if (!targetId) { showToast('Select a group.','error'); return; }
+  const s = students.find(s => s.id === _mvStudentId);
+  // Remove from current group
+  const curIds = (group.studentIds||[]).filter(id => id !== _mvStudentId);
+  await apiPatch('/api/groups/'+groupId+'/students', { studentIds: curIds });
+  group.studentIds = curIds;
+  students = students.filter(s => s.id !== _mvStudentId);
+  // Add to target group
+  const allGrps = await apiGet('/api/groups');
+  const target = allGrps.find(g => g.id === targetId);
+  if (target) {
+    const newIds = [...new Set([...(target.studentIds||[]), _mvStudentId])];
+    await apiPatch('/api/groups/'+targetId+'/students', { studentIds: newIds });
+  }
+  renderStudentList();
+  renderAttendance();
+  closeModal('moveGroupModal');
+  logActivity(`Moved ${s?.firstName} ${s?.lastName} to ${target?.name||targetId}`, '');
+  showToast(`${s?.firstName} moved to ${target?.name||'new group'}.`);
+}
+
+async function removeStudentFromGroup(id) {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  const s = students.find(s => s.id === id);
+  if (!confirm(`Remove ${s?.firstName} ${s?.lastName} from this group?`)) return;
+  const newIds = (group.studentIds||[]).filter(i => i !== id);
+  await apiPatch('/api/groups/'+groupId+'/students', { studentIds: newIds });
+  group.studentIds = newIds;
+  students = students.filter(s => s.id !== id);
+  renderStudentList();
+  renderAttendance();
+  logActivity(`Removed ${s?.firstName} ${s?.lastName} from ${group.name}`, 'red');
+  showToast('Student removed from group.');
+}
+
+function openReminders(id) {
+  document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
+  showToast('Reminders — coming soon.', '');
+}
+
 let archivedVisible = false;
 async function toggleArchivedStudents() {
   const btn = document.getElementById('archiveToggleBtn');
