@@ -152,7 +152,10 @@
         </div>
 
         <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
-          <button class="btn btn-primary" style="width:100%" onclick="openPayModal()">+ Add Payment</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="openPayModal('add')">+ Add</button>
+            <button class="btn btn-outline" style="flex:1;color:var(--crimson);border-color:var(--crimson)" onclick="openPayModal('subtract')">− Subtract</button>
+          </div>
           <button class="btn btn-outline" style="width:100%" onclick="openEditModal()">Edit Profile</button>
           <button class="btn btn-danger" style="width:100%" onclick="openArchiveModal()">Archive Student</button>
         </div>
@@ -255,7 +258,7 @@
 <div class="modal-overlay" id="payModal">
   <div class="modal" style="width:420px">
     <div class="modal-header">
-      <div class="modal-title">Add Payment</div>
+      <div class="modal-title" id="payModalTitle">Add Payment</div>
       <button class="modal-close" onclick="closeModal('payModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
@@ -287,7 +290,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('payModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitPayment()">Add Payment</button>
+      <button class="btn btn-primary" id="paySubmitBtn" onclick="submitPayment()">Add Payment</button>
     </div>
   </div>
 </div>
@@ -585,7 +588,12 @@
     loadProfile();
   }
 
-  function openPayModal() {
+  let _payMode = 'add';
+  function openPayModal(mode = 'add') {
+    _payMode = mode;
+    const isSubtract = mode === 'subtract';
+    document.getElementById('payModalTitle').textContent = isSubtract ? 'Subtract Balance' : 'Add Payment';
+    document.getElementById('paySubmitBtn').textContent  = isSubtract ? 'Subtract' : 'Add Payment';
     document.getElementById('payAmount').value = '';
     document.getElementById('payDesc').value = '';
     document.getElementById('payNotes').value = '';
@@ -604,8 +612,9 @@
   }
 
   async function submitPayment() {
-    const amount = Number(document.getElementById('payAmount').value);
-    if (!amount || amount <= 0) { showToast('Enter a valid amount.','error'); return; }
+    const raw = Number(document.getElementById('payAmount').value);
+    if (!raw || raw <= 0) { showToast('Enter a valid amount.','error'); return; }
+    const amount = _payMode === 'subtract' ? -raw : raw;
     const session = getSession();
     const data = {
       amount,
