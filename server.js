@@ -395,6 +395,16 @@ app.get('/api/students/archived', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put('/api/students/:id/restore', async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE students SET archived=FALSE, archive_reason=NULL, archived_at=NULL, status='Inactive' WHERE id=$1`,
+      [req.params.id]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/groups/:id/archived-students', async (req, res) => {
   try {
     const grp = await pool.query('SELECT student_ids FROM groups WHERE id=$1', [req.params.id]);
