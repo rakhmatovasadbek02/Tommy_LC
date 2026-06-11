@@ -77,35 +77,30 @@
     .feed-add { display:flex; gap:10px; margin-top:16px; }
     .feed-add textarea { flex:1; resize:none; height:70px; }
 
-    /* Payments table */
-    .pay-tbl { width:100%; border-collapse:collapse; }
-    .pay-tbl th { text-align:left; padding:12px 16px; font-size:12px; font-weight:700; color:var(--muted); border-bottom:2px solid var(--border); white-space:nowrap; }
-    .pay-tbl td { padding:14px 16px; border-bottom:1px solid var(--border); vertical-align:middle; }
-    .pay-tbl tbody tr:last-child td { border-bottom:none; }
-    .pay-tbl tbody tr:hover { background:#fafafa; }
-    .pay-date { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; }
+    /* Payments list */
+    .pay-list { display:flex; flex-direction:column; gap:10px; }
+    .pay-card { display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border:1px solid var(--border); border-radius:12px; transition:border-color 0.15s,background 0.15s; }
+    .pay-card:hover { border-color:#d1d5db; background:#fafafa; }
+    .pay-card-icon { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .pay-card-icon.pos { background:#dcfce7; color:#16a34a; }
+    .pay-card-icon.neg { background:#fee2e2; color:#dc2626; }
+    .pay-card-body { flex:1; min-width:0; }
+    .pay-card-top { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .pay-card-amount { font-size:18px; font-weight:800; white-space:nowrap; }
+    .pay-card-amount.pos { color:#16a34a; }
+    .pay-card-amount.neg { color:var(--text); }
+    .pay-card-amount-unit { font-size:12px; font-weight:600; color:var(--muted); margin-left:3px; }
+    .pay-card-date { font-size:12px; color:var(--muted); font-weight:600; white-space:nowrap; }
+    .pay-card-meta { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+    .pay-card-creator { font-size:12px; color:var(--muted); margin-top:6px; }
+    .pay-card-creator strong { color:var(--text); font-weight:600; }
+    .pay-card-actions { display:flex; gap:4px; flex-shrink:0; }
     .type-badge-sys { display:inline-block; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; background:#e5e7eb; color:#6b7280; }
     .type-badge-pay { display:inline-block; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; background:#dcfce7; color:#16a34a; }
-    .pay-amount-neg { font-size:20px; font-weight:800; color:var(--text); white-space:nowrap; }
-    .pay-amount-pos { font-size:20px; font-weight:800; color:#16a34a; white-space:nowrap; }
-    .pay-amount-unit { font-size:13px; font-weight:600; color:var(--muted); margin-left:3px; }
-    .pay-grp-badge { display:inline-block; background:#f1f5f9; border-radius:6px; padding:3px 9px; font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px; }
-    .pay-comment-detail { font-size:12px; color:var(--muted); margin-top:2px; }
-    .pay-more-btn { display:inline-block; margin-top:4px; padding:3px 12px; border:1px solid var(--border); border-radius:20px; font-size:11px; cursor:pointer; background:white; color:var(--muted); font-family:inherit; }
+    .pay-grp-badge { display:inline-block; background:#f1f5f9; border-radius:6px; padding:3px 9px; font-size:12px; font-weight:700; color:var(--text); }
+    .pay-comment-detail { font-size:12px; color:var(--muted); }
+    .pay-more-btn { display:inline-block; padding:3px 12px; border:1px solid var(--border); border-radius:20px; font-size:11px; cursor:pointer; background:white; color:var(--muted); font-family:inherit; }
     .pay-more-btn:hover { border-color:var(--crimson); color:var(--crimson); }
-    .pay-creator-name { font-size:12px; font-weight:600; color:var(--text); }
-    .pay-creator-time { font-size:11px; color:var(--muted); margin-top:2px; }
-    .pay-print-wrap { position:relative; display:inline-flex; }
-    .pay-print-btn { display:flex; align-items:center; gap:6px; padding:7px 13px; border:1.5px solid #0ea5e9; border-radius:8px 0 0 8px; background:white; color:#0ea5e9; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
-    .pay-print-btn:hover { background:#e0f2fe; }
-    .pay-print-arr { padding:7px 8px; border:1.5px solid #0ea5e9; border-left:none; border-radius:0 8px 8px 0; background:white; color:#0ea5e9; cursor:pointer; }
-    .pay-print-arr:hover { background:#e0f2fe; }
-    .pay-dropdown { position:absolute; top:calc(100% + 4px); right:0; background:white; border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,0.12); min-width:130px; z-index:100; display:none; overflow:hidden; }
-    .pay-dropdown.open { display:block; }
-    .pay-dropdown-item { display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:13px; font-weight:600; cursor:pointer; }
-    .pay-dropdown-item:hover { background:#f9fafb; }
-    .pay-dropdown-item.edit { color:#d97706; }
-    .pay-dropdown-item.remove { color:#dc2626; }
 
     /* Payment modal */
     .pay-types { display:flex; gap:8px; flex-wrap:wrap; }
@@ -482,51 +477,50 @@
     const el = document.getElementById('invoicesList');
     if (!invs.length) { el.innerHTML='<div class="empty-feed">No payments recorded.</div>'; return; }
     const isSystem = i => i.paymentType === 'Auto' || (i.desc||'').toLowerCase().startsWith('activation');
-    el.innerHTML = `<div class="pay-tbl-wrap"><table class="pay-tbl">
-      <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Comment</th><th>Creator</th><th></th></tr></thead>
-      <tbody>${invs.map(i => {
+    el.innerHTML = `<div class="pay-list">${invs.map(i => {
         const sys = isSystem(i);
         const grp = studentGroups.find(g => g.id === i.groupId);
         const grpName = grp ? grp.name : (i.groupId ? i.groupId : '');
 
         // Amount
         const amt = Number(i.total);
-        const amtFmt = amt.toLocaleString('uz-UZ').replace(/\s/g, ' ');
+        const amtFmt = amt.toLocaleString('uz-UZ').replace(/\s/g, ' ');
         const amtHtml = sys
-          ? `<span class="pay-amount-neg">−${amtFmt}<span class="pay-amount-unit">UZS</span></span>`
-          : `<span class="pay-amount-pos">+${amtFmt}<span class="pay-amount-unit">UZS</span></span>`;
+          ? `<span class="pay-card-amount neg">−${amtFmt}<span class="pay-card-amount-unit">UZS</span></span>`
+          : `<span class="pay-card-amount pos">+${amtFmt}<span class="pay-card-amount-unit">UZS</span></span>`;
 
-        // Comment
-        let commentHtml = grpName ? `<div class="pay-grp-badge">${grpName}</div>` : '';
+        // Meta (group, type, comment)
+        let metaHtml = grpName ? `<span class="pay-grp-badge">${grpName}</span>` : '';
+        metaHtml += sys ? '<span class="type-badge-sys">system</span>' : '<span class="type-badge-pay">payment</span>';
         if (sys) {
           const lesMatch = (i.desc||'').match(/(\d+)\s*of\s*(\d+)/i);
-          if (lesMatch) commentHtml += `<div class="pay-comment-detail">${lesMatch[1]} les.</div>`;
-          commentHtml += `<button class="pay-more-btn" onclick="event.stopPropagation();toggleMore(this,'${i.id}')">more</button>
-            <div id="more-${i.id}" style="display:none;font-size:12px;color:var(--muted);margin-top:4px">${i.desc||''}</div>`;
+          if (lesMatch) metaHtml += `<span class="pay-comment-detail">${lesMatch[1]} les.</span>`;
+          metaHtml += `<button class="pay-more-btn" onclick="toggleMore(this,'${i.id}')">more</button>
+            <div id="more-${i.id}" style="display:none;width:100%;font-size:12px;color:var(--muted);margin-top:4px">${i.desc||''}</div>`;
         } else {
-          if (i.paymentType && i.paymentType !== 'Auto') commentHtml += `<div class="pay-comment-detail">${i.paymentType}</div>`;
+          if (i.paymentType && i.paymentType !== 'Auto') metaHtml += `<span class="pay-comment-detail">${i.paymentType}</span>`;
         }
 
         // Creator
-        const creatorHtml = sys
-          ? `<div class="pay-creator-time">${fmtDateTime(i.createdAt)}</div>`
-          : `${i.creator ? `<div class="pay-creator-name">${i.creator}</div>` : ''}
-             <div class="pay-creator-time">${fmtDateTime(i.createdAt)}</div>`;
+        const creatorHtml = `${i.creator ? `<strong>${i.creator}</strong> · ` : ''}${fmtDateTime(i.createdAt)}`;
 
-        return `<tr>
-          <td><div class="pay-date">${fmtDate(i.createdAt)}</div></td>
-          <td>${sys ? '<span class="type-badge-sys">system</span>' : '<span class="type-badge-pay">payment</span>'}</td>
-          <td>${amtHtml}</td>
-          <td>${commentHtml}</td>
-          <td>${creatorHtml}</td>
-          <td style="white-space:nowrap">
+        return `<div class="pay-card">
+          <div class="pay-card-icon ${sys?'neg':'pos'}">${sys ? IC.arrowDown : IC.arrowUp}</div>
+          <div class="pay-card-body">
+            <div class="pay-card-top">
+              ${amtHtml}
+              <span class="pay-card-date">${fmtDate(i.createdAt)}</span>
+            </div>
+            <div class="pay-card-meta">${metaHtml}</div>
+            <div class="pay-card-creator">${creatorHtml}</div>
+          </div>
+          <div class="pay-card-actions">
             <button class="btn btn-ghost btn-sm" onclick="editInvoice('${i.id}')">${IC.edit}</button>
             <button class="btn btn-danger btn-sm" onclick="removeInvoice('${i.id}')">${IC.trash}</button>
-          </td>
-        </tr>`;
+          </div>
+        </div>`;
       }).join('')}
-      </tbody>
-    </table></div>`;
+      </div>`;
   }
 
   function toggleMore(btn, id) {
@@ -537,23 +531,9 @@
     btn.textContent = open ? 'more' : 'less';
   }
 
-  function toggleInvDropdown(id) {
-    document.querySelectorAll('.pay-dropdown').forEach(d => { if (d.id !== 'dd-'+id) d.classList.remove('open'); });
-    document.getElementById('dd-'+id)?.classList.toggle('open');
-  }
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.pay-print-wrap')) {
-      document.querySelectorAll('.pay-dropdown').forEach(d => d.classList.remove('open'));
-    }
-  });
-
-  function printInvoice(id) { window.print(); }
-
   function editInvoice(id) {
     const i = _invoices?.find(x => x.id === id);
     if (!i) return;
-    toggleInvDropdown(id);
     openPayModal();
     document.getElementById('payAmount').value = i.total;
     document.getElementById('payType').value = i.paymentType || 'Cash';
