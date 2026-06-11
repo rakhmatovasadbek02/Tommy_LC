@@ -37,11 +37,14 @@
     .pc2-balance-pill.neg { background:#dc2626; }
     .pc2-balance-pill.zero { background:#9ca3af; }
     .pc2-balance-label { font-size:13px; color:var(--muted); }
-    .pc2-meta { display:flex; flex-direction:column; gap:12px; margin-top:18px; }
     .pc2-meta-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
     .pc2-link { color:#2563eb; font-weight:700; text-decoration:none; font-size:14px; }
     .pc2-link:hover { text-decoration:underline; }
     .pc2-link:empty::before { content:'—'; color:var(--text); font-weight:600; }
+    .pc2-section { margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+    .pc2-section-title { font-size:11px; font-weight:800; color:var(--crimson); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+    .pc2-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .pc2-meta-text { font-size:14px; font-weight:600; color:var(--text); }
     .profile-meta-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; }
     .profile-meta-label { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
     .profile-meta-value { font-weight:600; color:var(--text); text-align:right; }
@@ -159,23 +162,51 @@
               <span class="pc2-balance-label">balance</span>
             </div>
 
-            <div class="pc2-meta">
-              <div>
-                <div class="pc2-meta-label">Phone</div>
-                <a class="pc2-link" id="profPhone"></a>
+            <div class="pc2-section">
+              <div class="pc2-section-title">Contacts</div>
+              <div class="pc2-meta-grid">
+                <div>
+                  <div class="pc2-meta-label">Phone</div>
+                  <a class="pc2-link" id="profPhone"></a>
+                </div>
+                <div id="profParentRow">
+                  <div class="pc2-meta-label">Parent phone</div>
+                  <a class="pc2-link" id="profParentPhone"></a>
+                </div>
               </div>
-              <div id="profParentRow">
-                <div class="pc2-meta-label">Parent phone</div>
-                <a class="pc2-link" id="profParentPhone"></a>
+            </div>
+
+            <div class="pc2-section">
+              <div class="pc2-section-title">Starting level &amp; test result</div>
+              <div class="pc2-meta-grid">
+                <div>
+                  <div class="pc2-meta-label">Starting level</div>
+                  <div class="pc2-meta-text" id="profLevel"></div>
+                </div>
+                <div>
+                  <div class="pc2-meta-label">Test result</div>
+                  <div class="pc2-meta-text" id="profExam"></div>
+                </div>
               </div>
-              <div class="profile-meta-row">
-                <span class="profile-meta-label">Level</span>
-                <span class="profile-meta-value" id="profLevel"></span>
+            </div>
+
+            <div class="pc2-section">
+              <div class="pc2-section-title">School</div>
+              <div class="pc2-meta-grid">
+                <div>
+                  <div class="pc2-meta-label">School</div>
+                  <div class="pc2-meta-text" id="profSchool"></div>
+                </div>
+                <div>
+                  <div class="pc2-meta-label">Grade</div>
+                  <div class="pc2-meta-text" id="profGrade"></div>
+                </div>
               </div>
-              <div class="profile-meta-row">
-                <span class="profile-meta-label">Test result</span>
-                <span class="profile-meta-value" id="profExam"></span>
-              </div>
+            </div>
+
+            <div class="pc2-section">
+              <div class="pc2-meta-label">Address</div>
+              <div class="pc2-meta-text" id="profAddress"></div>
             </div>
 
             <hr class="profile-divider">
@@ -272,6 +303,14 @@
       <div class="form-row">
         <div class="form-group"><label>Test Result</label><input type="text" id="eExam" placeholder="Score or notes"></div>
         <div class="form-group"><label>Exam Date</label><input type="date" id="eExamDate"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>School</label><input type="text" id="eSchool" placeholder="School name"></div>
+        <div class="form-group"><label>Grade</label><input type="text" id="eGrade" placeholder="e.g. 9th grade"></div>
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <input type="text" id="eAddress" placeholder="Home address">
       </div>
     </div>
     <div class="modal-footer">
@@ -422,6 +461,9 @@
       document.getElementById('profParentRow').style.display = s.phoneParent ? '' : 'none';
       document.getElementById('profLevel').textContent   = s.level   || '—';
       document.getElementById('profExam').textContent    = s.exam    || '—';
+      document.getElementById('profSchool').textContent  = s.school  || '—';
+      document.getElementById('profGrade').textContent   = s.grade   || '—';
+      document.getElementById('profAddress').textContent = s.address || '—';
       document.getElementById('profCreated').textContent = fmtDate(s.createdAt);
 
       _invoices = invs;
@@ -588,6 +630,9 @@
     document.getElementById('eStatus').value   = student.status||'Active';
     document.getElementById('eExam').value     = student.exam||'';
     document.getElementById('eExamDate').value = student.examDate ? student.examDate.split('T')[0] : '';
+    document.getElementById('eSchool').value   = student.school||'';
+    document.getElementById('eGrade').value    = student.grade||'';
+    document.getElementById('eAddress').value  = student.address||'';
     openModal('editModal');
   }
 
@@ -603,6 +648,9 @@
       status:      document.getElementById('eStatus').value,
       exam:        document.getElementById('eExam').value.trim(),
       examDate:    document.getElementById('eExamDate').value||null,
+      school:      document.getElementById('eSchool').value.trim()||null,
+      grade:       document.getElementById('eGrade').value.trim()||null,
+      address:     document.getElementById('eAddress').value.trim()||null,
     };
     await apiPut('/api/students/'+STUDENT_ID, data);
     logActivity(`Updated student: ${first} ${last}`, '');

@@ -2,6 +2,7 @@ const express  = require('express');
 const { Pool } = require('pg');
 const path     = require('path');
 const cors     = require('cors');
+const cron     = require('node-cron');
 
 const app  = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
@@ -185,6 +186,9 @@ async function initDB() {
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS school TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS grade TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS address TEXT`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -332,6 +336,7 @@ app.get('/api/students', async (req, res) => {
         status: enrolled.has(s.id) ? s.status : 'Inactive',
         balance: Number(s.balance || 0),
         exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
+        school: s.school, grade: s.grade, address: s.address,
         groups: (studentGroups[s.id] || []).map(g => ({
           id: g.id, name: g.name, level: g.level, teacher: g.teacher,
           time: g.time, startDate: g.start_date
@@ -350,10 +355,10 @@ app.get('/api/students', async (req, res) => {
 
 app.post('/api/students', async (req, res) => {
   try {
-    const { id, firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes } = req.body;
+    const { id, firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address } = req.body;
     await pool.query(
-      'INSERT INTO students(id,first_name,last_name,phone,phone_parent,level,status,exam,exam_date,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-      [id, firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null]
+      'INSERT INTO students(id,first_name,last_name,phone,phone_parent,level,status,exam,exam_date,notes,school,grade,address) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+      [id, firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -361,10 +366,10 @@ app.post('/api/students', async (req, res) => {
 
 app.put('/api/students/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes } = req.body;
+    const { firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address } = req.body;
     await pool.query(
-      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,level=$5,status=$6,exam=$7,exam_date=$8,notes=$9 WHERE id=$10',
-      [firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, req.params.id]
+      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,level=$5,status=$6,exam=$7,exam_date=$8,notes=$9,school=$10,grade=$11,address=$12 WHERE id=$13',
+      [firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -433,7 +438,8 @@ app.get('/api/students/:id', async (req, res) => {
     res.json({ id: s.id, firstName: s.first_name, lastName: s.last_name,
       phone: s.phone, phoneParent: s.phone_parent,
       level: s.level, status: s.status, balance: Number(s.balance||0),
-      exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at });
+      exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
+      school: s.school, grade: s.grade, address: s.address });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1081,4 +1087,71 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-initDB().then(() => app.listen(PORT, () => console.log(`TommyLC running on port ${PORT}`)));
+initDB().then(() => app.listen(PORT, () => {
+  console.log(`TommyLC running on port ${PORT}`);
+
+  // Monthly auto-charge: runs at 00:01 on the 1st of every month (Tashkent time)
+  cron.schedule('1 0 1 * *', async () => {
+    try {
+      await runMonthlyCharge();
+    } catch(e) {
+      console.error('[Monthly charge] Error:', e.message);
+    }
+  }, { timezone: 'Asia/Tashkent' });
+}));
+
+async function runMonthlyCharge() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+  const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+  const { rows: activeStudents } = await pool.query(
+    `SELECT * FROM students WHERE status='Active' AND (archived IS NULL OR archived=FALSE)`
+  );
+
+  const { rows: pricing } = await pool.query('SELECT * FROM pricing');
+  const priceMap = {};
+  pricing.forEach(p => { priceMap[p.level] = Number(p.price); });
+
+  let processed = 0, skipped = 0, errors = 0;
+
+  for (const s of activeStudents) {
+    try {
+      const price = Math.abs(priceMap[s.level] || 0);
+      if (!price) { skipped++; continue; }
+
+      const existing = await pool.query(
+        `SELECT id FROM invoices WHERE student_id=$1 AND month=$2 AND payment_type='Auto' AND description LIKE 'Monthly%'`,
+        [s.id, monthStr]
+      );
+      if (existing.rows.length > 0) { skipped++; continue; }
+
+      const invId  = 'inv-' + Date.now() + '-' + s.id.slice(-4);
+      const invNum = 'INV-' + Date.now().toString().slice(-6);
+      await pool.query(
+        `INSERT INTO invoices(id,number,student_id,month,description,total,status,payment_type)
+         VALUES($1,$2,$3,$4,$5,$6,'Pending','Auto')`,
+        [invId, invNum, s.id, monthStr, `Monthly charge — ${monthStr}`, price]
+      );
+      await pool.query(
+        'UPDATE students SET balance=balance-$1 WHERE id=$2',
+        [price, s.id]
+      );
+      processed++;
+    } catch(e) {
+      console.error(`[Monthly charge] Error for student ${s.id}:`, e.message);
+      errors++;
+    }
+  }
+
+  console.log(`[Monthly charge] Processed ${processed}, skipped ${skipped}, errors ${errors} for ${monthStr}`);
+  return { processed, skipped, errors, month: monthStr };
+}
+
+app.post('/api/admin/run-monthly-charge', async (req, res) => {
+  try {
+    const result = await runMonthlyCharge();
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
