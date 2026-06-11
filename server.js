@@ -440,9 +440,11 @@ app.get('/api/students/:id', async (req, res) => {
     const { rows } = await pool.query('SELECT * FROM students WHERE id=$1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Not found' });
     const s = rows[0];
+    // Same rule as the list endpoint: a student not enrolled in any group shows as Inactive
+    const enr = await pool.query('SELECT 1 FROM groups WHERE student_ids @> $1::jsonb LIMIT 1', [JSON.stringify([s.id])]);
     res.json({ id: s.id, firstName: s.first_name, lastName: s.last_name,
       phone: s.phone, phoneParent: s.phone_parent,
-      level: s.level, status: s.status, balance: Number(s.balance||0),
+      level: s.level, status: enr.rows.length ? s.status : 'Inactive', balance: Number(s.balance||0),
       exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
       school: s.school, grade: s.grade, address: s.address });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -705,6 +707,10 @@ app.put('/api/classrooms/:id', async (req, res) => {
 
 app.delete('/api/classrooms/:id', async (req, res) => {
   try {
+    const old = await pool.query('SELECT name FROM classrooms WHERE id=$1', [req.params.id]);
+    if (old.rows[0]) {
+      await pool.query('UPDATE groups SET room=NULL WHERE room=$1', [old.rows[0].name]);
+    }
     await pool.query('DELETE FROM classrooms WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -883,6 +889,10 @@ app.post('/api/invoices', async (req, res) => {
       [id, number, studentId, groupId||null, level||null, month||null, desc||null,
        total||0, dueDate||null, status||'Pending', paymentType||'Cash', notes||null, creator||null]
     );
+    // A paid payment credits the student's balance (mirrors DELETE which debits it back)
+    if (studentId && (status||'Pending') === 'Paid' && paymentType !== 'Auto') {
+      await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -890,12 +900,25 @@ app.post('/api/invoices', async (req, res) => {
 app.put('/api/invoices/:id', async (req, res) => {
   try {
     const { studentId, groupId, level, month, desc, total, dueDate, status, paymentType, notes } = req.body;
+    const prevRes = await pool.query('SELECT * FROM invoices WHERE id=$1', [req.params.id]);
+    const prev = prevRes.rows[0];
     await pool.query(
       `UPDATE invoices SET student_id=$1,group_id=$2,level=$3,month=$4,description=$5,
        total=$6,due_date=$7,status=$8,payment_type=$9,notes=$10 WHERE id=$11`,
       [studentId, groupId||null, level||null, month||null, desc||null,
        total||0, dueDate||null, status||'Pending', paymentType||'Cash', notes||null, req.params.id]
     );
+    // Keep student balances in sync: undo the old paid amount, apply the new one
+    if (prev) {
+      const wasPaid = prev.status === 'Paid' && prev.payment_type !== 'Auto';
+      const isPaid  = (status||'Pending') === 'Paid' && paymentType !== 'Auto';
+      if (wasPaid && prev.student_id) {
+        await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(prev.total)||0, prev.student_id]);
+      }
+      if (isPaid && studentId) {
+        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
+      }
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1032,12 +1055,18 @@ app.post('/api/leads/:id/convert', async (req, res) => {
     const lead = await pool.query('SELECT * FROM leads WHERE id=$1', [req.params.id]);
     if (!lead.rows[0]) return res.status(404).json({ error: 'Lead not found' });
     const l = lead.rows[0];
+    if (l.status === 'Student') return res.json({ ok: true, alreadyConverted: true });
     const phone = l.phone_student || l.phone_father || l.phone_mother || l.phone_other || null;
+    // Students use random unique 5-digit numeric IDs, not the lead's id
+    let studentId;
+    do {
+      studentId = String(Math.floor(10000 + Math.random() * 90000));
+      var existing = await pool.query('SELECT 1 FROM students WHERE id=$1', [studentId]);
+    } while (existing.rows.length > 0);
     await pool.query(
       `INSERT INTO students(id,first_name,last_name,phone,level,status)
-       VALUES($1,$2,$3,$4,$5,'Active')
-       ON CONFLICT(id) DO UPDATE SET first_name=$2,last_name=$3,phone=$4,level=$5,status='Active'`,
-      [l.id, l.first_name, l.last_name, phone, l.current_level]
+       VALUES($1,$2,$3,$4,$5,'Active')`,
+      [studentId, l.first_name, l.last_name, phone, l.current_level]
     );
     await pool.query(`UPDATE leads SET status='Student' WHERE id=$1`, [req.params.id]);
     // Add to group student_ids now that they are a real student
@@ -1045,13 +1074,13 @@ app.post('/api/leads/:id/convert', async (req, res) => {
       const grp = await pool.query('SELECT student_ids FROM groups WHERE id=$1', [l.group_id]);
       if (grp.rows[0]) {
         const ids = grp.rows[0].student_ids || [];
-        if (!ids.includes(l.id)) {
-          ids.push(l.id);
+        if (!ids.includes(studentId)) {
+          ids.push(studentId);
           await pool.query('UPDATE groups SET student_ids=$1 WHERE id=$2', [JSON.stringify(ids), l.group_id]);
         }
       }
     }
-    res.json({ ok: true });
+    res.json({ ok: true, studentId });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

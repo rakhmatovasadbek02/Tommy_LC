@@ -142,7 +142,7 @@ const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Go
 document.getElementById('welcomeMsg').textContent = `${greeting}, ${firstName} `;
 const STAT_DEFS = [
 { id:'statActive', label:'Active Students', icon:'', color:'', roles:['CEO'], calc:()=>(window._students||[]).filter(s=>s.status==='Active').length, sub:'currently enrolled', link:'students.html' },
-{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', roles:['CEO'], calc:()=>{ const ids=new Set((window._invoices||[]).filter(i=>i.status==='Pending'||i.status==='Overdue').map(i=>i.studentId)); return ids.size; }, sub:'unpaid invoices', link:'finance.html' },
+{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', roles:['CEO'], calc:()=>(window._students||[]).filter(s=>Number(s.balance||0)<0).length, sub:'negative balance', link:'finance.html' },
 { id:'statPaid', label:'Paid', icon:'', color:'green', roles:['CEO'], calc:()=>(window._invoices||[]).filter(i=>i.status==='Paid').length, sub:'invoices settled', link:'finance.html' },
 { id:'statLead', label:'Leads', icon:'', color:'purple', roles:['CEO'], calc:()=>(window._leads||[]).filter(l=>l.status==='Registration'||l.status==='Waitlist').length, sub:'in pipeline', link:'leads.html' },
 { id:'statTrial', label:'Trial', icon:'', color:'amber', roles:['CEO'], calc:()=>(window._leads||[]).filter(l=>l.status==='Trial').length, sub:'on trial period', link:'leads.html' },
