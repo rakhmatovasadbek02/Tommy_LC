@@ -33,13 +33,6 @@
     .balance-big.neg { color:#dc2626; }
     .balance-big.zero { color:var(--muted); }
 
-    /* Quick actions */
-    .quick-actions { display:flex; gap:8px; margin:14px 0; flex-wrap:wrap; }
-    .qa-btn { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 6px; border:1.5px solid var(--border); border-radius:10px; background:white; color:var(--text); text-decoration:none; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.14s; }
-    .qa-btn:hover { border-color:var(--crimson); color:var(--crimson); background:var(--crimson-soft); }
-    .qa-btn.disabled { opacity:0.35; pointer-events:none; }
-    .qa-btn svg { flex-shrink:0; }
-
     /* Right panel */
     .profile-main { display:flex; flex-direction:column; gap:20px; }
     .profile-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:0; }
@@ -135,28 +128,6 @@
           <div class="profile-info">
             <div class="profile-name" id="profName"></div>
             <div id="profStatusBadge"></div>
-            <div class="quick-actions" id="quickActions">
-              <a href="#" class="qa-btn" id="qaCall" title="Call student">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                Call
-              </a>
-              <a href="#" class="qa-btn" id="qaWhatsapp" target="_blank" title="WhatsApp student">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.13c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.36c0-4.54 3.7-8.24 8.26-8.24 2.2 0 4.27.86 5.83 2.42a8.18 8.18 0 0 1 2.42 5.83c0 4.55-3.7 8.21-8.26 8.21zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.04-.38-1.99-1.22-.73-.66-1.23-1.46-1.37-1.71-.14-.25-.01-.38.11-.51.11-.11.25-.29.37-.43.12-.15.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.77-1.85-.2-.48-.41-.42-.56-.42-.14-.01-.31-.01-.48-.01-.17 0-.43.06-.66.31-.23.25-.86.84-.86 2.05 0 1.21.88 2.38 1 2.54.12.17 1.74 2.65 4.21 3.72.59.25 1.05.4 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.28z"/></svg>
-                WhatsApp
-              </a>
-              <button class="qa-btn" onclick="openPayModal('add')" title="Add payment">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add
-              </button>
-              <button class="qa-btn" onclick="openPayModal('subtract')" title="Subtract balance" style="color:var(--crimson)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Subtract
-              </button>
-              <button class="qa-btn" onclick="goToCommentTab()" title="Add comment">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                Note
-              </button>
-            </div>
             <hr class="profile-divider">
             <div class="profile-meta">
               <div>
@@ -189,6 +160,10 @@
         </div>
 
         <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="openPayModal('add')">+ Add</button>
+            <button class="btn btn-outline" style="flex:1;color:var(--crimson);border-color:var(--crimson)" onclick="openPayModal('subtract')">− Subtract</button>
+          </div>
           <button class="btn btn-outline" style="width:100%" onclick="openEditModal()">Edit Profile</button>
           <button class="btn btn-danger" style="width:100%" onclick="openArchiveModal()">Archive Student</button>
         </div>
@@ -418,21 +393,6 @@
       balEl.textContent = bal !== 0 ? bal.toLocaleString() : '0';
       balEl.className = 'balance-big ' + (bal > 0 ? 'pos' : bal < 0 ? 'neg' : 'zero');
 
-      const phoneDigits = (s.phone||'').replace(/\D/g,'');
-      const callBtn = document.getElementById('qaCall');
-      const waBtn   = document.getElementById('qaWhatsapp');
-      if (phoneDigits) {
-        callBtn.href = 'tel:+998'+phoneDigits;
-        waBtn.href   = 'https://wa.me/998'+phoneDigits;
-        callBtn.classList.remove('disabled');
-        waBtn.classList.remove('disabled');
-      } else {
-        callBtn.removeAttribute('href');
-        waBtn.removeAttribute('href');
-        callBtn.classList.add('disabled');
-        waBtn.classList.add('disabled');
-      }
-
       document.getElementById('profPhone').textContent   = s.phone   ? '+998 '+s.phone   : '—';
       document.getElementById('profParentPhone').textContent = s.phoneParent ? '+998 '+s.phoneParent : '—';
       document.getElementById('profParentRow').style.display = s.phoneParent ? '' : 'none';
@@ -583,12 +543,6 @@
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-'+name).classList.add('active');
-  }
-
-  function goToCommentTab() {
-    const btn = [...document.querySelectorAll('.profile-tab')].find(t => t.textContent.trim()==='Comments');
-    if (btn) switchTab('comments', btn);
-    document.getElementById('commentInput')?.focus();
   }
 
   async function addComment() {
