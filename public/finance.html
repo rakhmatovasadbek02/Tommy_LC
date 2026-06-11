@@ -5,38 +5,82 @@
   <title>Finance — TommyLC CRM</title>
   <link rel="stylesheet" href="shared.css">
   <style>
-    .summary-row { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
-    .sum-card { background:white; border:1px solid var(--border); border-radius:var(--radius); padding:18px 22px; flex:1; min-width:130px; box-shadow:var(--shadow); border-top:3px solid var(--border); }
-    .sum-card.green  { border-top-color:var(--green); }
-    .sum-card.red    { border-top-color:var(--crimson); }
-    .sum-card.amber  { border-top-color:var(--amber); }
-    .sum-card-label  { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
-    .sum-card-val    { font-family:'Playfair Display',serif; font-size:26px; font-weight:900; color:var(--text); }
+    .summary-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+    .sum-card { background:white; border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow); border-top:3px solid var(--border); }
+    .sum-card.green { border-top-color:var(--green); }
+    .sum-card.red   { border-top-color:var(--crimson); }
+    .sum-card.blue  { border-top-color:#1E88E5; }
+    .sum-card.amber { border-top-color:var(--amber); }
+    .sum-card-label { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+    .sum-card-val   { font-family:'Playfair Display',serif; font-size:24px; font-weight:900; color:var(--text); white-space:nowrap; }
     .sum-card.green .sum-card-val { color:var(--green); }
     .sum-card.red   .sum-card-val { color:var(--crimson); }
-    .sum-card.amber .sum-card-val { color:var(--amber); }
+    .sum-card-sub   { font-size:12px; color:var(--muted); margin-top:6px; font-weight:600; }
 
-    .inv-row { display:flex; align-items:center; gap:14px; padding:13px 20px; border-bottom:1px solid var(--border); font-size:13px; transition:background 0.1s; flex-wrap:wrap; }
-    .inv-row:hover { background:var(--crimson-soft); }
-    .inv-row:last-child { border-bottom:none; }
+    /* Revenue chart */
+    .chart-card { background:white; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 22px 14px; margin-bottom:20px; }
+    .chart-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .chart-title { font-size:13px; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; color:var(--muted); }
+    .chart-legend { display:flex; gap:14px; font-size:12px; font-weight:600; color:var(--muted); }
+    .chart-legend span::before { content:''; display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+    .chart-legend .lg-cash::before  { background:var(--green); }
+    .chart-legend .lg-click::before { background:#1E88E5; }
+    .chart-bars { display:flex; align-items:flex-end; gap:14px; height:140px; }
+    .chart-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; }
+    .chart-val { font-size:11px; font-weight:700; color:var(--text); }
+    .chart-stack { width:100%; max-width:54px; display:flex; flex-direction:column; justify-content:flex-end; border-radius:6px 6px 0 0; overflow:hidden; }
+    .chart-seg-cash  { background:var(--green); }
+    .chart-seg-click { background:#1E88E5; }
+    .chart-month { font-size:11px; font-weight:700; color:var(--muted); margin-top:6px; }
+    .chart-col.current .chart-month { color:var(--crimson); }
 
-    .badge-cash  { background:#E8F5E9; color:#2E7D32; }
-    .badge-click { background:#E3F2FD; color:#1565C0; }
-
-    .tab-row { display:flex; gap:0; margin-bottom:20px; background:white; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    .tab-row { display:flex; gap:0; margin-bottom:16px; background:white; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
     .tab-btn { flex:1; padding:11px; text-align:center; font-size:13px; font-weight:600; cursor:pointer; border:none; background:none; color:var(--muted); border-bottom:3px solid transparent; transition:all 0.14s; font-family:'DM Sans',sans-serif; }
     .tab-btn:hover { background:var(--crimson-soft); color:var(--crimson); }
     .tab-btn.active { color:var(--crimson); border-bottom-color:var(--crimson); background:var(--crimson-soft); }
+
+    /* Payment rows */
+    .inv-row { display:grid; grid-template-columns:38px minmax(140px,1.4fr) 110px 92px minmax(130px,1fr) 150px auto; align-items:center; gap:14px; padding:12px 20px; border-bottom:1px solid var(--border); font-size:13px; transition:background 0.1s; }
+    .inv-row:hover { background:var(--crimson-soft); }
+    .inv-row:last-child { border-bottom:none; }
+    .inv-name { font-weight:700; }
+    .inv-name a { color:inherit; text-decoration:none; }
+    .inv-name a:hover { color:var(--crimson); }
+    .inv-meta { font-size:11px; color:var(--muted); margin-top:2px; display:flex; gap:8px; flex-wrap:wrap; }
+    .inv-meta a { color:inherit; text-decoration:none; }
+    .month-chip { display:inline-block; background:var(--crimson-soft); color:var(--crimson); font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; }
+    .inv-when { font-size:11px; color:var(--muted); line-height:1.5; }
+    .inv-amount { font-family:'Playfair Display',serif; font-size:16px; font-weight:900; white-space:nowrap; text-align:right; }
+    .inv-actions { display:flex; gap:6px; justify-content:flex-end; }
+    .badge-cash  { background:#E8F5E9; color:#2E7D32; }
+    .badge-click { background:#E3F2FD; color:#1565C0; }
+
+    .list-foot { display:flex; justify-content:flex-end; align-items:baseline; gap:10px; padding:13px 20px; border-top:2px solid var(--border); background:#FCFAF8; border-radius:0 0 var(--radius) var(--radius); }
+    .list-foot-label { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--muted); }
+    .list-foot-val { font-family:'Playfair Display',serif; font-size:18px; font-weight:900; }
+
+    /* Debtor rows */
+    .deb-row { display:grid; grid-template-columns:38px minmax(140px,1.4fr) minmax(120px,1fr) 150px auto; align-items:center; gap:14px; padding:12px 20px; border-bottom:1px solid var(--border); font-size:13px; }
+    .deb-row:hover { background:var(--crimson-soft); }
+    .deb-row:last-child { border-bottom:none; }
+    .deb-amount { font-family:'Playfair Display',serif; font-size:16px; font-weight:900; color:var(--crimson); white-space:nowrap; text-align:right; }
 
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
     input[type=number] { -moz-appearance:textfield; }
 
+    @media(max-width:900px){
+      .summary-row { grid-template-columns:repeat(2,1fr); gap:10px; }
+      .inv-row { grid-template-columns:38px 1fr auto auto; }
+      .inv-row > .month-chip, .inv-row > .inv-when { display:none; }
+      .inv-row .badge { display:none; }
+      .deb-row { grid-template-columns:38px 1fr auto auto; }
+      .deb-row .deb-groups { display:none; }
+      .chart-bars { gap:8px; }
+    }
     @media(max-width:640px){
-      .summary-row { gap:10px; }
-      .sum-card { min-width:calc(50% - 5px); padding:14px 16px; }
-      .sum-card-val { font-size:20px; }
-      .inv-row { padding:10px 14px; gap:8px; }
+      .sum-card { padding:14px 16px; }
+      .sum-card-val { font-size:19px; }
       .toolbar { flex-wrap:wrap; }
       .toolbar .search-bar { flex:1 1 100%; max-width:100%; }
     }
@@ -48,6 +92,7 @@
   <div class="topbar">
     <div class="page-title">Finance</div>
     <div class="topbar-right">
+      <button class="btn btn-outline" onclick="exportCSV()" title="Export filtered payments to CSV"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
       <button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Payment</button>
     </div>
   </div>
@@ -55,25 +100,42 @@
 
     <div class="summary-row" id="summaryRow"></div>
 
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="chart-title">Revenue — last 6 months</div>
+        <div class="chart-legend"><span class="lg-cash">Cash</span><span class="lg-click">Click</span></div>
+      </div>
+      <div class="chart-bars" id="chartBars"></div>
+    </div>
+
     <div class="tab-row">
-      <button class="tab-btn active" onclick="setTab('Paid',this)">Paid</button>
+      <button class="tab-btn active" onclick="setTab('Paid',this)">Payments</button>
       <button class="tab-btn" onclick="setTab('debtors',this)">Debtors</button>
     </div>
 
     <div class="toolbar" style="margin-bottom:16px">
       <div class="search-bar"><span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" id="searchInput" placeholder="Search student, group, level…" oninput="renderInvoices()">
+        <input type="text" id="searchInput" placeholder="Search student, group, level…" oninput="render()">
       </div>
-      <select id="filterLevel" onchange="renderInvoices()" style="width:auto;padding:9px 14px">
+      <select id="filterLevel" class="pay-only" onchange="render()" style="width:auto;padding:9px 14px">
         <option value="">All Levels</option>
         <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
         <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
       </select>
+      <select id="filterType" class="pay-only" onchange="render()" style="width:auto;padding:9px 14px">
+        <option value="">All Types</option>
+        <option>Cash</option><option>Click</option>
+      </select>
+      <input type="month" id="filterMonth" class="pay-only" onchange="render()" style="width:auto;padding:8px 12px" title="Filter by month covered">
       <span class="text-muted" id="invoiceCount" style="margin-left:auto"></span>
     </div>
 
     <div class="card">
       <div id="invoiceList"></div>
+      <div class="list-foot" id="listFoot" style="display:none">
+        <span class="list-foot-label" id="listFootLabel">Total</span>
+        <span class="list-foot-val" id="listFootVal"></span>
+      </div>
     </div>
   </div>
 </div>
@@ -109,7 +171,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Month *</label>
+          <label>Month covered *</label>
           <input type="month" id="invMonth">
         </div>
       </div>
@@ -136,17 +198,6 @@
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Status</label>
-          <select id="invStatus"><option>Paid</option></select>
-        </div>
-        <div class="form-group">
-          <label>Due Date</label>
-          <input type="date" id="invDue">
-        </div>
-      </div>
-
       <div class="form-group"><label>Notes</label><textarea id="invNotes" placeholder="Any notes…"></textarea></div>
     </div>
     <div class="modal-footer">
@@ -168,6 +219,10 @@
   };
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+  const fmt     = n => Number(n||0).toLocaleString('uz-UZ') + ' UZS';
+  const compact = n => n>=1e6 ? (n/1e6).toFixed(1).replace(/\.0$/,'')+'M' : n>=1e3 ? Math.round(n/1e3)+'K' : String(Math.round(n));
+  const monthLabel = m => { if(!m) return '—'; const [y,mo]=m.split('-'); return MONTHS[Number(mo)-1]+' '+y; };
+
   let invoices=[], students=[], groups=[];
   let currentTab = 'Paid';
 
@@ -180,49 +235,122 @@
       invoices=[]; students=[]; groups=[];
     }
     renderSummary();
-    if (currentTab === 'debtors') renderDebtors();
-    else renderInvoices();
+    renderChart();
+    render();
   }
 
+  function paidInvoices() { return invoices.filter(i=>i.status==='Paid'); }
+
   function renderSummary() {
-    const paid      = invoices.filter(i=>i.status==='Paid').reduce((s,i)=>s+Number(i.total||0),0);
+    const now = new Date();
+    const paid = paidInvoices();
+    const isThisMonth = i => { const d=new Date(i.createdAt); return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth(); };
+
+    const monthInv  = paid.filter(isThisMonth);
+    const monthRev  = monthInv.reduce((s,i)=>s+Number(i.total||0),0);
+    const monthCash = monthInv.filter(i=>i.paymentType!=='Click').reduce((s,i)=>s+Number(i.total||0),0);
+    const monthClick= monthRev - monthCash;
+    const allRev    = paid.reduce((s,i)=>s+Number(i.total||0),0);
+
+    const activeIds = new Set(students.filter(s=>s.status==='Active').map(s=>s.id));
+    const expected  = groups.reduce((sum,g)=>sum + Math.abs(Number(g.price||0)) * (g.studentIds||[]).filter(id=>activeIds.has(id)).length, 0);
+    const rate      = expected>0 ? Math.min(100, Math.round(monthRev/expected*100)) : null;
+
     const debtors   = students.filter(s=>Number(s.balance||0)<0);
     const totalDebt = debtors.reduce((s,st)=>s+Math.abs(Number(st.balance||0)),0);
-    const fmt = n => n.toLocaleString('uz-UZ') + ' UZS';
+
     document.getElementById('summaryRow').innerHTML = `
-      <div class="sum-card green"><div class="sum-card-label">Paid Total</div><div class="sum-card-val">${fmt(paid)}</div></div>
-      <div class="sum-card red"><div class="sum-card-label">Total Debt</div><div class="sum-card-val">${fmt(totalDebt)}</div></div>
-      <div class="sum-card red"><div class="sum-card-label">Debtors</div><div class="sum-card-val">${debtors.length}</div></div>`;
+      <div class="sum-card green">
+        <div class="sum-card-label">Revenue · ${MONTHS[now.getMonth()]} ${now.getFullYear()}</div>
+        <div class="sum-card-val">${fmt(monthRev)}</div>
+        <div class="sum-card-sub">💵 ${compact(monthCash)} &nbsp;·&nbsp; 📱 ${compact(monthClick)}</div>
+      </div>
+      <div class="sum-card blue">
+        <div class="sum-card-label">Expected Monthly</div>
+        <div class="sum-card-val">${fmt(expected)}</div>
+        <div class="sum-card-sub">${rate===null ? 'no group pricing set' : rate + '% collected this month'}</div>
+      </div>
+      <div class="sum-card red">
+        <div class="sum-card-label">Outstanding Debt</div>
+        <div class="sum-card-val">${fmt(totalDebt)}</div>
+        <div class="sum-card-sub">${debtors.length} debtor${debtors.length!==1?'s':''}</div>
+      </div>
+      <div class="sum-card amber">
+        <div class="sum-card-label">All-Time Revenue</div>
+        <div class="sum-card-val">${fmt(allRev)}</div>
+        <div class="sum-card-sub">${paid.length} payment${paid.length!==1?'s':''} recorded</div>
+      </div>`;
+  }
+
+  function renderChart() {
+    const now = new Date();
+    const buckets = [];
+    for (let k=5; k>=0; k--) {
+      const d = new Date(now.getFullYear(), now.getMonth()-k, 1);
+      buckets.push({ y:d.getFullYear(), m:d.getMonth(), cash:0, click:0 });
+    }
+    paidInvoices().forEach(i => {
+      const d = new Date(i.createdAt);
+      const b = buckets.find(b=>b.y===d.getFullYear() && b.m===d.getMonth());
+      if (b) { if (i.paymentType==='Click') b.click+=Number(i.total||0); else b.cash+=Number(i.total||0); }
+    });
+    const max = Math.max(...buckets.map(b=>b.cash+b.click), 1);
+
+    document.getElementById('chartBars').innerHTML = buckets.map((b,idx) => {
+      const total = b.cash + b.click;
+      const hCash  = Math.round(b.cash  / max * 100);
+      const hClick = Math.round(b.click / max * 100);
+      return `<div class="chart-col${idx===5?' current':''}">
+        <div class="chart-val">${total ? compact(total) : ''}</div>
+        <div class="chart-stack" style="height:${Math.max(hCash+hClick, total?3:0)}%">
+          ${b.click ? `<div class="chart-seg-click" style="flex:${b.click}"></div>` : ''}
+          ${b.cash  ? `<div class="chart-seg-cash"  style="flex:${b.cash}"></div>`  : ''}
+        </div>
+        <div class="chart-month">${MONTHS[b.m]}</div>
+      </div>`;
+    }).join('');
   }
 
   function setTab(tab, btn) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    if (tab === 'debtors') renderDebtors();
+    document.querySelectorAll('.pay-only').forEach(el => el.style.display = tab==='debtors' ? 'none' : '');
+    render();
+  }
+
+  function render() {
+    if (currentTab === 'debtors') renderDebtors();
     else renderInvoices();
   }
 
-  function renderInvoices() {
+  function getFilteredInvoices() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const fl = document.getElementById('filterLevel').value;
-
-    const filtered = invoices.filter(i => {
+    const ft = document.getElementById('filterType').value;
+    const fm = document.getElementById('filterMonth').value;
+    return invoices.filter(i => {
       const stu  = students.find(s=>s.id===i.studentId);
       const name = stu ? (stu.firstName+' '+stu.lastName).toLowerCase() : '';
       const grp  = groups.find(g=>g.id===i.groupId);
-      return i.status === currentTab
+      return i.status === 'Paid'
           && (!fl || i.level===fl)
+          && (!ft || (i.paymentType||'Cash')===ft)
+          && (!fm || i.month===fm)
           && (!q || name.includes(q) || (i.level||'').toLowerCase().includes(q) || (grp?.name||'').toLowerCase().includes(q));
     });
+  }
 
+  function renderInvoices() {
+    const filtered = getFilteredInvoices();
     document.getElementById('invoiceCount').textContent = `${filtered.length} payment${filtered.length!==1?'s':''}`;
 
-    const STATUS_BADGE = { Paid:'badge-green', Pending:'badge-gold', Overdue:'badge-red' };
     const el = document.getElementById('invoiceList');
+    const foot = document.getElementById('listFoot');
 
     if (!filtered.length) {
       el.innerHTML='<div class="empty-state"><div class="empty-icon">💳</div><p>No payments found.</p></div>';
+      foot.style.display='none';
       return;
     }
 
@@ -231,28 +359,35 @@
       const name = stu ? stu.firstName+' '+stu.lastName : 'Unknown';
       const grp  = groups.find(g=>g.id===i.groupId);
       const col  = LEVEL_COLORS[i.level] || '#666';
-      const monthLabel = i.month ? (() => { const [y,m]=i.month.split('-'); return MONTHS[Number(m)-1]+' '+y; })() : '—';
-      const fmt  = n => Number(n||0).toLocaleString('uz-UZ') + ' UZS';
+      const d    = new Date(i.createdAt);
+      const when = `${String(d.getDate()).padStart(2,'0')} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 
       return `<div class="inv-row">
-        <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px;flex-shrink:0">${initials(name)}</div>
-        <div style="flex:1;min-width:120px">
-          <div style="font-weight:700"><a href="student-profile.html?id=${stu?.id}" style="color:inherit;text-decoration:none">${name}</a></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
-            ${grp ? `<span>👥 <a href="group.html?id=${grp.id}" style="color:inherit;text-decoration:none">${grp.name}</a></span>` : ''}
+        <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px">${initials(name)}</div>
+        <div>
+          <div class="inv-name"><a href="student-profile.html?id=${stu?.id}">${name}</a></div>
+          <div class="inv-meta">
+            ${grp ? `<span>👥 <a href="group.html?id=${grp.id}">${grp.name}</a></span>` : ''}
             ${i.level ? `<span style="color:${col};font-weight:600">${i.level}</span>` : ''}
-            <span>📅 ${monthLabel}</span>
+            ${i.notes ? `<span title="${i.notes.replace(/"/g,'&quot;')}">💬</span>` : ''}
           </div>
         </div>
-        <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;white-space:nowrap">${fmt(i.total)}</div>
+        <span class="month-chip">${monthLabel(i.month)}</span>
         <span class="badge ${i.paymentType==='Click'?'badge-click':'badge-cash'}">${i.paymentType==='Click'?'📱':'💵'} ${i.paymentType||'Cash'}</span>
-        <span class="badge ${STATUS_BADGE[i.status]||'badge-grey'}">${i.status}</span>
-        <div style="display:flex;gap:6px">
+        <div class="inv-when">${when}${i.creator ? `<br>by ${i.creator}` : ''}</div>
+        <div class="inv-amount">${fmt(i.total)}</div>
+        <div class="inv-actions">
           <button class="btn btn-ghost btn-sm" onclick="editInvoice('${i.id}')">${IC.edit}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteInvoice('${i.id}')">${IC.trash}</button>
         </div>
       </div>`;
     }).join('');
+
+    const sum = filtered.reduce((s,i)=>s+Number(i.total||0),0);
+    document.getElementById('listFootLabel').textContent = 'Total';
+    document.getElementById('listFootVal').textContent = fmt(sum);
+    document.getElementById('listFootVal').style.color = '';
+    foot.style.display='';
   }
 
   function renderDebtors() {
@@ -267,25 +402,65 @@
     document.getElementById('invoiceCount').textContent = `${debtors.length} debtor${debtors.length!==1?'s':''}`;
 
     const el = document.getElementById('invoiceList');
+    const foot = document.getElementById('listFoot');
     if (!debtors.length) {
-      el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><p>No debtors found.</p></div>';
+      el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><p>No debtors — everyone is paid up.</p></div>';
+      foot.style.display='none';
       return;
     }
 
-    const fmt = n => Number(n||0).toLocaleString('uz-UZ') + ' UZS';
     el.innerHTML = debtors.map(s => {
       const name = s.firstName+' '+s.lastName;
       const bal  = Number(s.balance||0);
-      return `<div class="inv-row">
-        <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px;flex-shrink:0">${initials(name)}</div>
-        <div style="flex:1;min-width:120px">
-          <div style="font-weight:700"><a href="student-profile.html?id=${s.id}" style="color:inherit;text-decoration:none">${name}</a></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${s.phone||''}</div>
+      const myGroups = groups.filter(g=>(g.studentIds||[]).includes(s.id)).map(g=>g.name).join(', ');
+      return `<div class="deb-row">
+        <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px">${initials(name)}</div>
+        <div>
+          <div class="inv-name"><a href="student-profile.html?id=${s.id}">${name}</a></div>
+          <div class="inv-meta">${s.phone||''}</div>
         </div>
-        <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:var(--crimson);white-space:nowrap">${fmt(Math.abs(bal))}</div>
-        <a href="student-profile.html?id=${s.id}" class="btn btn-outline btn-sm">View Profile</a>
+        <div class="deb-groups inv-meta">${myGroups ? '👥 '+myGroups : '<span style="color:var(--amber)">no group</span>'}</div>
+        <div class="deb-amount">−${fmt(Math.abs(bal))}</div>
+        <div class="inv-actions">
+          <button class="btn btn-primary btn-sm" onclick="openAddFor('${s.id}')">💰 Record payment</button>
+          <a href="student-profile.html?id=${s.id}" class="btn btn-outline btn-sm">Profile</a>
+        </div>
       </div>`;
     }).join('');
+
+    const totalDebt = debtors.reduce((s,st)=>s+Math.abs(Number(st.balance||0)),0);
+    document.getElementById('listFootLabel').textContent = 'Total Debt';
+    document.getElementById('listFootVal').textContent = fmt(totalDebt);
+    document.getElementById('listFootVal').style.color = 'var(--crimson)';
+    foot.style.display='';
+  }
+
+  function exportCSV() {
+    const rows = currentTab==='debtors'
+      ? [['Student','Phone','Groups','Debt (UZS)'],
+         ...students.filter(s=>Number(s.balance||0)<0).map(s=>[
+           s.firstName+' '+s.lastName, s.phone||'',
+           groups.filter(g=>(g.studentIds||[]).includes(s.id)).map(g=>g.name).join('; '),
+           Math.abs(Number(s.balance||0))
+         ])]
+      : [['Date','Student','Group','Level','Month','Type','Amount (UZS)','Recorded by','Notes'],
+         ...getFilteredInvoices().map(i=>{
+           const stu = students.find(s=>s.id===i.studentId);
+           const grp = groups.find(g=>g.id===i.groupId);
+           return [
+             new Date(i.createdAt).toISOString().split('T')[0],
+             stu ? stu.firstName+' '+stu.lastName : 'Unknown',
+             grp?.name||'', i.level||'', i.month||'',
+             i.paymentType||'Cash', Number(i.total||0), i.creator||'', (i.notes||'').replace(/\n/g,' ')
+           ];
+         })];
+    const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (currentTab==='debtors'?'debtors':'payments')+'-'+new Date().toISOString().split('T')[0]+'.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   function openAdd() {
@@ -294,10 +469,14 @@
     populateGroupSelect();
     const now = new Date();
     document.getElementById('invMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const due = new Date(now.getFullYear(), now.getMonth()+1, 0);
-    document.getElementById('invDue').value = due.toISOString().split('T')[0];
     document.getElementById('invModalTitle').textContent = 'New Payment';
     openModal('invoiceModal');
+  }
+
+  function openAddFor(studentId) {
+    openAdd();
+    document.getElementById('invStudent').value = studentId;
+    onStudentChange();
   }
 
   function onStudentChange() {
@@ -307,7 +486,7 @@
     if (grp) {
       document.getElementById('invGroup').value = grp.id;
       document.getElementById('invLevel').value = grp.level || '';
-      if (grp.price) document.getElementById('invTotal').value = grp.price;
+      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price));
     }
   }
 
@@ -316,7 +495,7 @@
     const grp = groups.find(g=>g.id===gid);
     if (grp) {
       if (grp.level) document.getElementById('invLevel').value = grp.level;
-      if (grp.price) document.getElementById('invTotal').value = grp.price;
+      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price));
     }
   }
 
@@ -339,8 +518,6 @@
     document.getElementById('invLevel').value    = i.level||'';
     document.getElementById('invMonth').value    = i.month||'';
     document.getElementById('invTotal').value    = i.total||'';
-    document.getElementById('invStatus').value   = 'Paid';
-    document.getElementById('invDue').value      = i.dueDate?i.dueDate.split('T')[0]:'';
     document.getElementById('invNotes').value    = i.notes||'';
     const radio = document.querySelector(`input[name="payType"][value="${i.paymentType||'Cash'}"]`);
     if (radio) { radio.checked = true; onPayType(); }
@@ -361,9 +538,9 @@
       level:       level||null,
       month,
       total:       Number(total),
-      status:      document.getElementById('invStatus').value,
+      status:      'Paid',
       paymentType: document.querySelector('input[name="payType"]:checked')?.value||'Cash',
-      dueDate:     document.getElementById('invDue').value||null,
+      dueDate:     null,
       notes:       document.getElementById('invNotes').value.trim(),
       desc:        `${level||''}${month?' — '+month:''}`,
     };
@@ -374,21 +551,13 @@
       } else {
         data.id = genId();
         data.number = 'INV-'+Date.now().toString().slice(-6);
+        data.creator = getSession()?.name || null;
         await apiPost('/api/invoices', data);
         logActivity('Created payment','green');
       }
       closeModal('invoiceModal');
       await load();
       showToast(id?'Payment updated!':'Payment created!');
-    } catch(e) { showToast('Error: '+e.message,'error'); }
-  }
-
-  async function quickPay(id, paymentType) {
-    try {
-      await apiPatch('/api/invoices/'+id+'/status', { status:'Paid', paymentType });
-      logActivity(`Payment received via ${paymentType}`,'green');
-      await load();
-      showToast(`Marked as paid (${paymentType})!`);
     } catch(e) { showToast('Error: '+e.message,'error'); }
   }
 
@@ -400,10 +569,9 @@
   }
 
   function clearForm() {
-    ['editInvId','invStudent','invGroup','invLevel','invMonth','invTotal','invDue','invNotes'].forEach(id=>{
+    ['editInvId','invStudent','invGroup','invLevel','invMonth','invTotal','invNotes'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.value='';
     });
-    document.getElementById('invStatus').value='Paid';
     const cash=document.querySelector('input[name="payType"][value="Cash"]');
     if(cash){cash.checked=true;onPayType();}
   }

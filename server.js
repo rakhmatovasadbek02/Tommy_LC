@@ -869,19 +869,19 @@ app.get('/api/invoices', async (req, res) => {
       desc: i.description, total: Number(i.total),
       dueDate: i.due_date, status: i.status,
       paymentType: i.payment_type,
-      notes: i.notes, createdAt: i.created_at
+      notes: i.notes, creator: i.creator, createdAt: i.created_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/invoices', async (req, res) => {
   try {
-    const { id, number, studentId, groupId, level, month, desc, total, dueDate, status, paymentType, notes } = req.body;
+    const { id, number, studentId, groupId, level, month, desc, total, dueDate, status, paymentType, notes, creator } = req.body;
     await pool.query(
-      `INSERT INTO invoices(id,number,student_id,group_id,level,month,description,total,due_date,status,payment_type,notes)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      `INSERT INTO invoices(id,number,student_id,group_id,level,month,description,total,due_date,status,payment_type,notes,creator)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [id, number, studentId, groupId||null, level||null, month||null, desc||null,
-       total||0, dueDate||null, status||'Pending', paymentType||'Cash', notes||null]
+       total||0, dueDate||null, status||'Pending', paymentType||'Cash', notes||null, creator||null]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
