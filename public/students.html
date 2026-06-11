@@ -356,9 +356,8 @@
         if (comment) { const s = getSession(); await apiPost('/api/students/'+id+'/comments', { text: comment, actor: s?.name||'Unknown' }); }
         logActivity(`Updated student: ${first} ${last}`,'');
       } else {
-        data.id = genStudentId();
-        await apiPost('/api/students', data);
-        if (comment) { const s = getSession(); await apiPost('/api/students/'+data.id+'/comments', { text: comment, actor: s?.name||'Unknown' }); }
+        const created = await apiPost('/api/students', data);
+        if (comment) { const s = getSession(); await apiPost('/api/students/'+created.id+'/comments', { text: comment, actor: s?.name||'Unknown' }); }
         logActivity(`Enrolled: ${first} ${last}`,'green');
       }
       closeModal('studentModal');

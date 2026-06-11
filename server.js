@@ -355,12 +355,17 @@ app.get('/api/students', async (req, res) => {
 
 app.post('/api/students', async (req, res) => {
   try {
-    const { id, firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address } = req.body;
+    const { firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address } = req.body;
+    let id;
+    do {
+      id = String(Math.floor(10000 + Math.random() * 90000));
+      var existing = await pool.query('SELECT 1 FROM students WHERE id=$1', [id]);
+    } while (existing.rows.length > 0);
     await pool.query(
       'INSERT INTO students(id,first_name,last_name,phone,phone_parent,level,status,exam,exam_date,notes,school,grade,address) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
       [id, firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null]
     );
-    res.json({ ok: true });
+    res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
