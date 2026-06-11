@@ -46,15 +46,8 @@
     .profile-meta-label { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
     .profile-meta-value { font-weight:600; color:var(--text); text-align:right; }
     .pc2-added { font-size:13px; color:var(--muted); }
-    .pc2-bottom-actions { display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
-    .pc2-bottom-actions > .btn, .pc2-pay-wrap { flex:1; min-width:120px; }
-    .pc2-pay-wrap { position:relative; display:flex; }
-    .pc2-pay-wrap .btn { flex:1; border-radius:8px 0 0 8px; }
-    .pc2-pay-arrow { width:36px; border:1.5px solid var(--crimson); border-left:none; background:var(--crimson); color:white; border-radius:0 8px 8px 0; cursor:pointer; font-size:11px; }
-    .pc2-pay-dropdown { position:absolute; top:calc(100% + 4px); right:0; left:0; background:white; border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 16px rgba(0,0,0,0.12); z-index:50; display:none; overflow:hidden; }
-    .pc2-pay-dropdown.open { display:block; }
-    .pc2-pay-dropdown div { padding:10px 14px; font-size:13px; font-weight:600; cursor:pointer; }
-    .pc2-pay-dropdown div:hover { background:#f9fafb; }
+    .pc2-bottom-actions { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+    .pc2-bottom-actions > .btn { flex:1; min-width:120px; }
 
     /* Right panel */
     .profile-main { display:flex; flex-direction:column; gap:20px; }
@@ -193,15 +186,11 @@
             <div class="pc2-added">Added at: <strong id="profCreated"></strong></div>
 
             <div class="pc2-bottom-actions">
-              <button class="btn btn-outline" onclick="switchTabByName('groups')">Add to group</button>
-              <div class="pc2-pay-wrap">
-                <button class="btn btn-primary" onclick="openPayModal('add')">Add payment</button>
-                <button class="pc2-pay-arrow" onclick="togglePayDropdown(event)">▾</button>
-                <div class="pc2-pay-dropdown" id="pc2PayDropdown">
-                  <div onclick="openPayModal('add')">+ Add payment</div>
-                  <div onclick="openPayModal('subtract')">− Subtract balance</div>
-                </div>
-              </div>
+              <button class="btn btn-outline" style="width:100%" onclick="switchTabByName('groups')">Add to group</button>
+            </div>
+            <div class="pc2-bottom-actions">
+              <button class="btn btn-primary" onclick="openPayModal('add')">+ Add</button>
+              <button class="btn btn-outline" style="color:var(--crimson);border-color:var(--crimson)" onclick="openPayModal('subtract')">− Subtract</button>
             </div>
           </div>
         </div>
@@ -597,11 +586,6 @@
     if (btn) switchTab(name, btn);
   }
 
-  function togglePayDropdown(e) {
-    e.stopPropagation();
-    document.getElementById('pc2PayDropdown').classList.toggle('open');
-  }
-  document.addEventListener('click', () => document.getElementById('pc2PayDropdown')?.classList.remove('open'));
 
   async function addComment() {
     const text = document.getElementById('commentInput').value.trim();
