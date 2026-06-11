@@ -160,10 +160,6 @@
         </div>
 
         <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" style="flex:1" onclick="openPayModal('add')">+ Add</button>
-            <button class="btn btn-outline" style="flex:1;color:var(--crimson);border-color:var(--crimson)" onclick="openPayModal('subtract')">− Subtract</button>
-          </div>
           <button class="btn btn-outline" style="width:100%" onclick="openEditModal()">Edit Profile</button>
           <button class="btn btn-danger" style="width:100%" onclick="openArchiveModal()">Archive Student</button>
         </div>
@@ -195,6 +191,10 @@
 
             <!-- INVOICES -->
             <div class="tab-panel" id="tab-invoices">
+              <div style="display:flex;gap:8px;margin-bottom:14px">
+                <button class="btn btn-primary" style="flex:1" onclick="openPayModal('add')">+ Add</button>
+                <button class="btn btn-outline" style="flex:1;color:var(--crimson);border-color:var(--crimson)" onclick="openPayModal('subtract')">− Subtract</button>
+              </div>
               <div id="invoicesList"></div>
             </div>
 
