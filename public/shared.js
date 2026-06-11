@@ -36,6 +36,10 @@ function genId() {
  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+function genStudentId() {
+ return Date.now().toString() + Math.floor(100 + Math.random() * 900);
+}
+
 function formatCurrency(n) { return '$' + Number(n || 0).toFixed(2); }
 function formatDate(iso) {
  if (!iso) return '—';

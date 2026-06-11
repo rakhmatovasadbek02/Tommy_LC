@@ -356,7 +356,7 @@
         if (comment) { const s = getSession(); await apiPost('/api/students/'+id+'/comments', { text: comment, actor: s?.name||'Unknown' }); }
         logActivity(`Updated student: ${first} ${last}`,'');
       } else {
-        data.id = genId();
+        data.id = genStudentId();
         await apiPost('/api/students', data);
         if (comment) { const s = getSession(); await apiPost('/api/students/'+data.id+'/comments', { text: comment, actor: s?.name||'Unknown' }); }
         logActivity(`Enrolled: ${first} ${last}`,'green');
