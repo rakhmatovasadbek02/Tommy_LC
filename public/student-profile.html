@@ -296,7 +296,7 @@
         <label>Amount *</label>
         <input type="number" id="payAmount" placeholder="0" min="0">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="payTypeGroup">
         <label>Payment type</label>
         <div class="pay-types" id="payTypes">
           <button class="pay-type-btn selected" data-type="Cash" onclick="selectPayType(this,'Cash')">💵 Cash</button>
@@ -313,7 +313,7 @@
         <label>Description</label>
         <input type="text" id="payDesc" placeholder="Monthly payment…">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="payNotesGroup">
         <label>Notes</label>
         <textarea id="payNotes" style="height:60px" placeholder="Optional…"></textarea>
       </div>
@@ -625,6 +625,8 @@
     document.getElementById('payNotes').value = '';
     document.getElementById('payType').value = 'Cash';
     document.querySelectorAll('.pay-type-btn').forEach((b,i)=>b.classList.toggle('selected',i===0));
+    document.getElementById('payTypeGroup').style.display = isSubtract ? 'none' : '';
+    document.getElementById('payNotesGroup').style.display = isSubtract ? 'none' : '';
     const sel = document.getElementById('payGroup');
     sel.innerHTML = '<option value="">— No group —</option>' +
       studentGroups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
