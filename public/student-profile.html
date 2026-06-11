@@ -46,8 +46,6 @@
     .profile-meta-label { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
     .profile-meta-value { font-weight:600; color:var(--text); text-align:right; }
     .pc2-added { font-size:13px; color:var(--muted); }
-    .pc2-bottom-actions { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
-    .pc2-bottom-actions > .btn { flex:1; min-width:120px; }
 
     /* Right panel */
     .profile-main { display:flex; flex-direction:column; gap:20px; }
@@ -136,6 +134,9 @@
             <div class="pc2-top">
               <div class="pc2-avatar" id="profAvatar"></div>
               <div class="pc2-actions">
+                <button class="pc2-icon-btn" onclick="switchTabByName('groups')" title="Add to group">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                </button>
                 <button class="pc2-icon-btn" onclick="openEditModal()" title="Edit profile">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
@@ -179,10 +180,6 @@
 
             <hr class="profile-divider">
             <div class="pc2-added">Added at: <strong id="profCreated"></strong></div>
-
-            <div class="pc2-bottom-actions">
-              <button class="btn btn-outline" style="width:100%" onclick="switchTabByName('groups')">Add to group</button>
-            </div>
           </div>
         </div>
       </div>
