@@ -93,33 +93,41 @@
       overflow-x: auto;
       overflow-y: hidden;
       padding: 14px 16px;
-      align-items: flex-start;
-      gap: 12px;
+      align-items: stretch;
+      gap: 14px;
     }
 
     /* ── Column ── */
     .kanban-col {
-      /* Responsive: fill available width equally, minimum 220px */
-      flex: 1 1 220px;
-      min-width: 220px;
-      max-width: 320px;
+      flex: 1 1 240px;
+      min-width: 235px;
+      max-width: 330px;
       display: flex;
       flex-direction: column;
       max-height: 100%;
+      background: #F7F3F0;
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--col-color, var(--border));
+      border-radius: 14px;
+      padding: 10px 10px 6px;
     }
     .kanban-col-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
+      gap: 7px;
+      margin: 2px 2px 10px;
     }
+    .col-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--col-color); flex-shrink: 0; }
     .kanban-col-title {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+      font-size: 12px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text);
     }
     .kanban-col-count {
-      font-size: 11px; color: var(--muted); margin-left: 4px;
+      font-size: 11px; font-weight: 700; color: var(--col-color);
+      background: white; border: 1px solid var(--border);
+      padding: 1px 8px; border-radius: 20px;
     }
     .kanban-col-menu-btn {
+      margin-left: auto;
       width: 26px; height: 26px; border-radius: 6px;
       border: 1px solid var(--border); background: white;
       cursor: pointer; color: var(--muted); font-size: 14px;
@@ -133,61 +141,83 @@
 
     /* ── Add button (Registration only) ── */
     .kanban-add-btn {
-      width: 100%; padding: 8px; border-radius: 8px;
+      width: 100%; padding: 8px; border-radius: 9px;
       background: var(--crimson); color: white; border: none;
-      font-size: 12px; font-weight: 600; cursor: pointer;
-      font-family: 'Inter', sans-serif; margin-bottom: 8px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      font-family: 'Inter', sans-serif; margin-bottom: 9px;
       display: flex; align-items: center; justify-content: center; gap: 5px;
-      transition: background 0.14s;
+      transition: background 0.14s, box-shadow 0.14s;
+      box-shadow: 0 1px 4px rgba(153,0,0,0.25);
     }
-    .kanban-add-btn:hover { background: var(--crimson-dark); }
+    .kanban-add-btn:hover { background: var(--crimson-dark); box-shadow: 0 2px 8px rgba(153,0,0,0.3); }
 
     /* ── Cards ── */
-    .kanban-cards { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+    .kanban-cards { flex: 1; overflow-y: auto; padding-bottom: 6px; }
     .kanban-cards::-webkit-scrollbar { width: 3px; }
     .kanban-cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     /* ── Sub-container ── */
     .sub-container {
-      border: 1px solid var(--border); border-radius: 9px; margin-bottom: 7px; overflow: hidden;
+      border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; overflow: hidden; background: white;
     }
     .sub-container-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 10px; background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 7px 11px; background: white; border-bottom: 1px solid var(--border);
     }
-    .sub-container-name { font-size: 10px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; }
+    .sub-container-name { font-size: 10px; font-weight: 800; color: var(--text); text-transform: uppercase; letter-spacing: 0.6px; }
     .sub-container-count { font-size: 10px; color: var(--muted); margin-left: 4px; }
     .sub-toggle-btn { border: none; background: none; cursor: pointer; color: var(--muted); font-size: 11px; padding: 0 3px; }
-    .sub-container-body { padding: 5px; background: #fafafa; }
+    .sub-container-body { padding: 6px; background: #FBF8F6; }
     .sub-container-body.collapsed { display: none; }
 
     /* ── Lead card ── */
     .lead-card {
       background: white; border: 1px solid var(--border);
-      border-radius: 8px; margin-bottom: 6px;
-      transition: box-shadow 0.14s; overflow: hidden;
+      border-radius: 10px; margin-bottom: 8px;
+      transition: box-shadow 0.14s, transform 0.14s, border-color 0.14s;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(40,20,10,0.04);
     }
-    .lead-card:hover { box-shadow: 0 3px 12px rgba(180,0,0,0.10); }
-    .lead-card-body { padding: 9px 11px; cursor: pointer; }
-    .lead-card-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
-    .lead-card-meta { font-size: 11px; color: var(--muted); line-height: 1.5; }
+    .lead-card:hover { box-shadow: 0 5px 16px rgba(180,0,0,0.12); transform: translateY(-1px); border-color: #E4D5CD; }
+    .lead-card-body { padding: 10px 12px 9px; cursor: pointer; }
+    .lead-card-top { display: flex; align-items: center; gap: 9px; }
+    .lead-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      color: white; font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lead-card-main { flex: 1; min-width: 0; }
+    .lead-card-name { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.25; word-break: break-word; }
+    .lead-card-meta { font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lead-age { font-size: 10px; color: var(--muted); font-weight: 600; align-self: flex-start; white-space: nowrap; }
+    .lead-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+    .lead-chip { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
     .lead-card-actions {
-      display: flex; gap: 4px; padding: 5px 8px;
-      border-top: 1px solid var(--border); flex-wrap: wrap; align-items: center; background: white;
+      display: flex; gap: 5px; padding: 6px 10px;
+      border-top: 1px solid #F1EAE5; flex-wrap: wrap; align-items: center; background: #FCFAF9;
     }
+
+    /* ── Flow (next-stage) button ── */
+    .btn-flow {
+      border: 1px solid var(--border); background: white; color: var(--text);
+      border-radius: 7px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+      display: inline-flex; align-items: center; gap: 4px; transition: all 0.14s;
+    }
+    .btn-flow:hover { border-color: var(--crimson); color: var(--crimson); background: var(--crimson-soft); }
 
     /* ── Activate button ── */
     .btn-activate {
-      background: #1E6B45; color: white; border: none; border-radius: 6px;
-      padding: 3px 9px; font-size: 11px; font-weight: 700; cursor: pointer;
+      background: #1E6B45; color: white; border: none; border-radius: 7px;
+      padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer;
       font-family: 'Inter', sans-serif; transition: background 0.14s;
     }
     .btn-activate:hover { background: #155235; }
 
     /* ── Empty ── */
     .kanban-empty {
-      text-align: center; padding: 14px 8px; color: var(--muted);
-      font-size: 12px; border: 1.5px dashed var(--border); border-radius: 8px;
+      text-align: center; padding: 22px 8px; color: var(--muted);
+      font-size: 12px; border: 1.5px dashed #DCCFC7; border-radius: 10px; background: rgba(255,255,255,0.5);
     }
 
     /* ════════════════════════════════════════
@@ -555,7 +585,7 @@ function buildColumn(col, filtered) {
   const ungroupedHtml = ungrouped.length
     ? ungrouped.map(l => buildCard(l, col, conts)).join('')
     : colLeads.length === 0
-      ? `<div class="kanban-empty">No leads</div>`
+      ? `<div class="kanban-empty">No leads here yet</div>`
       : '';
 
   const contsHtml = conts.map(c => {
@@ -577,12 +607,11 @@ function buildColumn(col, filtered) {
   const addBtn = col.status === 'Registration'
     ? `<button class="kanban-add-btn" onclick="openAdd()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Register Lead</button>` : '';
 
-  return `<div class="kanban-col">
+  return `<div class="kanban-col" style="--col-color:${col.color}">
     <div class="kanban-col-header">
-      <div>
-        <span class="kanban-col-title" style="color:${col.color}">${col.label}</span>
-        <span class="kanban-col-count">(${colLeads.length}/${total})</span>
-      </div>
+      <span class="col-dot"></span>
+      <span class="kanban-col-title">${col.label}</span>
+      <span class="kanban-col-count">${colLeads.length === total ? total : colLeads.length+'/'+total}</span>
       <button class="kanban-col-menu-btn${isEditing?' active':''}"
         onclick="toggleContainerEditor('${col.status}','${col.label}')"
         title="Manage containers">☰</button>
@@ -595,13 +624,27 @@ function buildColumn(col, filtered) {
   </div>`;
 }
 
+const LEVEL_COLORS = {
+  'RoundUp':'#FB8C00','Beginner':'#43A047','Elementary':'#E53935',
+  'Pre-Intermediate':'#1E88E5','Intermediate':'#C49000','CEFR':'#8E24AA','IELTS':'#00897B'
+};
+
+function timeAgo(dt) {
+  if (!dt) return '';
+  const days = (Date.now() - new Date(dt).getTime()) / 86400000;
+  if (days < 1)   return 'today';
+  if (days < 30)  return Math.floor(days) + 'd';
+  if (days < 365) return Math.floor(days / 30) + 'mo';
+  return Math.floor(days / 365) + 'y';
+}
+
 function buildCard(l, col, conts) {
   const name  = l.firstName + ' ' + l.lastName;
   const group = groups.find(g => g.id === l.groupId);
   const phone = l.phoneStudent || l.phoneFather || '';
 
   const moveHtml = conts.length
-    ? `<select style="font-size:11px;padding:2px 5px;border:1px solid var(--border);border-radius:5px;background:var(--surface);font-family:'Inter',sans-serif;color:var(--text);max-width:80px;"
+    ? `<select style="font-size:11px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;background:white;font-family:'Inter',sans-serif;color:var(--muted);max-width:80px;cursor:pointer"
          onchange="moveToContainer(event,'${l.id}','${col.status}')" onclick="event.stopPropagation()">
          <option value="">Move…</option>
          <option value="__none__">No container</option>
@@ -610,23 +653,31 @@ function buildCard(l, col, conts) {
 
   let actionBtns = '';
   if (col.status === 'Registration') {
-    actionBtns = `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();moveToWaitlist('${l.id}')">Waitlist <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
+    actionBtns = `<button class="btn-flow" onclick="event.stopPropagation();moveToWaitlist('${l.id}')">Waitlist <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
   } else if (col.status === 'Waitlist') {
-    actionBtns = `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openTrial('${l.id}')">Trial <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
+    actionBtns = `<button class="btn-flow" onclick="event.stopPropagation();openTrial('${l.id}')">Trial <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
   } else if (col.status === 'Trial') {
-    const grpLabel = group
-      ? `<span style="font-size:10px;color:#A05C00;font-weight:600;margin-right:2px">${group.name}</span>` : '';
-    actionBtns = `${grpLabel}<button class="btn-activate" style="display:inline-flex;align-items:center;gap:4px" onclick="event.stopPropagation();openActivate('${l.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Activate</button>`;
+    actionBtns = `<button class="btn-activate" style="display:inline-flex;align-items:center;gap:4px" onclick="event.stopPropagation();openActivate('${l.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Activate</button>`;
   }
 
-  const groupBadge = col.status === 'Trial' && group
-    ? `<div class="lead-card-meta" style="color:#A05C00;font-weight:600;margin-top:2px">Group: ${group.name}${group.time?' · '+group.time:''}</div>` : '';
+  const lvCol = LEVEL_COLORS[l.currentLevel] || '#546E7A';
+  const chips = [
+    l.currentLevel ? `<span class="lead-chip" style="background:${lvCol}1A;color:${lvCol}">${l.currentLevel}</span>` : '',
+    col.status === 'Trial' && group ? `<span class="lead-chip" style="background:#FDF3E2;color:#A05C00">👥 ${group.name}${group.time?' · '+group.time:''}</span>` : '',
+    col.status === 'Student' ? `<span class="lead-chip" style="background:#E5F3EC;color:#1E6B45">✓ Enrolled</span>` : '',
+  ].filter(Boolean).join('');
 
   return `<div class="lead-card">
     <div class="lead-card-body" onclick="showDetail('${l.id}')">
-      <div class="lead-card-name">${name}</div>
-      <div class="lead-card-meta">${[l.currentLevel, phone].filter(Boolean).join(' · ')}</div>
-      ${groupBadge}
+      <div class="lead-card-top">
+        <div class="lead-avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
+        <div class="lead-card-main">
+          <div class="lead-card-name">${name}</div>
+          <div class="lead-card-meta">${phone || 'no phone'}</div>
+        </div>
+        <span class="lead-age" title="Registered ${formatDate(l.createdAt)}">${timeAgo(l.createdAt)}</span>
+      </div>
+      ${chips ? `<div class="lead-chips">${chips}</div>` : ''}
     </div>
     <div class="lead-card-actions">
       ${actionBtns}
