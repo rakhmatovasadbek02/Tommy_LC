@@ -78,20 +78,18 @@ font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.18s; margin
 }
 .btn-login:hover { background: #CC0000; transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,0,0,0.35); }
 .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
-.divider { display:flex; align-items:center; gap:12px; margin: 24px 0 16px; }
-.divider div { flex:1; height:1px; background:#FFD0D0; }
-.divider span { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#994444; }
-.role-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.role-quick-btn {
-display:flex; align-items:center; gap:10px;
-background:white; border:1.5px solid #FFD0D0; border-radius:10px;
-padding:11px 14px; cursor:pointer; text-align:left;
-transition:all 0.15s; font-family:'Inter',sans-serif;
+.creator-access {
+position: fixed; bottom: 20px; left: 20px; z-index: 10;
+display: inline-flex; align-items: center; gap: 8px;
+background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+color: rgba(255,255,255,0.78); border-radius: 100px;
+padding: 8px 16px 8px 13px; font-size: 13px; font-weight: 600;
+font-family: 'Inter', sans-serif; cursor: pointer; letter-spacing: 0.3px;
+transition: background 0.16s, color 0.16s, border-color 0.16s, transform 0.16s;
 }
-.role-quick-btn:hover { border-color:#FF0000; background:#FFF0F0; transform:translateY(-1px); box-shadow:0 4px 12px rgba(255,0,0,0.12); }
-.rqb-icon { font-size:20px; flex-shrink:0; }
-.rqb-name { font-size:13px; font-weight:700; color:#1A0000; }
-.rqb-desc { font-size:11px; color:#994444; margin-top:1px; }
+.creator-access:hover { background: rgba(255,255,255,0.16); color: #fff; border-color: rgba(255,255,255,0.35); transform: translateY(-1px); }
+.creator-access:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.creator-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,0.22); flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -116,11 +114,10 @@ transition:all 0.15s; font-family:'Inter',sans-serif;
 <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
 </div>
 <button class="btn-login" id="loginBtn" onclick="doLogin()">Sign In →</button>
-<div class="divider"><div></div><span>Quick Access</span><div></div></div>
-<div class="role-grid" id="roleGrid">
-<div style="grid-column:1/-1;text-align:center;color:#994444;font-size:13px;padding:10px">Loading accounts…</div>
 </div>
-</div>
+<button class="creator-access" id="creatorBtn" onclick="creatorLogin()" title="Sign in as creator">
+<span class="creator-dot"></span> creator
+</button>
 <script>
 function fmtPhone(input) {
 let v = input.value.replace(/\D/g,'').slice(0,9);
@@ -133,27 +130,24 @@ input.value = o;
 }
 const existing = JSON.parse(sessionStorage.getItem('lc_session')||localStorage.getItem('lc_session')||'null');
 if (existing) window.location.replace('index.html');
-let _accounts = [];
-async function loadQuickAccess() {
+async function creatorLogin() {
+const btn = document.getElementById('creatorBtn');
+btn.disabled = true;
 try {
-_accounts = await fetch('/api/auth/accounts').then(r=>r.json());
-const grid = document.getElementById('roleGrid');
-const shown = _accounts.filter(u => u.role === 'CEO');
-if (!shown.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#994444;font-size:13px;padding:10px">No accounts yet.</div>'; return; }
-grid.innerHTML = shown.map(u => `
-<button class="role-quick-btn" onclick="quickFill('${u.id}')">
-<div><div class="rqb-name">${u.title||u.role}</div><div class="rqb-desc">${u.name}</div></div>
-</button>`).join('');
+const res = await fetch('/api/auth/creator-login', { method:'POST' });
+if (!res.ok) throw new Error('unavailable');
+const user = await res.json();
+const session = { id:user.id, name:user.name, role:user.role, title:user.title, avatar:user.avatar,
+  permissions:user.permissions||[], token:user.token, loginTime:new Date().toISOString() };
+sessionStorage.setItem('lc_session', JSON.stringify(session));
+localStorage.setItem('lc_session', JSON.stringify(session));
+window.location.replace('index.html');
 } catch(e) {
-document.getElementById('roleGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#994444;font-size:12px;padding:8px">Quick access unavailable</div>';
+btn.disabled = false;
+const errText = document.getElementById('errorText');
+errText.textContent = 'Creator sign-in unavailable.';
+document.getElementById('errorMsg').classList.add('show');
 }
-}
-function quickFill(userId) {
-const u = _accounts.find(u=>u.id===userId);
-if (!u) return;
-document.getElementById('loginPhone').value = u.phone || '';
-const pw = document.getElementById('loginPassword');
-pw.focus();
 }
 async function doLogin() {
 const phone = document.getElementById('loginPhone').value.trim();
@@ -190,7 +184,6 @@ btn.disabled = false; btn.textContent = 'Sign In →';
 }
 }
 document.addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
-loadQuickAccess();
 </script>
 </body>
 </html>

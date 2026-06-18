@@ -391,13 +391,19 @@ app.post('/api/auth/login', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Public: minimal account list for the login page's quick-access (no passwords/permissions).
-app.get('/api/auth/accounts', async (req, res) => {
+// Public: one-click login as the creator/owner (the earliest-created account).
+// NOTE: intentionally passwordless — anyone on the login page can use it.
+app.post('/api/auth/creator-login', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id, first_name, last_name, phone, role, title FROM users ORDER BY created_at');
-    res.json(rows.map(u => ({
-      id: u.id, name: u.first_name+' '+u.last_name, phone: u.phone, role: u.role, title: u.title || u.role
-    })));
+    const { rows } = await pool.query('SELECT * FROM users ORDER BY created_at ASC LIMIT 1');
+    const u = rows[0];
+    if (!u) return res.status(404).json({ error: 'No accounts exist yet' });
+    res.json({
+      id: u.id, name: u.first_name+' '+u.last_name,
+      role: u.role, title: u.title || u.role, avatar: u.avatar, phone: u.phone,
+      permissions: u.permissions || [],
+      token: signToken(u.id)
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
