@@ -1294,6 +1294,53 @@ app.delete('/api/leads/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+/* DASHBOARD — one aggregated payload (stats + timetable) */
+app.get('/api/dashboard', async (req, res) => {
+  try {
+    const me = req.user;
+    const teacher = isTeacherTitle(me.title);
+    const myName = (me.first_name + ' ' + me.last_name);
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }))
+      .toISOString().split('T')[0];
+
+    const [grpR, stuR, invR, leadR, clsR, attR] = await Promise.all([
+      pool.query('SELECT id,name,teacher,room,level,lang,time,duration,sched_type,custom_days,current_unit,student_ids FROM groups ORDER BY created_at DESC'),
+      pool.query('SELECT id,status,balance FROM students WHERE archived IS NOT TRUE'),
+      pool.query("SELECT COUNT(*)::int n FROM invoices WHERE status='Paid'"),
+      pool.query('SELECT status, COUNT(*)::int n FROM leads GROUP BY status'),
+      pool.query('SELECT id,name FROM classrooms ORDER BY name'),
+      pool.query("SELECT group_id, student_id FROM attendance WHERE date=$1 AND status='absent'", [today]),
+    ]);
+
+    const enrolledAll = new Set(grpR.rows.flatMap(g => g.student_ids || []));
+    let groups = grpR.rows;
+    if (teacher) groups = groups.filter(g => (g.teacher || '') === myName);
+    const scopeIds = new Set(groups.flatMap(g => g.student_ids || []));
+    const stuById = new Map(stuR.rows.map(s => [s.id, s]));
+
+    const inScope = s => !teacher || scopeIds.has(s.id);
+    const students = stuR.rows.filter(inScope);
+    const activeStudents = students.filter(s => enrolledAll.has(s.id) && s.status === 'Active').length;
+    const debtors = students.filter(s => Number(s.balance || 0) < 0).length;
+    const leadCount = leadR.rows.filter(r => r.status==='Registration'||r.status==='Waitlist').reduce((a,r)=>a+r.n,0);
+    const trial = leadR.rows.filter(r => r.status==='Trial').reduce((a,r)=>a+r.n,0);
+    const absentIds = new Set();
+    const ownGrp = new Set(groups.map(g=>g.id));
+    attR.rows.forEach(r => { if (!teacher || ownGrp.has(r.group_id)) absentIds.add(r.student_id); });
+
+    res.json({
+      stats: { activeStudents, debtors, paidCount: invR.rows[0].n, leads: leadCount, trial, absentToday: absentIds.size },
+      classrooms: clsR.rows.map(c => ({ id: c.id, name: c.name })),
+      groups: groups.map(g => ({
+        id: g.id, name: g.name, teacher: g.teacher, room: g.room, level: g.level, lang: g.lang,
+        time: g.time, duration: g.duration, schedType: g.sched_type, customDays: g.custom_days,
+        currentUnit: g.current_unit || '1A',
+        enrolledCount: (g.student_ids || []).filter(id => stuById.has(id)).length
+      }))
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 /* ACTIVITY */
 app.get('/api/activity', async (req, res) => {
   try {

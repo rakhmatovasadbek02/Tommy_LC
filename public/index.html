@@ -141,13 +141,14 @@ const hour = now.getHours();
 const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 document.getElementById('welcomeMsg').textContent = `${greeting}, ${firstName} `;
 const STAT_DEFS = [
-{ id:'statActive', label:'Active Students', icon:'', color:'', perm:'students', calc:()=>(window._students||[]).filter(s=>s.status==='Active').length, sub:'currently enrolled', link:'students.html' },
-{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', perm:'finance', calc:()=>(window._students||[]).filter(s=>Number(s.balance||0)<0).length, sub:'negative balance', link:'finance.html' },
-{ id:'statPaid', label:'Paid', icon:'', color:'green', perm:'finance', calc:()=>(window._invoices||[]).filter(i=>i.status==='Paid').length, sub:'invoices settled', link:'finance.html' },
-{ id:'statLead', label:'Leads', icon:'', color:'purple', perm:'leads', calc:()=>(window._leads||[]).filter(l=>l.status==='Registration'||l.status==='Waitlist').length, sub:'in pipeline', link:'leads.html' },
-{ id:'statTrial', label:'Trial', icon:'', color:'amber', perm:'leads', calc:()=>(window._leads||[]).filter(l=>l.status==='Trial').length, sub:'on trial period', link:'leads.html' },
-{ id:'statAbsent', label:'Absent Today', icon:'', color:'red', perm:'students', calc:()=>window._absentToday||0, sub:'not in class today', link:'students.html' },
+{ id:'statActive', label:'Active Students', icon:'', color:'', perm:'students', calc:()=>S().activeStudents, sub:'currently enrolled', link:'students.html' },
+{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', perm:'finance', calc:()=>S().debtors, sub:'negative balance', link:'finance.html' },
+{ id:'statPaid', label:'Paid', icon:'', color:'green', perm:'finance', calc:()=>S().paidCount, sub:'invoices settled', link:'finance.html' },
+{ id:'statLead', label:'Leads', icon:'', color:'purple', perm:'leads', calc:()=>S().leads, sub:'in pipeline', link:'leads.html' },
+{ id:'statTrial', label:'Trial', icon:'', color:'amber', perm:'leads', calc:()=>S().trial, sub:'on trial period', link:'leads.html' },
+{ id:'statAbsent', label:'Absent Today', icon:'', color:'red', perm:'students', calc:()=>S().absentToday, sub:'not in class today', link:'students.html' },
 ];
+function S(){ return window._stats || {activeStudents:0,debtors:0,paidCount:0,leads:0,trial:0,absentToday:0}; }
 function renderStats() {
 const row = document.getElementById('statRow');
 row.innerHTML = STAT_DEFS
@@ -164,9 +165,15 @@ const el = document.getElementById(s.id);
 if (el) el.textContent = s.calc();
 });
 }
-function searchStudents(q) {
+let _studentsLoaded = false;
+async function ensureStudents() {
+if (_studentsLoaded) return;
+try { window._students = await apiGet('/api/students'); if (isTeacher()) window._students = window._students.filter(s=>(s.groups||[]).some(ownsGroup)); _studentsLoaded = true; } catch { window._students = []; }
+}
+async function searchStudents(q) {
 const dd = document.getElementById('searchDropdown');
 if (!q.trim()) { dd.style.display = 'none'; return; }
+await ensureStudents();
 const results = (window._students || []).filter(s =>
 (s.firstName+' '+s.lastName).toLowerCase().includes(q.toLowerCase()) ||
 (s.phone||'').includes(q) ||
@@ -291,8 +298,7 @@ const cStart = timeToMin(cls.time);
 const cEnd = cStart + Number(cls.duration || 90);
 const spanSlots = slots.filter(s2 => s2 >= cStart && s2 < cEnd).length;
 const blockW = spanSlots * COL_W - 4;
-const _studs = window._students || [];
-const enrolled = (cls.studentIds || []).filter(id => _studs.some(s => s.id === id)).length;
+const enrolled = cls.enrolledCount != null ? cls.enrolledCount : (cls.studentIds || []).length;
 return `<div onclick="window.location.href='group.html?id=${cls.id}'"
 style="position:absolute;top:2px;left:2px;width:${blockW}px;bottom:2px;background:${c};border-radius:6px;padding:5px 8px;cursor:pointer;overflow:hidden;z-index:3;box-sizing:border-box;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto 1fr auto;gap:1px 4px;"
 onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">
@@ -322,24 +328,10 @@ grid.innerHTML = `<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
 }
 async function init() {
 try {
-const [groups, classrooms, students, invoices, leads] = await Promise.all([
-apiGet('/api/groups'), apiGet('/api/classrooms'),
-apiGet('/api/students'), apiGet('/api/invoices'), apiGet('/api/leads')
-]);
-let g2=groups, s2=students;
-if (isTeacher()) { g2 = groups.filter(ownsGroup); s2 = students.filter(s=>(s.groups||[]).some(ownsGroup)); }
-window._groups = g2; window._classrooms = classrooms;
-window._students = s2; window._invoices = invoices; window._leads = leads;
-const today = new Date().toISOString().split('T')[0];
-const ownIds = new Set(g2.map(g=>g.id));
-const dayAtt = await apiGet(`/api/attendance/day/${today}`).catch(()=>[]);
-const absentIds = new Set();
-dayAtt.forEach(r => { if (r.status==='absent' && ownIds.has(r.groupId)) absentIds.add(r.studentId); });
-window._absentToday = absentIds.size;
+const d = await apiGet('/api/dashboard');
+window._groups = d.groups; window._classrooms = d.classrooms; window._stats = d.stats;
 } catch(e) {
-window._groups=[]; window._classrooms=[];
-window._students=[]; window._invoices=[]; window._leads=[];
-window._absentToday=0;
+window._groups=[]; window._classrooms=[]; window._stats=null;
 }
 renderStats();
 const autoTab = autoDetectTab();
