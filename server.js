@@ -4,10 +4,12 @@ const path     = require('path');
 const cors     = require('cors');
 const cron     = require('node-cron');
 const crypto   = require('crypto');
+const compression = require('compression');
 
 const app  = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 
@@ -61,7 +63,12 @@ function verifyToken(token) {
   } catch { return null; }
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, fp) {
+    if (/\.(css|js|woff2?|ttf|png|jpg|svg|ico)$/.test(fp)) res.setHeader('Cache-Control', 'public, max-age=3600');
+    else res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 
 async function initDB() {
   await pool.query(`
@@ -244,6 +251,11 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
+    `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_comments_student ON student_comments(student_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_calls_student ON student_calls(student_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_attendance_grp_date ON attendance(group_id, date)`,
+    `CREATE INDEX IF NOT EXISTS idx_groups_student_ids ON groups USING gin (student_ids)`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -1128,6 +1140,17 @@ app.delete('/api/invoices/:id', async (req, res) => {
 });
 
 /* ATTENDANCE */
+// Batch: all attendance for a date across every group (one round-trip for the dashboard).
+app.get('/api/attendance/day/:date', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT group_id, student_id, status FROM attendance WHERE date=$1',
+      [req.params.date]
+    );
+    res.json(rows.map(r => ({ groupId: r.group_id, studentId: r.student_id, status: r.status })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/attendance/:groupId/:date', async (req, res) => {
   try {
     const { rows } = await pool.query(

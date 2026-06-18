@@ -331,9 +331,10 @@ if (isTeacher()) { g2 = groups.filter(ownsGroup); s2 = students.filter(s=>(s.gro
 window._groups = g2; window._classrooms = classrooms;
 window._students = s2; window._invoices = invoices; window._leads = leads;
 const today = new Date().toISOString().split('T')[0];
-const attResults = await Promise.all(g2.map(g => apiGet(`/api/attendance/${g.id}/${today}`).catch(()=>[])));
+const ownIds = new Set(g2.map(g=>g.id));
+const dayAtt = await apiGet(`/api/attendance/day/${today}`).catch(()=>[]);
 const absentIds = new Set();
-attResults.forEach(recs => recs.filter(r=>r.status==='absent').forEach(r=>absentIds.add(r.studentId)));
+dayAtt.forEach(r => { if (r.status==='absent' && ownIds.has(r.groupId)) absentIds.add(r.studentId); });
 window._absentToday = absentIds.size;
 } catch(e) {
 window._groups=[]; window._classrooms=[];
