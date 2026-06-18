@@ -64,26 +64,15 @@
         <div id="pwHint" style="font-size:12px;color:var(--muted);margin-top:5px;display:none">Leave blank to keep existing password.</div>
       </div>
       <div class="form-group">
-        <label>Job title *</label>
-        <input type="text" id="uTitle" placeholder="e.g. Manager, Front desk, Teacher" oninput="onTitleInput()">
-      </div>
-
-      <div id="teacherNote" style="display:none;background:var(--crimson-soft);border:1px solid var(--border);border-radius:9px;padding:12px 14px;font-size:13px;color:var(--text);line-height:1.6">
-        <strong>Teacher account — fixed access:</strong><br>
-        • Dashboard — own groups only<br>
-        • Students — own students only<br>
-        • Groups — view &amp; mark attendance only
-      </div>
-
-      <div class="form-group" id="permSection">
-        <div class="perm-section-head">
-          <span class="perm-section-title">Page access <span style="font-weight:400;text-transform:none;letter-spacing:0">(can see &amp; manage)</span></span>
-          <button type="button" class="perm-toggle-all" id="toggleAllBtn" onclick="toggleAllPerms()">Select all</button>
-        </div>
-        <div class="perm-grid" id="pagePerms"></div>
-        <label class="perm-chip" id="financeViewOnlyRow" style="display:none;margin-top:2px">
-          <input type="checkbox" id="financeViewOnly"><span class="perm-chip-label">Finance: view only (cannot record or edit payments)</span>
-        </label>
+        <label>Role *</label>
+        <select id="uRole" onchange="onRoleChange()">
+          <option value="CEO">CEO</option>
+          <option value="Head Admin">Head Admin</option>
+          <option value="Manager">Manager</option>
+          <option value="Admin">Admin</option>
+          <option value="Teacher">Teacher</option>
+        </select>
+        <div id="roleDesc" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:8px"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -99,11 +88,13 @@
   requireAuth('settings');
   renderSidebar('settings');
 
-  const PAGE_PERMS = [
-    ['dashboard','Dashboard'],['leads','Leads'],['students','Students'],['groups','Groups'],
-    ['finance','Finance'],['teachers','Teachers'],['staff','Staff'],['actions','Actions'],
-    ['classrooms','Classrooms'],['archived','Archived']
-  ];
+  const ROLE_DESC = {
+    'CEO': 'Full access to everything.',
+    'Head Admin': 'Everything except Actions and Staff. Finance is view-only (cannot record or edit payments).',
+    'Manager': 'Everything except Actions.',
+    'Admin': 'Dashboard, Leads, Students, Groups, Teachers. Cannot see Finance, Staff, Archived, Actions or Classrooms.',
+    'Teacher': 'Own groups only — Dashboard, own Students, and Groups (view & mark attendance).'
+  };
   const canManage = can('staff');
 
   let users = [];
@@ -114,49 +105,8 @@
     input.value=o;
   }
 
-  function isTeacherTitle() { return document.getElementById('uTitle').value.trim().toLowerCase()==='teacher'; }
-  function onTitleInput() {
-    const t = isTeacherTitle();
-    document.getElementById('teacherNote').style.display = t ? '' : 'none';
-    document.getElementById('permSection').style.display = t ? 'none' : '';
-  }
-
-  function buildPermChips() {
-    document.getElementById('pagePerms').innerHTML = PAGE_PERMS.map(([key,label]) =>
-      `<label class="perm-chip" data-key="${key}"><input type="checkbox" value="${key}" onchange="onPermChange(this)"><span class="perm-chip-label">${label}</span></label>`).join('');
-  }
-  function onPermChange(cb) {
-    cb.closest('.perm-chip').classList.toggle('on', cb.checked);
-    if (cb.value==='finance') document.getElementById('financeViewOnlyRow').style.display = cb.checked ? '' : 'none';
-    syncToggleAllLabel();
-  }
-  function setPerms(list) {
-    const set = new Set(list||[]);
-    document.querySelectorAll('#pagePerms input').forEach(cb => {
-      cb.checked = set.has(cb.value);
-      cb.closest('.perm-chip').classList.toggle('on', cb.checked);
-    });
-    const fvo = document.getElementById('financeViewOnly');
-    fvo.checked = set.has('finance_view_only');
-    document.getElementById('financeViewOnlyRow').style.display = set.has('finance') ? '' : 'none';
-    document.getElementById('financeViewOnlyRow').classList.toggle('on', fvo.checked);
-    syncToggleAllLabel();
-  }
-  function getPerms() {
-    const list = [...document.querySelectorAll('#pagePerms input:checked')].map(cb=>cb.value);
-    if (list.includes('finance') && document.getElementById('financeViewOnly').checked) list.push('finance_view_only');
-    return list;
-  }
-  function toggleAllPerms() {
-    const boxes = [...document.querySelectorAll('#pagePerms input')];
-    const allOn = boxes.every(cb=>cb.checked);
-    boxes.forEach(cb => { cb.checked = !allOn; cb.closest('.perm-chip').classList.toggle('on', !allOn); });
-    document.getElementById('financeViewOnlyRow').style.display = !allOn ? '' : 'none';
-    syncToggleAllLabel();
-  }
-  function syncToggleAllLabel() {
-    const boxes = [...document.querySelectorAll('#pagePerms input')];
-    document.getElementById('toggleAllBtn').textContent = boxes.length && boxes.every(cb=>cb.checked) ? 'Clear all' : 'Select all';
+  function onRoleChange() {
+    document.getElementById('roleDesc').textContent = ROLE_DESC[document.getElementById('uRole').value] || '';
   }
 
   async function load() { users = await apiGet('/api/users'); renderUsers(); }
@@ -169,11 +119,7 @@
       const name = u.firstName+' '+u.lastName;
       const col  = avatarColor(name);
       const isMe = session && session.id === u.id;
-      const perms = u.permissions || [];
-      const teacher = String(u.title||'').trim().toLowerCase()==='teacher';
-      const pages = perms.filter(p=>p!=='finance_view_only');
-      const summary = teacher ? 'Teacher — own groups only'
-        : (pages.length ? `${pages.length} section${pages.length!==1?'s':''}${perms.includes('finance_view_only')?' · finance view-only':''}` : 'No access yet');
+      const summary = ROLE_DESC[u.title||u.role] || (u.title||u.role);
       return `<div class="sf-card">
         <div class="sf-banner"><div class="sf-avatar" style="background:${col}">${initials(name)}</div></div>
         <div class="sf-body">
@@ -194,7 +140,6 @@
 
   function openAdd() {
     clearForm(); document.getElementById('userModalTitle').textContent='Add Staff Member';
-    setPerms(['dashboard']);
     openModal('userModal');
   }
 
@@ -205,9 +150,8 @@
     document.getElementById('uFirst').value=u.firstName;
     document.getElementById('uLast').value=u.lastName;
     document.getElementById('uPhone').value=u.phone||'';
-    document.getElementById('uTitle').value=u.title||u.role||'';
-    setPerms(u.permissions||[]);
-    onTitleInput();
+    document.getElementById('uRole').value=ROLE_DESC[u.title]?u.title:(ROLE_DESC[u.role]?u.role:'Admin');
+    onRoleChange();
     document.getElementById('pwHint').style.display='block';
     document.getElementById('pwLabel').textContent='(optional)';
     document.getElementById('userModalTitle').textContent='Edit Staff Member';
@@ -219,16 +163,12 @@
     const last =document.getElementById('uLast').value.trim();
     const phone=document.getElementById('uPhone').value.trim();
     const pass =document.getElementById('uPassword').value;
-    const title=document.getElementById('uTitle').value.trim();
-    const teacher=title.toLowerCase()==='teacher';
-    const permissions=teacher?['dashboard','students','groups']:getPerms();
+    const title=document.getElementById('uRole').value;
     const id   =document.getElementById('editUserId').value;
     if(!first||!last){showToast('Name required.','error');return;}
     if(!phone){showToast('Phone required.','error');return;}
-    if(!title){showToast('Job title required.','error');return;}
     if(!id&&!pass){showToast('Password required.','error');return;}
-    if(!teacher&&!permissions.length){showToast('Select at least one permission.','error');return;}
-    const data={firstName:first,lastName:last,phone,title,permissions};
+    const data={firstName:first,lastName:last,phone,title};
     if(pass)data.password=pass;
     try {
       if(id){await apiPut('/api/users/'+id,data);logActivity(`Updated staff: ${first} ${last}`,'');}
@@ -248,15 +188,13 @@
   }
 
   function clearForm() {
-    ['editUserId','uFirst','uLast','uPhone','uPassword','uTitle'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('financeViewOnly').checked=false;
-    setPerms([]);
-    onTitleInput();
+    ['editUserId','uFirst','uLast','uPhone','uPassword'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('uRole').value='Admin';
+    onRoleChange();
     document.getElementById('pwHint').style.display='none';
     document.getElementById('pwLabel').textContent='*';
   }
 
-  buildPermChips();
   if (!canManage) document.querySelector('.topbar-right').style.display='none';
   load();
 </script>

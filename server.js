@@ -16,18 +16,20 @@ app.use(express.json());
 ══════════════════════════════════════ */
 // Page permissions: having one = full see + manage of that section.
 const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived'];
-// Plus modifiers. finance_view_only restricts Finance to read (no recording/editing).
+// finance_view_only restricts Finance to read (no recording/editing).
 const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
-// Fixed strict scope for Teacher accounts (identified by job title === 'teacher').
-const TEACHER_PERMISSIONS = ['dashboard','students','groups'];
-function isTeacherTitle(t) { return String(t||'').trim().toLowerCase() === 'teacher'; }
 
-// Defaults used ONLY to migrate pre-existing users with no permissions yet.
-function permsForLegacyRole(role) {
-  if (role === 'CEO' || role === 'Head Admin' || role === 'Admin' || role === 'Manager') return PAGE_PERMISSIONS.slice();
-  if (role === 'Teacher') return TEACHER_PERMISSIONS.slice();
-  return ['dashboard'];
-}
+// Fixed roles → permission sets. These are the only assignable titles.
+const ROLE_PERMS = {
+  'CEO':        [...PAGE_PERMISSIONS],
+  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','classrooms','archived','finance_view_only'],
+  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','classrooms','archived'],
+  'Admin':      ['dashboard','leads','students','groups','teachers'],
+  'Teacher':    ['dashboard','students','groups'],
+};
+const ROLES = Object.keys(ROLE_PERMS);
+function permsForRole(title) { return (ROLE_PERMS[title] || ['dashboard']).slice(); }
+function isTeacherTitle(t) { return String(t||'').trim().toLowerCase() === 'teacher'; }
 
 /* ══════════════════════════════════════
    AUTH TOKENS  (HMAC-signed identity token)
@@ -250,20 +252,12 @@ async function initDB() {
   // One-time migration: give existing users a permission list derived from their old role.
   // Runs only for users whose permissions are still empty (NULL or []).
   try {
-    const legacy = await pool.query(
-      `SELECT id, role FROM users WHERE permissions IS NULL OR permissions = '[]'::jsonb`
-    );
-    for (const u of legacy.rows) {
-      const perms = permsForLegacyRole(u.role);
-      await pool.query('UPDATE users SET permissions=$1, title=COALESCE(title,$2) WHERE id=$3',
-        [JSON.stringify(perms), u.role, u.id]);
-    }
-    // Normalize: drop any stored permission keys no longer in the catalog (e.g. old manage_*).
-    const all = await pool.query('SELECT id, permissions, title FROM users');
+    // Permissions are derived from the user's fixed role (title, falling back to role column).
+    const all = await pool.query('SELECT id, role, title FROM users');
     for (const u of all.rows) {
-      let perms = (u.permissions || []).filter(p => ALL_PERMISSIONS.includes(p));
-      if (isTeacherTitle(u.title)) perms = TEACHER_PERMISSIONS.slice();
-      await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms), u.id]);
+      const roleName = ROLE_PERMS[u.title] ? u.title : (ROLE_PERMS[u.role] ? u.role : 'Admin');
+      await pool.query('UPDATE users SET permissions=$1, title=$2, role=$2 WHERE id=$3',
+        [JSON.stringify(permsForRole(roleName)), roleName, u.id]);
     }
   } catch(e) { console.warn('Permission migration skipped:', e.message); }
 
@@ -310,7 +304,7 @@ async function initDB() {
       `INSERT INTO users (id, first_name, last_name, phone, password, role, avatar, title, permissions)
        VALUES ('u1','Admin','TommyLC','90 000 00 01','admin123','CEO','AT','CEO',$1)
        ON CONFLICT DO NOTHING`,
-      [JSON.stringify(PAGE_PERMISSIONS)]
+      [JSON.stringify(ROLE_PERMS['CEO'])]
     );
     console.log('Seeded default CEO: phone=90 000 00 01  password=admin123');
   }
@@ -453,12 +447,13 @@ app.get('/api/users', async (req, res) => {
 
 app.post('/api/users', async (req, res) => {
   try {
-    const { id, firstName, lastName, phone, password, title, permissions } = req.body;
+    const { id, firstName, lastName, phone, password, title } = req.body;
+    if (!ROLE_PERMS[title]) return res.status(400).json({ error: 'Invalid role' });
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
-    const perms = isTeacherTitle(title) ? TEACHER_PERMISSIONS.slice() : cleanPerms(permissions);
+    const perms = permsForRole(title);
     await pool.query(
       'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [id, firstName, lastName, phone, password, title||'Staff', title||'Staff', avatar, JSON.stringify(perms)]
+      [id, firstName, lastName, phone, password, title, title, avatar, JSON.stringify(perms)]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -466,18 +461,19 @@ app.post('/api/users', async (req, res) => {
 
 app.put('/api/users/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, password, title, permissions } = req.body;
+    const { firstName, lastName, phone, password, title } = req.body;
+    if (!ROLE_PERMS[title]) return res.status(400).json({ error: 'Invalid role' });
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
-    const perms = isTeacherTitle(title) ? TEACHER_PERMISSIONS.slice() : cleanPerms(permissions);
+    const perms = permsForRole(title);
     if (password) {
       await pool.query(
         'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7 WHERE id=$8',
-        [firstName, lastName, phone, password, title||'Staff', avatar, JSON.stringify(perms), req.params.id]
+        [firstName, lastName, phone, password, title, avatar, JSON.stringify(perms), req.params.id]
       );
     } else {
       await pool.query(
         'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,avatar=$5,permissions=$6 WHERE id=$7',
-        [firstName, lastName, phone, title||'Staff', avatar, JSON.stringify(perms), req.params.id]
+        [firstName, lastName, phone, title, avatar, JSON.stringify(perms), req.params.id]
       );
     }
     res.json({ ok: true });
