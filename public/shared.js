@@ -4,32 +4,39 @@
 
 const API = '';
 
-async function apiGet(path) {
- const r = await fetch(API + path);
+function authHeaders(extra) {
+ const h = extra || {};
+ try {
+   const s = JSON.parse(sessionStorage.getItem('lc_session') || localStorage.getItem('lc_session') || 'null');
+   if (s && s.token) h['Authorization'] = 'Bearer ' + s.token;
+ } catch {}
+ return h;
+}
+async function handleRes(r, path) {
+ if (r.status === 401 && !String(path).includes('/auth/login')) {
+   sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session');
+   window.location.replace('login.html');
+   throw new Error('Session expired — please sign in again.');
+ }
  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || r.statusText); }
  return r.json();
+}
+async function apiGet(path) {
+ return handleRes(await fetch(API + path, { headers: authHeaders() }), path);
 }
 async function apiPost(path, data) {
- const r = await fetch(API + path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
- if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || r.statusText); }
- return r.json();
+ return handleRes(await fetch(API + path, { method:'POST', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(data) }), path);
 }
 async function apiPut(path, data) {
- const r = await fetch(API + path, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
- if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || r.statusText); }
- return r.json();
+ return handleRes(await fetch(API + path, { method:'PUT', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(data) }), path);
 }
 async function apiPatch(path, data) {
- const r = await fetch(API + path, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
- if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || r.statusText); }
- return r.json();
+ return handleRes(await fetch(API + path, { method:'PATCH', headers: authHeaders({'Content-Type':'application/json'}), body: JSON.stringify(data) }), path);
 }
 async function apiDelete(path, body) {
- const opts = { method:'DELETE' };
- if (body) { opts.headers = {'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
- const r = await fetch(API + path, opts);
- if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || r.statusText); }
- return r.json();
+ const opts = { method:'DELETE', headers: authHeaders() };
+ if (body) { opts.headers = authHeaders({'Content-Type':'application/json'}); opts.body = JSON.stringify(body); }
+ return handleRes(await fetch(API + path, opts), path);
 }
 
 function genId() {
@@ -52,12 +59,14 @@ function initials(name) {
  return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 }
 
-const ROLE_PERMISSIONS = { 'CEO': '*' };
-const ROLE_META = {
- 'CEO':     { color:'#FF0000', badge:'badge-red',  label:'CEO'     },
- 'Teacher': { color:'#1D4ED8', badge:'badge-blue', label:'Teacher' },
- 'Admin':   { color:'#1E6B45', badge:'badge-green',label:'Admin'   },
-};
+// All permission keys the app knows about (mirrors server ALL_PERMISSIONS).
+const ALL_PERMISSIONS = [
+ 'dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived',
+ 'manage_leads','manage_students','archive_students','manage_groups','manage_finance',
+ 'manage_teachers','manage_classrooms','manage_staff'
+];
+// Sidebar/page feature keys that differ from permission keys.
+const PERM_ALIAS = { payments:'finance', settings:'staff' };
 
 function getSession() {
  try { return JSON.parse(sessionStorage.getItem('lc_session') || localStorage.getItem('lc_session') || 'null'); }
@@ -68,21 +77,26 @@ function setSession(data) {
  sessionStorage.setItem('lc_session', s);
  localStorage.setItem('lc_session', s);
 }
-function getRole() { const s = getSession(); return s ? s.role : null; }
+function getRole() { const s = getSession(); return s ? (s.title || s.role) : null; }
+function getPermissions() { const s = getSession(); return (s && Array.isArray(s.permissions)) ? s.permissions : []; }
 function can(feature) {
- const role = getRole();
- if (!role) return false;
- if (role === 'CEO') return true;
- const perms = ROLE_PERMISSIONS[role];
- return Array.isArray(perms) && perms.includes(feature);
+ const perms = getPermissions();
+ const key = PERM_ALIAS[feature] || feature;
+ return perms.includes(key);
 }
 
 function requireAuth(requiredFeature) {
  const session = getSession();
  if (!session) { window.location.replace('login.html'); return; }
- if (requiredFeature && session.role !== 'CEO' && !can(requiredFeature)) {
+ if (requiredFeature && !can(requiredFeature)) {
  sessionStorage.setItem('lc_access_denied', requiredFeature);
- window.location.replace('index.html');
+ // Send them to the first section they CAN open, falling back to login if none.
+ const fallback = ['dashboard','students','groups','leads','finance','teachers','staff','actions','classrooms','archived']
+   .find(f => can(f));
+ const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html',
+   finance:'finance.html', teachers:'teachers.html', staff:'users.html', actions:'actions.html',
+   classrooms:'classrooms.html', archived:'archived.html' };
+ window.location.replace(fallback ? pageFor[fallback] : 'login.html');
  }
 }
 function logout() {
@@ -114,7 +128,7 @@ function checkAccessDeniedMessage() {
  const denied = sessionStorage.getItem('lc_access_denied');
  if (denied) {
  sessionStorage.removeItem('lc_access_denied');
- const labels = { payments:'Payments', teachers:'Teachers', settings:'Staff', groups:'Groups', classrooms:'Classrooms', leads:'Leads', students:'Students' };
+ const labels = { payments:'Finance', finance:'Finance', teachers:'Teachers', settings:'Staff', staff:'Staff', groups:'Groups', classrooms:'Classrooms', leads:'Leads', students:'Students', actions:'Actions', archived:'Archived', dashboard:'Dashboard' };
  showToast(`Your role does not have access to ${labels[denied]||denied}.`, 'error');
  }
 }
@@ -176,7 +190,8 @@ function renderSidebar(activePage) {
  ]},
  ];
 
- const meta = ROLE_META[session.role] || ROLE_META['CEO'];
+ const meta = { color: avatarColor(session.name||'?'), badge: 'badge-grey' };
+ const roleLabel = session.title || session.role || 'Staff';
  const navHTML = NAV_SECTIONS.map(section => {
    const links = section.items
      .filter(item => can(item.feature))
@@ -202,7 +217,7 @@ function renderSidebar(activePage) {
  <div class="user-avatar" style="background:${meta.color}">${session.avatar||initials(session.name)}</div>
  <div class="user-info">
  <div class="user-name">${session.name}</div>
- <div class="user-role"><span class="badge ${meta.badge}" style="font-size:9px;padding:1px 7px">${session.role}</span></div>
+ <div class="user-role"><span class="badge ${meta.badge}" style="font-size:9px;padding:1px 7px">${roleLabel}</span></div>
  </div>
  </div>
  <button onclick="logout()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:rgba(255,255,255,0.50);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.14s;display:flex;align-items:center;justify-content:center;gap:7px;" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='rgba(255,255,255,0.88)'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.50)'">

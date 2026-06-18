@@ -3,12 +3,63 @@ const { Pool } = require('pg');
 const path     = require('path');
 const cors     = require('cors');
 const cron     = require('node-cron');
+const crypto   = require('crypto');
 
 const app  = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
 app.use(cors());
 app.use(express.json());
+
+/* ══════════════════════════════════════
+   PERMISSIONS
+══════════════════════════════════════ */
+// All permission keys the app knows about. Page keys gate sections; manage_* gate writes.
+const ALL_PERMISSIONS = [
+  'dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived',
+  'manage_leads','manage_students','archive_students','manage_groups','manage_finance',
+  'manage_teachers','manage_classrooms','manage_staff'
+];
+
+// Defaults used ONLY to migrate pre-existing users off the old role column.
+function permsForLegacyRole(role) {
+  if (role === 'CEO' || role === 'Head Admin') return ALL_PERMISSIONS.slice();
+  if (role === 'Admin') return ALL_PERMISSIONS.filter(p => p !== 'staff' && p !== 'manage_staff');
+  if (role === 'Manager') return ['dashboard','leads','students','groups','finance','teachers','classrooms','archived','manage_leads','manage_students','archive_students','manage_groups','manage_finance','manage_teachers','manage_classrooms'];
+  if (role === 'Teacher') return ['dashboard','students','groups'];
+  return ['dashboard'];
+}
+
+/* ══════════════════════════════════════
+   AUTH TOKENS  (HMAC-signed identity token)
+══════════════════════════════════════ */
+let APP_SECRET = null;
+async function loadAppSecret() {
+  if (process.env.APP_SECRET) { APP_SECRET = process.env.APP_SECRET; return; }
+  const r = await pool.query(`SELECT value FROM app_config WHERE key='auth_secret'`);
+  if (r.rows[0]) { APP_SECRET = r.rows[0].value; return; }
+  APP_SECRET = crypto.randomBytes(32).toString('hex');
+  await pool.query(`INSERT INTO app_config(key,value) VALUES('auth_secret',$1) ON CONFLICT(key) DO NOTHING`, [APP_SECRET]);
+  const check = await pool.query(`SELECT value FROM app_config WHERE key='auth_secret'`);
+  if (check.rows[0]) APP_SECRET = check.rows[0].value;
+}
+function signToken(userId) {
+  const sig = crypto.createHmac('sha256', APP_SECRET).update(String(userId)).digest('hex');
+  return Buffer.from(userId + '.' + sig).toString('base64');
+}
+function verifyToken(token) {
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf8');
+    const idx = decoded.lastIndexOf('.');
+    if (idx < 0) return null;
+    const userId = decoded.slice(0, idx), sig = decoded.slice(idx + 1);
+    const expected = crypto.createHmac('sha256', APP_SECRET).update(userId).digest('hex');
+    if (sig.length !== expected.length) return null;
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    return userId;
+  } catch { return null; }
+}
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 async function initDB() {
@@ -189,10 +240,26 @@ async function initDB() {
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS school TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS grade TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS address TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT`,
+    `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
   }
+
+  // One-time migration: give existing users a permission list derived from their old role.
+  // Runs only for users whose permissions are still empty (NULL or []).
+  try {
+    const legacy = await pool.query(
+      `SELECT id, role FROM users WHERE permissions IS NULL OR permissions = '[]'::jsonb`
+    );
+    for (const u of legacy.rows) {
+      const perms = permsForLegacyRole(u.role);
+      await pool.query('UPDATE users SET permissions=$1, title=COALESCE(title,$2) WHERE id=$3',
+        [JSON.stringify(perms), u.role, u.id]);
+    }
+  } catch(e) { console.warn('Permission migration skipped:', e.message); }
 
   // Remove trial lead IDs from group student_ids (they should never be in there)
   try {
@@ -233,16 +300,77 @@ async function initDB() {
 
   const { rows } = await pool.query('SELECT COUNT(*) FROM users');
   if (parseInt(rows[0].count) === 0) {
-    await pool.query(`
-      INSERT INTO users (id, first_name, last_name, phone, password, role, avatar)
-      VALUES ('u1','Admin','TommyLC','90 000 00 01','admin123','CEO','AT')
-      ON CONFLICT DO NOTHING
-    `);
+    await pool.query(
+      `INSERT INTO users (id, first_name, last_name, phone, password, role, avatar, title, permissions)
+       VALUES ('u1','Admin','TommyLC','90 000 00 01','admin123','CEO','AT','CEO',$1)
+       ON CONFLICT DO NOTHING`,
+      [JSON.stringify(ALL_PERMISSIONS)]
+    );
     console.log('Seeded default CEO: phone=90 000 00 01  password=admin123');
   }
 
+  await loadAppSecret();
   console.log('Database ready');
 }
+
+/* ══════════════════════════════════════
+   AUTH MIDDLEWARE — gate every /api route
+══════════════════════════════════════ */
+// Maps a request to the permission it requires. null = any logged-in user.
+function requiredPerm(method, p) {
+  const seg = p.split('/').filter(Boolean);
+  const top = seg[0];
+  const write = method !== 'GET';
+
+  if (top === 'auth') return null;
+  if (top === 'activity') return method === 'GET' ? 'actions' : null;
+  if (top === 'users') return write ? 'manage_staff' : 'staff';
+
+  if (top === 'students') {
+    if (seg[2] === 'payment')  return 'manage_finance';
+    if (seg[2] === 'activate') return 'manage_students';
+    if (seg[2] === 'restore')  return 'archive_students';
+    if (seg[2] === 'comments' || seg[2] === 'calls') return null;
+    if (seg[1] === 'comments' || seg[1] === 'calls') return null;
+    if (method === 'DELETE')   return 'archive_students';
+    if (write) return 'manage_students';
+    return null;
+  }
+  if (top === 'groups') {
+    if (seg[2] === 'students' || seg[2] === 'unit') return 'manage_groups';
+    if (seg[2] === 'comments' || seg[1] === 'comments') return null;
+    if (write) return 'manage_groups';
+    return null;
+  }
+  if (top === 'invoices')   return write ? 'manage_finance'    : null;
+  if (top === 'teachers')   return write ? 'manage_teachers'   : null;
+  if (top === 'classrooms') return write ? 'manage_classrooms' : null;
+  if (top === 'leads')      return write ? 'manage_leads'      : null;
+  if (top === 'pricing')    return write ? 'manage_finance'    : null;
+  if (top === 'levels')     return write ? 'manage_groups'     : null;
+  if (top === 'attendance') return write ? 'groups'            : null;
+  if (top === 'admin')      return 'manage_finance';
+  return null;
+}
+
+app.use('/api', async (req, res, next) => {
+  try {
+    if (req.path.startsWith('/auth/')) return next();
+    const hdr = req.headers.authorization || '';
+    const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || '');
+    const userId = token && verifyToken(token);
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    const r = await pool.query('SELECT id, first_name, last_name, role, title, permissions FROM users WHERE id=$1', [userId]);
+    if (!r.rows[0]) return res.status(401).json({ error: 'Session no longer valid' });
+    req.user = r.rows[0];
+    const perms = req.user.permissions || [];
+    const need = requiredPerm(req.method, req.path.replace(/^\//, ''));
+    if (need && !perms.includes(need)) {
+      return res.status(403).json({ error: 'You do not have permission for this action.' });
+    }
+    next();
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 /* AUTH */
 app.post('/api/auth/login', async (req, res) => {
@@ -254,28 +382,50 @@ app.post('/api/auth/login', async (req, res) => {
     );
     if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
     const u = rows[0];
-    res.json({ id: u.id, name: u.first_name+' '+u.last_name, role: u.role, avatar: u.avatar, phone: u.phone });
+    res.json({
+      id: u.id, name: u.first_name+' '+u.last_name,
+      role: u.role, title: u.title || u.role, avatar: u.avatar, phone: u.phone,
+      permissions: u.permissions || [],
+      token: signToken(u.id)
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public: minimal account list for the login page's quick-access (no passwords/permissions).
+app.get('/api/auth/accounts', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, first_name, last_name, phone, role, title FROM users ORDER BY created_at');
+    res.json(rows.map(u => ({
+      id: u.id, name: u.first_name+' '+u.last_name, phone: u.phone, role: u.role, title: u.title || u.role
+    })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 /* USERS */
+function cleanPerms(permissions) {
+  return Array.isArray(permissions) ? permissions.filter(p => ALL_PERMISSIONS.includes(p)) : [];
+}
+
 app.get('/api/users', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM users ORDER BY created_at');
     res.json(rows.map(u => ({
       id: u.id, firstName: u.first_name, lastName: u.last_name,
-      name: u.first_name+' '+u.last_name, phone: u.phone, role: u.role, avatar: u.avatar
+      name: u.first_name+' '+u.last_name, phone: u.phone,
+      role: u.role, title: u.title || u.role, avatar: u.avatar,
+      permissions: u.permissions || []
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/users', async (req, res) => {
   try {
-    const { id, firstName, lastName, phone, password, role } = req.body;
+    const { id, firstName, lastName, phone, password, title, permissions } = req.body;
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
+    const perms = cleanPerms(permissions);
     await pool.query(
-      'INSERT INTO users(id,first_name,last_name,phone,password,role,avatar) VALUES($1,$2,$3,$4,$5,$6,$7)',
-      [id, firstName, lastName, phone, password, role, avatar]
+      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, firstName, lastName, phone, password, title||'Staff', title||'Staff', avatar, JSON.stringify(perms)]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -283,17 +433,18 @@ app.post('/api/users', async (req, res) => {
 
 app.put('/api/users/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, password, role } = req.body;
+    const { firstName, lastName, phone, password, title, permissions } = req.body;
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
+    const perms = cleanPerms(permissions);
     if (password) {
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,avatar=$6 WHERE id=$7',
-        [firstName, lastName, phone, password, role, avatar, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7 WHERE id=$8',
+        [firstName, lastName, phone, password, title||'Staff', avatar, JSON.stringify(perms), req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,avatar=$5 WHERE id=$6',
-        [firstName, lastName, phone, role, avatar, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,avatar=$5,permissions=$6 WHERE id=$7',
+        [firstName, lastName, phone, title||'Staff', avatar, JSON.stringify(perms), req.params.id]
       );
     }
     res.json({ ok: true });

@@ -133,32 +133,27 @@ input.value = o;
 }
 const existing = JSON.parse(sessionStorage.getItem('lc_session')||localStorage.getItem('lc_session')||'null');
 if (existing) window.location.replace('index.html');
+let _accounts = [];
 async function loadQuickAccess() {
 try {
-const users = await fetch('/api/users').then(r=>r.json());
+_accounts = await fetch('/api/auth/accounts').then(r=>r.json());
 const grid = document.getElementById('roleGrid');
-const ICONS = { CEO:'' };
-const shown = users.filter(u => u.role === 'CEO');
+const shown = _accounts.filter(u => u.role === 'CEO');
 if (!shown.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#994444;font-size:13px;padding:10px">No accounts yet.</div>'; return; }
 grid.innerHTML = shown.map(u => `
-<button class="role-quick-btn" onclick="quickLogin('${u.id}')">
-<span class="rqb-icon">${ICONS[u.role]||''}</span>
-<div><div class="rqb-name">${u.role}</div><div class="rqb-desc">${u.firstName} ${u.lastName}</div></div>
+<button class="role-quick-btn" onclick="quickFill('${u.id}')">
+<div><div class="rqb-name">${u.title||u.role}</div><div class="rqb-desc">${u.name}</div></div>
 </button>`).join('');
 } catch(e) {
 document.getElementById('roleGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#994444;font-size:12px;padding:8px">Quick access unavailable</div>';
 }
 }
-async function quickLogin(userId) {
-try {
-const users = await fetch('/api/users').then(r=>r.json());
-const u = users.find(u=>u.id===userId);
+function quickFill(userId) {
+const u = _accounts.find(u=>u.id===userId);
 if (!u) return;
-const session = { id:u.id, name:u.firstName+' '+u.lastName, role:u.role, avatar:u.avatar, loginTime:new Date().toISOString() };
-sessionStorage.setItem('lc_session', JSON.stringify(session));
-localStorage.setItem('lc_session', JSON.stringify(session));
-window.location.replace('index.html');
-} catch(e) { alert('Could not sign in'); }
+document.getElementById('loginPhone').value = u.phone || '';
+const pw = document.getElementById('loginPassword');
+pw.focus();
 }
 async function doLogin() {
 const phone = document.getElementById('loginPhone').value.trim();
@@ -182,7 +177,8 @@ document.getElementById('loginPassword').value = '';
 return;
 }
 const user = await data.json();
-const session = { id:user.id, name:user.name, role:user.role, avatar:user.avatar, loginTime:new Date().toISOString() };
+const session = { id:user.id, name:user.name, role:user.role, title:user.title, avatar:user.avatar,
+  permissions:user.permissions||[], token:user.token, loginTime:new Date().toISOString() };
 sessionStorage.setItem('lc_session', JSON.stringify(session));
 localStorage.setItem('lc_session', JSON.stringify(session));
 window.location.replace('index.html');

@@ -141,17 +141,17 @@ const hour = now.getHours();
 const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 document.getElementById('welcomeMsg').textContent = `${greeting}, ${firstName} `;
 const STAT_DEFS = [
-{ id:'statActive', label:'Active Students', icon:'', color:'', roles:['CEO'], calc:()=>(window._students||[]).filter(s=>s.status==='Active').length, sub:'currently enrolled', link:'students.html' },
-{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', roles:['CEO'], calc:()=>(window._students||[]).filter(s=>Number(s.balance||0)<0).length, sub:'negative balance', link:'finance.html' },
-{ id:'statPaid', label:'Paid', icon:'', color:'green', roles:['CEO'], calc:()=>(window._invoices||[]).filter(i=>i.status==='Paid').length, sub:'invoices settled', link:'finance.html' },
-{ id:'statLead', label:'Leads', icon:'', color:'purple', roles:['CEO'], calc:()=>(window._leads||[]).filter(l=>l.status==='Registration'||l.status==='Waitlist').length, sub:'in pipeline', link:'leads.html' },
-{ id:'statTrial', label:'Trial', icon:'', color:'amber', roles:['CEO'], calc:()=>(window._leads||[]).filter(l=>l.status==='Trial').length, sub:'on trial period', link:'leads.html' },
-{ id:'statAbsent', label:'Absent Today', icon:'', color:'red', roles:['CEO'], calc:()=>window._absentToday||0, sub:'not in class today', link:'students.html' },
+{ id:'statActive', label:'Active Students', icon:'', color:'', perm:'students', calc:()=>(window._students||[]).filter(s=>s.status==='Active').length, sub:'currently enrolled', link:'students.html' },
+{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', perm:'finance', calc:()=>(window._students||[]).filter(s=>Number(s.balance||0)<0).length, sub:'negative balance', link:'finance.html' },
+{ id:'statPaid', label:'Paid', icon:'', color:'green', perm:'finance', calc:()=>(window._invoices||[]).filter(i=>i.status==='Paid').length, sub:'invoices settled', link:'finance.html' },
+{ id:'statLead', label:'Leads', icon:'', color:'purple', perm:'leads', calc:()=>(window._leads||[]).filter(l=>l.status==='Registration'||l.status==='Waitlist').length, sub:'in pipeline', link:'leads.html' },
+{ id:'statTrial', label:'Trial', icon:'', color:'amber', perm:'leads', calc:()=>(window._leads||[]).filter(l=>l.status==='Trial').length, sub:'on trial period', link:'leads.html' },
+{ id:'statAbsent', label:'Absent Today', icon:'', color:'red', perm:'students', calc:()=>window._absentToday||0, sub:'not in class today', link:'students.html' },
 ];
 function renderStats() {
 const row = document.getElementById('statRow');
 row.innerHTML = STAT_DEFS
-.filter(s => s.roles.includes(role))
+.filter(s => can(s.perm))
 .map(s => `
 <div class="stat-box ${s.color}" ${s.link?`onclick="location.href='${s.link}'" style="cursor:pointer"`:''}">
 <span class="stat-box-icon">${s.icon}</span>
@@ -159,7 +159,7 @@ row.innerHTML = STAT_DEFS
 <div class="stat-box-value" id="${s.id}">—</div>
 <div class="stat-box-sub">${s.sub}</div>
 </div>`).join('');
-STAT_DEFS.filter(s => s.roles.includes(role)).forEach(s => {
+STAT_DEFS.filter(s => can(s.perm)).forEach(s => {
 const el = document.getElementById(s.id);
 if (el) el.textContent = s.calc();
 });
