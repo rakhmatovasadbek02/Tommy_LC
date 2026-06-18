@@ -14,19 +14,18 @@ app.use(express.json());
 /* ══════════════════════════════════════
    PERMISSIONS
 ══════════════════════════════════════ */
-// All permission keys the app knows about. Page keys gate sections; manage_* gate writes.
-const ALL_PERMISSIONS = [
-  'dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived',
-  'manage_leads','manage_students','archive_students','manage_groups','manage_finance',
-  'manage_teachers','manage_classrooms','manage_staff'
-];
+// Page permissions: having one = full see + manage of that section.
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived'];
+// Plus modifiers. finance_view_only restricts Finance to read (no recording/editing).
+const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
+// Fixed strict scope for Teacher accounts (identified by job title === 'teacher').
+const TEACHER_PERMISSIONS = ['dashboard','students','groups'];
+function isTeacherTitle(t) { return String(t||'').trim().toLowerCase() === 'teacher'; }
 
-// Defaults used ONLY to migrate pre-existing users off the old role column.
+// Defaults used ONLY to migrate pre-existing users with no permissions yet.
 function permsForLegacyRole(role) {
-  if (role === 'CEO' || role === 'Head Admin') return ALL_PERMISSIONS.slice();
-  if (role === 'Admin') return ALL_PERMISSIONS.filter(p => p !== 'staff' && p !== 'manage_staff');
-  if (role === 'Manager') return ['dashboard','leads','students','groups','finance','teachers','classrooms','archived','manage_leads','manage_students','archive_students','manage_groups','manage_finance','manage_teachers','manage_classrooms'];
-  if (role === 'Teacher') return ['dashboard','students','groups'];
+  if (role === 'CEO' || role === 'Head Admin' || role === 'Admin' || role === 'Manager') return PAGE_PERMISSIONS.slice();
+  if (role === 'Teacher') return TEACHER_PERMISSIONS.slice();
   return ['dashboard'];
 }
 
@@ -259,6 +258,13 @@ async function initDB() {
       await pool.query('UPDATE users SET permissions=$1, title=COALESCE(title,$2) WHERE id=$3',
         [JSON.stringify(perms), u.role, u.id]);
     }
+    // Normalize: drop any stored permission keys no longer in the catalog (e.g. old manage_*).
+    const all = await pool.query('SELECT id, permissions, title FROM users');
+    for (const u of all.rows) {
+      let perms = (u.permissions || []).filter(p => ALL_PERMISSIONS.includes(p));
+      if (isTeacherTitle(u.title)) perms = TEACHER_PERMISSIONS.slice();
+      await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms), u.id]);
+    }
   } catch(e) { console.warn('Permission migration skipped:', e.message); }
 
   // Remove trial lead IDs from group student_ids (they should never be in there)
@@ -304,7 +310,7 @@ async function initDB() {
       `INSERT INTO users (id, first_name, last_name, phone, password, role, avatar, title, permissions)
        VALUES ('u1','Admin','TommyLC','90 000 00 01','admin123','CEO','AT','CEO',$1)
        ON CONFLICT DO NOTHING`,
-      [JSON.stringify(ALL_PERMISSIONS)]
+      [JSON.stringify(PAGE_PERMISSIONS)]
     );
     console.log('Seeded default CEO: phone=90 000 00 01  password=admin123');
   }
@@ -316,7 +322,8 @@ async function initDB() {
 /* ══════════════════════════════════════
    AUTH MIDDLEWARE — gate every /api route
 ══════════════════════════════════════ */
-// Maps a request to the permission it requires. null = any logged-in user.
+// Page permission a write requires (page perm = see + manage). null = any logged-in user.
+// Reads stay open except the sensitive staff list + activity log.
 function requiredPerm(method, p) {
   const seg = p.split('/').filter(Boolean);
   const top = seg[0];
@@ -324,33 +331,38 @@ function requiredPerm(method, p) {
 
   if (top === 'auth') return null;
   if (top === 'activity') return method === 'GET' ? 'actions' : null;
-  if (top === 'users') return write ? 'manage_staff' : 'staff';
+  if (top === 'users') return write ? 'staff' : 'staff';
 
   if (top === 'students') {
-    if (seg[2] === 'payment')  return 'manage_finance';
-    if (seg[2] === 'activate') return 'manage_students';
-    if (seg[2] === 'restore')  return 'archive_students';
+    if (seg[2] === 'payment')  return 'finance';
     if (seg[2] === 'comments' || seg[2] === 'calls') return null;
     if (seg[1] === 'comments' || seg[1] === 'calls') return null;
-    if (method === 'DELETE')   return 'archive_students';
-    if (write) return 'manage_students';
+    if (write) return 'students';
     return null;
   }
   if (top === 'groups') {
-    if (seg[2] === 'students' || seg[2] === 'unit') return 'manage_groups';
     if (seg[2] === 'comments' || seg[1] === 'comments') return null;
-    if (write) return 'manage_groups';
+    if (write) return 'groups';
     return null;
   }
-  if (top === 'invoices')   return write ? 'manage_finance'    : null;
-  if (top === 'teachers')   return write ? 'manage_teachers'   : null;
-  if (top === 'classrooms') return write ? 'manage_classrooms' : null;
-  if (top === 'leads')      return write ? 'manage_leads'      : null;
-  if (top === 'pricing')    return write ? 'manage_finance'    : null;
-  if (top === 'levels')     return write ? 'manage_groups'     : null;
-  if (top === 'attendance') return write ? 'groups'            : null;
-  if (top === 'admin')      return 'manage_finance';
+  if (top === 'invoices')   return write ? 'finance'    : null;
+  if (top === 'teachers')   return write ? 'teachers'   : null;
+  if (top === 'classrooms') return write ? 'classrooms' : null;
+  if (top === 'leads')      return write ? 'leads'      : null;
+  if (top === 'pricing')    return write ? 'finance'    : null;
+  if (top === 'levels')     return write ? 'groups'     : null;
+  if (top === 'attendance') return write ? 'groups'     : null;
+  if (top === 'admin')      return 'finance';
   return null;
+}
+
+// Finance write routes — blocked when the user is finance view-only.
+function isFinanceWrite(method, p) {
+  if (method === 'GET') return false;
+  const seg = p.split('/').filter(Boolean);
+  if (seg[0] === 'invoices' || seg[0] === 'pricing' || seg[0] === 'admin') return true;
+  if (seg[0] === 'students' && seg[2] === 'payment') return true;
+  return false;
 }
 
 app.use('/api', async (req, res, next) => {
@@ -364,7 +376,22 @@ app.use('/api', async (req, res, next) => {
     if (!r.rows[0]) return res.status(401).json({ error: 'Session no longer valid' });
     req.user = r.rows[0];
     const perms = req.user.permissions || [];
-    const need = requiredPerm(req.method, req.path.replace(/^\//, ''));
+    const p = req.path.replace(/^\//, '');
+    const write = req.method !== 'GET';
+    const top = p.split('/').filter(Boolean)[0];
+
+    // Teacher accounts: read-only everywhere; only attendance (+ activity log) may be written.
+    if (isTeacherTitle(req.user.title)) {
+      if (write && top !== 'attendance' && top !== 'activity') {
+        return res.status(403).json({ error: 'Teachers can only mark attendance.' });
+      }
+      return next();
+    }
+    // Finance view-only: block finance writes.
+    if (isFinanceWrite(req.method, p) && perms.includes('finance_view_only')) {
+      return res.status(403).json({ error: 'Your Finance access is view-only.' });
+    }
+    const need = requiredPerm(req.method, p);
     if (need && !perms.includes(need)) {
       return res.status(403).json({ error: 'You do not have permission for this action.' });
     }
@@ -428,7 +455,7 @@ app.post('/api/users', async (req, res) => {
   try {
     const { id, firstName, lastName, phone, password, title, permissions } = req.body;
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
-    const perms = cleanPerms(permissions);
+    const perms = isTeacherTitle(title) ? TEACHER_PERMISSIONS.slice() : cleanPerms(permissions);
     await pool.query(
       'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
       [id, firstName, lastName, phone, password, title||'Staff', title||'Staff', avatar, JSON.stringify(perms)]
@@ -441,7 +468,7 @@ app.put('/api/users/:id', async (req, res) => {
   try {
     const { firstName, lastName, phone, password, title, permissions } = req.body;
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
-    const perms = cleanPerms(permissions);
+    const perms = isTeacherTitle(title) ? TEACHER_PERMISSIONS.slice() : cleanPerms(permissions);
     if (password) {
       await pool.query(
         'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7 WHERE id=$8',

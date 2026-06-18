@@ -167,6 +167,7 @@ apiGet('/api/groups'), apiGet('/api/students'),
 apiGet('/api/teachers'), apiGet('/api/classrooms'),
 apiGet('/api/leads').catch(()=>[]), apiGet('/api/levels').catch(()=>[])
 ]);
+if(isTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';}
 renderGroups();
 }
 function renderGroups() {

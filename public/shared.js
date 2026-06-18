@@ -59,14 +59,16 @@ function initials(name) {
  return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 }
 
-// All permission keys the app knows about (mirrors server ALL_PERMISSIONS).
-const ALL_PERMISSIONS = [
- 'dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived',
- 'manage_leads','manage_students','archive_students','manage_groups','manage_finance',
- 'manage_teachers','manage_classrooms','manage_staff'
-];
+// Page permissions (page = see + manage), plus the finance view-only modifier.
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived'];
+const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Sidebar/page feature keys that differ from permission keys.
 const PERM_ALIAS = { payments:'finance', settings:'staff' };
+
+function isTeacher() { const s = getSession(); return String(s && s.title || '').trim().toLowerCase() === 'teacher'; }
+function canManageFinance() { return can('finance') && !getPermissions().includes('finance_view_only'); }
+// For teacher accounts, a group is "own" when its assigned teacher matches the user's name.
+function ownsGroup(g) { const s = getSession(); return !isTeacher() ? true : String(g && g.teacher || '') === (s && s.name || ''); }
 
 function getSession() {
  try { return JSON.parse(sessionStorage.getItem('lc_session') || localStorage.getItem('lc_session') || 'null'); }

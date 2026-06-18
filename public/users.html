@@ -65,17 +65,25 @@
       </div>
       <div class="form-group">
         <label>Job title *</label>
-        <input type="text" id="uTitle" placeholder="e.g. Manager, Front desk, English teacher">
+        <input type="text" id="uTitle" placeholder="e.g. Manager, Front desk, Teacher" oninput="onTitleInput()">
       </div>
 
-      <div class="form-group">
+      <div id="teacherNote" style="display:none;background:var(--crimson-soft);border:1px solid var(--border);border-radius:9px;padding:12px 14px;font-size:13px;color:var(--text);line-height:1.6">
+        <strong>Teacher account — fixed access:</strong><br>
+        • Dashboard — own groups only<br>
+        • Students — own students only<br>
+        • Groups — view &amp; mark attendance only
+      </div>
+
+      <div class="form-group" id="permSection">
         <div class="perm-section-head">
-          <span class="perm-section-title">Page access</span>
+          <span class="perm-section-title">Page access <span style="font-weight:400;text-transform:none;letter-spacing:0">(can see &amp; manage)</span></span>
           <button type="button" class="perm-toggle-all" id="toggleAllBtn" onclick="toggleAllPerms()">Select all</button>
         </div>
         <div class="perm-grid" id="pagePerms"></div>
-        <div class="perm-section-head"><span class="perm-section-title">Actions allowed</span></div>
-        <div class="perm-grid" id="actionPerms"></div>
+        <label class="perm-chip" id="financeViewOnlyRow" style="display:none;margin-top:2px">
+          <input type="checkbox" id="financeViewOnly"><span class="perm-chip-label">Finance: view only (cannot record or edit payments)</span>
+        </label>
       </div>
     </div>
     <div class="modal-footer">
@@ -96,14 +104,7 @@
     ['finance','Finance'],['teachers','Teachers'],['staff','Staff'],['actions','Actions'],
     ['classrooms','Classrooms'],['archived','Archived']
   ];
-  const ACTION_PERMS = [
-    ['manage_leads','Manage leads'],['manage_students','Manage students'],
-    ['archive_students','Archive students'],['manage_groups','Manage groups'],
-    ['manage_finance','Manage finance'],['manage_teachers','Manage teachers'],
-    ['manage_classrooms','Manage classrooms'],['manage_staff','Manage staff']
-  ];
-  const PERM_LABELS = Object.fromEntries([...PAGE_PERMS, ...ACTION_PERMS]);
-  const canManage = can('manage_staff');
+  const canManage = can('staff');
 
   let users = [];
 
@@ -113,36 +114,49 @@
     input.value=o;
   }
 
+  function isTeacherTitle() { return document.getElementById('uTitle').value.trim().toLowerCase()==='teacher'; }
+  function onTitleInput() {
+    const t = isTeacherTitle();
+    document.getElementById('teacherNote').style.display = t ? '' : 'none';
+    document.getElementById('permSection').style.display = t ? 'none' : '';
+  }
+
   function buildPermChips() {
-    const chip = ([key,label]) => `<label class="perm-chip" data-key="${key}">
-      <input type="checkbox" value="${key}" onchange="onPermChange(this)"><span class="perm-chip-label">${label}</span></label>`;
-    document.getElementById('pagePerms').innerHTML   = PAGE_PERMS.map(chip).join('');
-    document.getElementById('actionPerms').innerHTML = ACTION_PERMS.map(chip).join('');
+    document.getElementById('pagePerms').innerHTML = PAGE_PERMS.map(([key,label]) =>
+      `<label class="perm-chip" data-key="${key}"><input type="checkbox" value="${key}" onchange="onPermChange(this)"><span class="perm-chip-label">${label}</span></label>`).join('');
   }
   function onPermChange(cb) {
     cb.closest('.perm-chip').classList.toggle('on', cb.checked);
+    if (cb.value==='finance') document.getElementById('financeViewOnlyRow').style.display = cb.checked ? '' : 'none';
     syncToggleAllLabel();
   }
   function setPerms(list) {
     const set = new Set(list||[]);
-    document.querySelectorAll('#pagePerms input, #actionPerms input').forEach(cb => {
+    document.querySelectorAll('#pagePerms input').forEach(cb => {
       cb.checked = set.has(cb.value);
       cb.closest('.perm-chip').classList.toggle('on', cb.checked);
     });
+    const fvo = document.getElementById('financeViewOnly');
+    fvo.checked = set.has('finance_view_only');
+    document.getElementById('financeViewOnlyRow').style.display = set.has('finance') ? '' : 'none';
+    document.getElementById('financeViewOnlyRow').classList.toggle('on', fvo.checked);
     syncToggleAllLabel();
   }
   function getPerms() {
-    return [...document.querySelectorAll('#pagePerms input:checked, #actionPerms input:checked')].map(cb=>cb.value);
+    const list = [...document.querySelectorAll('#pagePerms input:checked')].map(cb=>cb.value);
+    if (list.includes('finance') && document.getElementById('financeViewOnly').checked) list.push('finance_view_only');
+    return list;
   }
   function toggleAllPerms() {
-    const boxes = [...document.querySelectorAll('#pagePerms input, #actionPerms input')];
+    const boxes = [...document.querySelectorAll('#pagePerms input')];
     const allOn = boxes.every(cb=>cb.checked);
     boxes.forEach(cb => { cb.checked = !allOn; cb.closest('.perm-chip').classList.toggle('on', !allOn); });
+    document.getElementById('financeViewOnlyRow').style.display = !allOn ? '' : 'none';
     syncToggleAllLabel();
   }
   function syncToggleAllLabel() {
-    const boxes = [...document.querySelectorAll('#pagePerms input, #actionPerms input')];
-    document.getElementById('toggleAllBtn').textContent = boxes.every(cb=>cb.checked) ? 'Clear all' : 'Select all';
+    const boxes = [...document.querySelectorAll('#pagePerms input')];
+    document.getElementById('toggleAllBtn').textContent = boxes.length && boxes.every(cb=>cb.checked) ? 'Clear all' : 'Select all';
   }
 
   async function load() { users = await apiGet('/api/users'); renderUsers(); }
@@ -156,11 +170,10 @@
       const col  = avatarColor(name);
       const isMe = session && session.id === u.id;
       const perms = u.permissions || [];
-      const pageCount = perms.filter(p=>!p.startsWith('manage_')&&p!=='archive_students').length;
-      const actCount  = perms.length - pageCount;
-      const permSummary = perms.length
-        ? `${pageCount} section${pageCount!==1?'s':''} · ${actCount} action${actCount!==1?'s':''}`
-        : 'No access yet';
+      const teacher = String(u.title||'').trim().toLowerCase()==='teacher';
+      const pages = perms.filter(p=>p!=='finance_view_only');
+      const summary = teacher ? 'Teacher — own groups only'
+        : (pages.length ? `${pages.length} section${pages.length!==1?'s':''}${perms.includes('finance_view_only')?' · finance view-only':''}` : 'No access yet');
       return `<div class="sf-card">
         <div class="sf-banner"><div class="sf-avatar" style="background:${col}">${initials(name)}</div></div>
         <div class="sf-body">
@@ -169,7 +182,7 @@
             ${u.phone?`<span>📞 +998 ${u.phone}</span>`:''}
             <span style="background:var(--surface);color:var(--muted);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700">${u.title||u.role}</span>
           </div>
-          <div class="sf-perms">🔑 ${permSummary}</div>
+          <div class="sf-perms">🔑 ${summary}</div>
         </div>
         <div class="sf-footer">
           ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">${IC.edit} Edit</button>
@@ -194,6 +207,7 @@
     document.getElementById('uPhone').value=u.phone||'';
     document.getElementById('uTitle').value=u.title||u.role||'';
     setPerms(u.permissions||[]);
+    onTitleInput();
     document.getElementById('pwHint').style.display='block';
     document.getElementById('pwLabel').textContent='(optional)';
     document.getElementById('userModalTitle').textContent='Edit Staff Member';
@@ -206,13 +220,14 @@
     const phone=document.getElementById('uPhone').value.trim();
     const pass =document.getElementById('uPassword').value;
     const title=document.getElementById('uTitle').value.trim();
-    const permissions=getPerms();
+    const teacher=title.toLowerCase()==='teacher';
+    const permissions=teacher?['dashboard','students','groups']:getPerms();
     const id   =document.getElementById('editUserId').value;
     if(!first||!last){showToast('Name required.','error');return;}
     if(!phone){showToast('Phone required.','error');return;}
     if(!title){showToast('Job title required.','error');return;}
     if(!id&&!pass){showToast('Password required.','error');return;}
-    if(!permissions.length){showToast('Select at least one permission.','error');return;}
+    if(!teacher&&!permissions.length){showToast('Select at least one permission.','error');return;}
     const data={firstName:first,lastName:last,phone,title,permissions};
     if(pass)data.password=pass;
     try {
@@ -234,7 +249,9 @@
 
   function clearForm() {
     ['editUserId','uFirst','uLast','uPhone','uPassword','uTitle'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('financeViewOnly').checked=false;
     setPerms([]);
+    onTitleInput();
     document.getElementById('pwHint').style.display='none';
     document.getElementById('pwLabel').textContent='*';
   }

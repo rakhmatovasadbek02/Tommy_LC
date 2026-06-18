@@ -56,7 +56,7 @@
   <div class="topbar">
     <div class="page-title">Students <span id="quantityLabel" style="font-size:15px;font-weight:400;color:var(--muted);margin-left:8px"></span></div>
     <div class="topbar-right">
-      <button class="btn btn-primary" onclick="openAdd()">
+      <button class="btn btn-primary" id="addStudentBtn" onclick="openAdd()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add New
       </button>
@@ -220,6 +220,7 @@
 
   async function load() {
     students = await apiGet('/api/students');
+    if (isTeacher()) { students = students.filter(s => (s.groups||[]).some(ownsGroup)); document.getElementById('addStudentBtn').style.display='none'; }
     renderStudents();
   }
 
@@ -291,8 +292,8 @@
         <td><span class="st-balance ${balClass}">${balStr}</span></td>
         <td class="st-comment">${commentHTML}</td>
         <td class="st-actions" onclick="event.stopPropagation()">
-          <button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">${IC.edit}</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">${IC.trash}</button>
+          ${isTeacher()?'':`<button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">${IC.edit}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">${IC.trash}</button>`}
         </td>
       </tr>`;
     }).join('');
