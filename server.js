@@ -64,8 +64,10 @@ function verifyToken(token) {
 }
 
 app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
   setHeaders(res, fp) {
-    if (/\.(css|js|woff2?|ttf|png|jpg|svg|ico)$/.test(fp)) res.setHeader('Cache-Control', 'public, max-age=3600');
+    // Fonts/images rarely change → cache hard. HTML/CSS/JS → revalidate (ETag) so deploys show instantly.
+    if (/\.(woff2?|ttf|png|jpg|jpeg|svg|ico)$/.test(fp)) res.setHeader('Cache-Control', 'public, max-age=86400');
     else res.setHeader('Cache-Control', 'no-cache');
   }
 }));

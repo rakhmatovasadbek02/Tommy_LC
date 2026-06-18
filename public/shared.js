@@ -209,9 +209,12 @@ function renderSidebar(activePage) {
  }).join('');
 
  const sidebarHTML = `
- <a href="index.html" class="sidebar-brand" style="text-decoration:none;display:block;">
+ <a href="index.html" class="sidebar-brand" style="text-decoration:none;display:flex;align-items:center;gap:11px;">
+ <svg width="34" height="34" viewBox="0 0 100 100" style="flex-shrink:0" aria-hidden="true"><circle cx="50" cy="50" r="49" fill="#E60000"/><circle cx="50" cy="50" r="42.5" fill="none" stroke="#fff" stroke-width="3"/><path d="M28 31 H72 V44 H57 V71 H43 V44 H28 Z" fill="#fff"/></svg>
+ <div>
  <div class="brand-name">Tommy LC</div>
  <div class="brand-sub">Learning Center</div>
+ </div>
  </a>
  ${navHTML}
  <div class="sidebar-footer">

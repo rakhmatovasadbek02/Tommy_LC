@@ -25,7 +25,8 @@ background-size: 46px 46px;
 mask-image: radial-gradient(ellipse 80% 80% at 30% 30%, #000 0%, transparent 75%);
 }
 .brand-panel > * { position: relative; z-index: 1; }
-.bp-logo { font-size: 26px; font-weight: 900; letter-spacing: 0.5px; line-height: 1; }
+.bp-logo { display: flex; align-items: center; gap: 13px; }
+.bp-logo .bp-logo-text { font-size: 26px; font-weight: 900; letter-spacing: 0.5px; line-height: 1; }
 .bp-logo span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 3px; color: rgba(255,255,255,0.45); margin-top: 5px; }
 .bp-quote { max-width: 440px; }
 .bp-quote-mark { font-size: 72px; line-height: 0.6; color: rgba(255,255,255,0.22); font-weight: 900; margin-bottom: 8px; }
@@ -39,7 +40,7 @@ mask-image: radial-gradient(ellipse 80% 80% at 30% 30%, #000 0%, transparent 75%
 /* ── Right form panel ── */
 .form-panel { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; background: #fff; }
 .form-wrap { width: 100%; max-width: 360px; }
-.fw-mobile-logo { display: none; font-size: 22px; font-weight: 900; color: #990000; margin-bottom: 24px; }
+.fw-mobile-logo { display: none; align-items: center; gap: 10px; font-size: 22px; font-weight: 900; color: #990000; margin-bottom: 24px; }
 .form-wrap h2 { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 5px; }
 .subtitle { font-size: 14px; color: #994444; margin-bottom: 30px; }
 .form-group { margin-bottom: 18px; }
@@ -65,13 +66,16 @@ input[type="password"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba
 @media (max-width: 860px) {
 .brand-panel { display: none; }
 .form-panel { flex: 1; }
-.fw-mobile-logo { display: block; }
+.fw-mobile-logo { display: flex; }
 }
 </style>
 </head>
 <body>
 <div class="brand-panel">
-<div class="bp-logo">Tommy LC<span>Learning Center</span></div>
+<div class="bp-logo">
+<svg width="46" height="46" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="49" fill="#E60000"/><circle cx="50" cy="50" r="42.5" fill="none" stroke="#fff" stroke-width="3"/><path d="M28 31 H72 V44 H57 V71 H43 V44 H28 Z" fill="#fff"/></svg>
+<div class="bp-logo-text">Tommy LC<span>Learning Center</span></div>
+</div>
 <div class="bp-quote">
 <div class="bp-quote-mark">“</div>
 <div class="bp-head" id="quoteText"></div>
@@ -82,7 +86,7 @@ input[type="password"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba
 
 <div class="form-panel">
 <div class="form-wrap">
-<div class="fw-mobile-logo">Tommy LC</div>
+<div class="fw-mobile-logo"><svg width="30" height="30" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="49" fill="#E60000"/><circle cx="50" cy="50" r="42.5" fill="none" stroke="#fff" stroke-width="3"/><path d="M28 31 H72 V44 H57 V71 H43 V44 H28 Z" fill="#fff"/></svg> Tommy LC</div>
 <h2>Welcome back</h2>
 <div class="subtitle">Sign in to continue</div>
 <div class="error-msg" id="errorMsg"><span>⚠️</span><span id="errorText">Invalid phone or password.</span></div>
