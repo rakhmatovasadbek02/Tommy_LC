@@ -210,7 +210,7 @@ function renderSidebar(activePage) {
 
  const sidebarHTML = `
  <a href="index.html" class="sidebar-brand" style="text-decoration:none;display:flex;align-items:center;gap:11px;">
- <svg width="36" height="36" viewBox="0 0 200 200" style="flex-shrink:0" aria-hidden="true"><circle cx="100" cy="100" r="96" fill="none" stroke="#E60000" stroke-width="4"/><circle cx="100" cy="100" r="86" fill="#E60000"/><path d="M60 58 H140 V82 H110 V140 L118 150 H88 L90 140 V82 H60 Z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round"/><path d="M108 96 C119 112 99 121 111 139" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/></svg>
+ <img src="logo.png" width="36" height="36" alt="" style="flex-shrink:0;display:block">
  <div>
  <div class="brand-name">Tommy LC</div>
  <div class="brand-sub">Learning Center</div>
