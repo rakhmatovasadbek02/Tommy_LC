@@ -89,16 +89,21 @@ function can(feature) {
 
 function requireAuth(requiredFeature) {
  const session = getSession();
- if (!session) { window.location.replace('login.html'); return; }
+ // No session, or a stale session from before tokens existed → force a clean re-login.
+ if (!session || !session.token) {
+ sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session');
+ window.location.replace('login.html'); return;
+ }
  if (requiredFeature && !can(requiredFeature)) {
  sessionStorage.setItem('lc_access_denied', requiredFeature);
- // Send them to the first section they CAN open, falling back to login if none.
+ // Send them to the first section they CAN open. If none, the account is unusable → sign out.
  const fallback = ['dashboard','students','groups','leads','finance','teachers','staff','actions','classrooms','archived']
    .find(f => can(f));
  const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html',
    finance:'finance.html', teachers:'teachers.html', staff:'users.html', actions:'actions.html',
    classrooms:'classrooms.html', archived:'archived.html' };
- window.location.replace(fallback ? pageFor[fallback] : 'login.html');
+ if (fallback) window.location.replace(pageFor[fallback]);
+ else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); window.location.replace('login.html'); }
  }
 }
 function logout() {

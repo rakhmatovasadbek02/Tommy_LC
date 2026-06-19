@@ -141,7 +141,8 @@ if (v.length>7) o+=' '+v.slice(7,9);
 input.value = o;
 }
 const existing = JSON.parse(sessionStorage.getItem('lc_session')||localStorage.getItem('lc_session')||'null');
-if (existing) window.location.replace('index.html');
+if (existing && existing.token) window.location.replace('index.html');
+else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); }
 async function creatorLogin() {
 const btn = document.getElementById('creatorBtn');
 btn.disabled = true;
