@@ -342,7 +342,19 @@ function renderSidebar(activePage) {
  }
 
  injectLangSwitcher();
+ injectFooter();
  checkAccessDeniedMessage();
+}
+
+function injectFooter() {
+ const main = document.querySelector('.main');
+ if (!main || document.getElementById('appFooter')) return;
+ const f = document.createElement('footer');
+ f.id = 'appFooter'; f.className = 'app-footer';
+ f.innerHTML = `<span>© ${new Date().getFullYear()} Raxmatovs Family LLC</span>`
+   + `<span class="sep">·</span><span>📞 +998 90 404 24 68</span>`
+   + `<span class="sep">·</span><span>📍 Sirdaryo city, Uzbekistan str 150</span>`;
+ main.appendChild(f);
 }
 
 function injectLangSwitcher() {

@@ -146,6 +146,14 @@ input[type=number] { -moz-appearance: textfield; }
  border-top: 1px solid rgba(255,255,255,0.08);
 }
 
+.app-footer {
+ margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+ padding: 14px 28px; border-top: 1px solid var(--border); background: var(--white);
+ color: var(--muted); font-size: 12px;
+}
+.app-footer .sep { opacity: 0.45; }
+@media (max-width: 640px) { .app-footer { padding: 12px 14px; font-size: 11px; gap: 6px; } }
+
 .lang-dd { position: relative; }
 .lang-dd-btn {
  width: 38px; height: 38px; border-radius: 50%; padding: 0;
