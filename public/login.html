@@ -63,6 +63,9 @@ input[type="password"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba
 .creator-access:disabled { opacity: 0.5; cursor: not-allowed; }
 .creator-dot { width: 7px; height: 7px; border-radius: 50%; background: #1E6B45; box-shadow: 0 0 0 3px rgba(30,107,69,0.18); flex-shrink: 0; }
 
+.login-lang { position: fixed; top: 18px; right: 22px; display: flex; gap: 6px; z-index: 20; }
+.login-lang button { display: flex; align-items: center; gap: 5px; background: #fff; border: 1.5px solid #FFD0D0; color: #990000; border-radius: 100px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.14s; }
+.login-lang button.active { background: #FF0000; color: #fff; border-color: #FF0000; }
 @media (max-width: 860px) {
 .brand-panel { display: none; }
 .form-panel { flex: 1; }
@@ -71,6 +74,7 @@ input[type="password"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba
 </style>
 </head>
 <body>
+<div class="login-lang" id="loginLang"></div>
 <div class="brand-panel">
 <div class="bp-logo">
 <img src="logo.png" width="48" height="48" alt="Tommy LC" style="display:block;flex-shrink:0">
@@ -110,7 +114,9 @@ input[type="password"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba
 </div>
 </div>
 </div>
+<script src="shared.js"></script>
 <script>
+document.getElementById('loginLang').innerHTML = Object.entries(LANGS).map(([c,o])=>`<button onclick="setLang('${c}')" class="${getLang()===c?'active':''}">${o.flag} ${c.toUpperCase()}</button>`).join('');
 const QUOTES = [
 ['Great things in business are never done by one person. They are done by a team.','Steve Jobs'],
 ['The secret of getting ahead is getting started.','Mark Twain'],

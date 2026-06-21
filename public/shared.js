@@ -43,6 +43,92 @@ function genId() {
  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+/* ══════════════════════════════════════
+   i18n — English / Русский / Oʻzbek
+══════════════════════════════════════ */
+const LANGS = { en:{name:'English',flag:'🇬🇧'}, ru:{name:'Русский',flag:'🇷🇺'}, uz:{name:"Oʻzbek",flag:'🇺🇿'} };
+function getLang(){ try { return localStorage.getItem('lc_lang') || 'en'; } catch { return 'en'; } }
+function setLang(l){ try { localStorage.setItem('lc_lang', l); } catch {} location.reload(); }
+
+const I18N = {
+ ru: {
+  "Dashboard":"Главная","Leads":"Лиды","Students":"Студенты","Groups":"Группы","Finance":"Финансы",
+  "Teachers":"Учителя","Staff":"Персонал","Actions":"Действия","Classrooms":"Кабинеты","Archived":"Архив",
+  "Learning Center":"Учебный центр","Sign Out":"Выйти","Search students…":"Поиск студентов…",
+  "Welcome back":"С возвращением","Sign in to continue":"Войдите, чтобы продолжить","Phone Number":"Номер телефона",
+  "Password":"Пароль","Sign In →":"Войти →","Are you the creator?":"Вы создатель?","Sign in":"Войти",
+  "Active Students":"Активные студенты","currently enrolled":"сейчас зачислены","Debtors":"Должники",
+  "negative balance":"отрицательный баланс","Paid":"Оплачено","invoices settled":"оплаченные счета","Leads ":"Лиды ",
+  "in pipeline":"в воронке","Trial":"Пробный","on trial period":"на пробном периоде","Absent Today":"Отсутствуют сегодня",
+  "not in class today":"нет на занятии","Timetable":"Расписание","Odd Days":"Нечётные дни","Even Days":"Чётные дни",
+  "Custom":"Свои","All Groups":"Все группы","Classroom":"Кабинет",
+  "Add New":"Добавить","Add Student":"Добавить студента","Add Group":"Добавить группу","Add Staff":"Добавить сотрудника",
+  "New Payment":"Новый платёж","Export":"Экспорт","Register Lead":"Зарегистрировать лида","Add":"Добавить",
+  "Save":"Сохранить","Save Payment":"Сохранить платёж","Save Group":"Сохранить группу","Cancel":"Отмена",
+  "Edit":"Изменить","Delete":"Удалить","Close":"Закрыть","Levels":"Уровни","Save Prices":"Сохранить цены",
+  "First Name":"Имя","Last Name":"Фамилия","Phone":"Телефон","Role":"Роль","Name":"Имя","Status":"Статус",
+  "Level":"Уровень","Active":"Активный","Inactive":"Неактивный","Notes":"Заметки","Comments":"Комментарии",
+  "All Levels":"Все уровни","All Statuses":"Все статусы","All Types":"Все типы","Payments":"Платежи",
+  "Phone *":"Телефон *","First Name *":"Имя *","Last Name *":"Фамилия *","Role *":"Роль *","Student *":"Студент *",
+  "Group":"Группа","Test Result":"Результат теста","Current Level":"Текущий уровень","Address":"Адрес","Grade":"Класс","School":"Школа",
+  "balance":"баланс","Attendance":"Посещаемость","Exams":"Экзамены","History":"История","Save Attendance":"Сохранить",
+  "Back":"Назад","Profile":"Профиль","Activate":"Активировать","Waitlist":"Лист ожидания","Registration":"Регистрация",
+  "Outstanding Debt":"Задолженность","Revenue":"Доход","Expected Monthly":"Ожидаемо в месяц","All-Time Revenue":"Доход за всё время",
+  "Job title":"Должность","Job title *":"Должность *","Settings":"Настройки",
+  "Good morning":"Доброе утро","Good afternoon":"Добрый день","Good evening":"Добрый вечер",
+  "Here's what's happening at Tommy Learning Center today.":"Вот что происходит в Tommy Learning Center сегодня."
+ },
+ uz: {
+  "Dashboard":"Boshqaruv","Leads":"Lidlar","Students":"Oʻquvchilar","Groups":"Guruhlar","Finance":"Moliya",
+  "Teachers":"Oʻqituvchilar","Staff":"Xodimlar","Actions":"Amallar","Classrooms":"Sinflar","Archived":"Arxiv",
+  "Learning Center":"Oʻquv markazi","Sign Out":"Chiqish","Search students…":"Oʻquvchilarni qidirish…",
+  "Welcome back":"Xush kelibsiz","Sign in to continue":"Davom etish uchun kiring","Phone Number":"Telefon raqami",
+  "Password":"Parol","Sign In →":"Kirish →","Are you the creator?":"Siz yaratuvchimisiz?","Sign in":"Kirish",
+  "Active Students":"Faol oʻquvchilar","currently enrolled":"hozir oʻqiydi","Debtors":"Qarzdorlar",
+  "negative balance":"manfiy balans","Paid":"Toʻlangan","invoices settled":"toʻlangan toʻlovlar","Leads ":"Lidlar ",
+  "in pipeline":"jarayonda","Trial":"Sinov","on trial period":"sinov muddatida","Absent Today":"Bugun yoʻq",
+  "not in class today":"bugun darsda yoʻq","Timetable":"Dars jadvali","Odd Days":"Toq kunlar","Even Days":"Juft kunlar",
+  "Custom":"Maxsus","All Groups":"Barcha guruhlar","Classroom":"Sinf",
+  "Add New":"Qoʻshish","Add Student":"Oʻquvchi qoʻshish","Add Group":"Guruh qoʻshish","Add Staff":"Xodim qoʻshish",
+  "New Payment":"Yangi toʻlov","Export":"Eksport","Register Lead":"Lid qoʻshish","Add":"Qoʻshish",
+  "Save":"Saqlash","Save Payment":"Toʻlovni saqlash","Save Group":"Guruhni saqlash","Cancel":"Bekor qilish",
+  "Edit":"Tahrirlash","Delete":"Oʻchirish","Close":"Yopish","Levels":"Darajalar","Save Prices":"Narxlarni saqlash",
+  "First Name":"Ism","Last Name":"Familiya","Phone":"Telefon","Role":"Rol","Name":"Ism","Status":"Holat",
+  "Level":"Daraja","Active":"Faol","Inactive":"Nofaol","Notes":"Izohlar","Comments":"Izohlar",
+  "All Levels":"Barcha darajalar","All Statuses":"Barcha holatlar","All Types":"Barcha turlar","Payments":"Toʻlovlar",
+  "Phone *":"Telefon *","First Name *":"Ism *","Last Name *":"Familiya *","Role *":"Rol *","Student *":"Oʻquvchi *",
+  "Group":"Guruh","Test Result":"Test natijasi","Current Level":"Joriy daraja","Address":"Manzil","Grade":"Sinf","School":"Maktab",
+  "balance":"balans","Attendance":"Davomat","Exams":"Imtihonlar","History":"Tarix","Save Attendance":"Saqlash",
+  "Back":"Orqaga","Profile":"Profil","Activate":"Faollashtirish","Waitlist":"Navbat","Registration":"Roʻyxat",
+  "Outstanding Debt":"Qarzdorlik","Revenue":"Daromad","Expected Monthly":"Oylik kutilgan","All-Time Revenue":"Umumiy daromad",
+  "Job title":"Lavozim","Job title *":"Lavozim *","Settings":"Sozlamalar",
+  "Good morning":"Xayrli tong","Good afternoon":"Xayrli kun","Good evening":"Xayrli kech",
+  "Here's what's happening at Tommy Learning Center today.":"Bugun Tommy Learning Center'da nimalar bo'layotganini ko'ring."
+ }
+};
+function t(s){ const l=getLang(); if(l==='en'||s==null) return s; const d=I18N[l]; const k=String(s).trim(); return (d && d[k]!=null) ? d[k] : s; }
+
+function translateAll(root){
+ const l=getLang(); if(l==='en') return; const d=I18N[l]; if(!d) return;
+ const walker=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+ const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+ nodes.forEach(n=>{ const raw=n.nodeValue; const key=raw.trim(); if(key && d[key]!=null) n.nodeValue = raw.replace(key, d[key]); });
+ (root.querySelectorAll?root.querySelectorAll('[placeholder]'):[]).forEach(e=>{ const k=e.getAttribute('placeholder').trim(); if(d[k]!=null) e.setAttribute('placeholder', d[k]); });
+}
+let _i18nObserver=null;
+function startI18nObserver(){
+ if(_i18nObserver || getLang()==='en') return;
+ _i18nObserver=new MutationObserver(muts=>{
+  muts.forEach(m=>m.addedNodes.forEach(n=>{
+   if(n.nodeType===1) translateAll(n);
+   else if(n.nodeType===3){ const d=I18N[getLang()]; const k=(n.nodeValue||'').trim(); if(d&&d[k]!=null) n.nodeValue=n.nodeValue.replace(k,d[k]); }
+  }));
+ });
+ _i18nObserver.observe(document.body,{childList:true,subtree:true});
+}
+function initI18n(){ try{ translateAll(document.body); startI18nObserver(); }catch{} }
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initI18n); else initI18n();
+
 function formatCurrency(n) { return '$' + Number(n || 0).toFixed(2); }
 function formatDate(iso) {
  if (!iso) return '—';
@@ -223,6 +309,9 @@ function renderSidebar(activePage) {
  </a>
  ${navHTML}
  <div class="sidebar-footer">
+ <div class="lang-switch">
+ ${Object.entries(LANGS).map(([code,o])=>`<button class="lang-btn${getLang()===code?' active':''}" onclick="setLang('${code}')" title="${o.name}"><span class="lang-flag">${o.flag}</span>${code.toUpperCase()}</button>`).join('')}
+ </div>
  <div class="user-pill" style="margin-bottom:10px">
  <div class="user-avatar" style="background:${meta.color}">${session.avatar||initials(session.name)}</div>
  <div class="user-info">
@@ -236,7 +325,7 @@ function renderSidebar(activePage) {
  </div>`;
 
  const sidebar = document.querySelector('.sidebar');
- if (sidebar) sidebar.innerHTML = sidebarHTML;
+ if (sidebar) { sidebar.innerHTML = sidebarHTML; translateAll(sidebar); }
 
  const topbar = document.querySelector('.topbar');
  if (topbar && !document.getElementById('menuToggle')) {

@@ -139,7 +139,7 @@ now.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }
 const firstName = session ? session.name.split(' ')[0] : 'there';
 const hour = now.getHours();
 const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-document.getElementById('welcomeMsg').textContent = `${greeting}, ${firstName} `;
+document.getElementById('welcomeMsg').textContent = `${t(greeting)}, ${firstName} `;
 const STAT_DEFS = [
 { id:'statActive', label:'Active Students', icon:'', color:'', perm:'students', calc:()=>S().activeStudents, sub:'currently enrolled', link:'students.html' },
 { id:'statDebtors', label:'Debtors', icon:'️', color:'red', perm:'finance', calc:()=>S().debtors, sub:'negative balance', link:'finance.html' },
