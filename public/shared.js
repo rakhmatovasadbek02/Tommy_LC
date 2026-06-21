@@ -309,9 +309,6 @@ function renderSidebar(activePage) {
  </a>
  ${navHTML}
  <div class="sidebar-footer">
- <div class="lang-switch">
- ${Object.entries(LANGS).map(([code,o])=>`<button class="lang-btn${getLang()===code?' active':''}" onclick="setLang('${code}')" title="${o.name}"><span class="lang-flag">${o.flag}</span>${code.toUpperCase()}</button>`).join('')}
- </div>
  <div class="user-pill" style="margin-bottom:10px">
  <div class="user-avatar" style="background:${meta.color}">${session.avatar||initials(session.name)}</div>
  <div class="user-info">
@@ -344,8 +341,22 @@ function renderSidebar(activePage) {
  document.body.appendChild(overlay);
  }
 
+ injectLangSwitcher();
  checkAccessDeniedMessage();
 }
+
+function injectLangSwitcher() {
+ const tr = document.querySelector('.topbar-right');
+ if (!tr || document.getElementById('langDd')) return;
+ const cur = LANGS[getLang()] || LANGS.en;
+ const dd = document.createElement('div');
+ dd.className = 'lang-dd'; dd.id = 'langDd';
+ dd.innerHTML = `<button class="lang-dd-btn" onclick="toggleLangDd(event)" title="Language">${cur.flag}</button>
+ <div class="lang-dd-menu" id="langDdMenu">${Object.entries(LANGS).map(([c,o])=>`<button class="lang-dd-item${getLang()===c?' active':''}" onclick="setLang('${c}')"><span class="flag">${o.flag}</span>${o.name}</button>`).join('')}</div>`;
+ tr.insertBefore(dd, tr.firstChild);
+}
+function toggleLangDd(e) { e.stopPropagation(); document.getElementById('langDdMenu')?.classList.toggle('open'); }
+document.addEventListener('click', e => { const m=document.getElementById('langDdMenu'); if (m && !e.target.closest('#langDd')) m.classList.remove('open'); });
 
 function toggleSidebar() {
  const s = document.querySelector('.sidebar');

@@ -85,9 +85,7 @@ onfocus="this.style.borderColor='var(--crimson)'"
 onblur="this.style.borderColor='var(--border)'">
 <div id="searchDropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:999;max-height:320px;overflow-y:auto;"></div>
 </div>
-<div class="topbar-right">
-<span class="text-muted" id="currentDate"></span>
-</div>
+<div class="topbar-right"></div>
 </div>
 <div class="page-content">
 <div class="welcome-banner">
@@ -132,10 +130,14 @@ renderSidebar('dashboard');
 const session = getSession();
 const role = getRole();
 const now = new Date();
-document.getElementById('currentDate').textContent =
-now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-document.getElementById('dateBadge').textContent =
-now.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+function tickClock() {
+const d = new Date();
+const date = d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+const time = d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+const el = document.getElementById('dateBadge');
+if (el) el.textContent = `${time} · ${date}`;
+}
+tickClock(); setInterval(tickClock, 1000);
 const firstName = session ? session.name.split(' ')[0] : 'there';
 const hour = now.getHours();
 const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
