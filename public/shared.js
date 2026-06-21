@@ -54,7 +54,7 @@ const I18N = {
  ru: {
   "Dashboard":"Главная","Leads":"Лиды","Students":"Студенты","Groups":"Группы","Finance":"Финансы",
   "Teachers":"Учителя","Staff":"Персонал","Actions":"Действия","Classrooms":"Кабинеты","Archived":"Архив",
-  "Learning Center":"Учебный центр","Sign Out":"Выйти","Search students…":"Поиск студентов…",
+  "Learning Center":"Учебный центр","Sign Out":"Выйти","Search students…":"Поиск студентов…","Search…":"Поиск…",
   "Welcome back":"С возвращением","Sign in to continue":"Войдите, чтобы продолжить","Phone Number":"Номер телефона",
   "Password":"Пароль","Sign In →":"Войти →","Are you the creator?":"Вы создатель?","Sign in":"Войти",
   "Active Students":"Активные студенты","currently enrolled":"сейчас зачислены","Debtors":"Должники",
@@ -81,7 +81,7 @@ const I18N = {
  uz: {
   "Dashboard":"Asosiy","Leads":"Lidlar","Students":"Oʻquvchilar","Groups":"Guruhlar","Finance":"Moliya",
   "Teachers":"Oʻqituvchilar","Staff":"Xodimlar","Actions":"Amallar","Classrooms":"Sinflar","Archived":"Arxiv",
-  "Learning Center":"Oʻquv markazi","Sign Out":"Chiqish","Search students…":"Oʻquvchilarni qidirish…",
+  "Learning Center":"Oʻquv markazi","Sign Out":"Chiqish","Search students…":"Oʻquvchilarni qidirish…","Search…":"Qidirish…",
   "Welcome back":"Xush kelibsiz","Sign in to continue":"Davom etish uchun kiring","Phone Number":"Telefon raqami",
   "Password":"Parol","Sign In →":"Kirish →","Are you the creator?":"Siz yaratuvchimisiz?","Sign in":"Kirish",
   "Active Students":"Faol oʻquvchilar","currently enrolled":"hozir oʻqiydi","Debtors":"Qarzdorlar",
