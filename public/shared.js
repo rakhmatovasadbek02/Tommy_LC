@@ -353,7 +353,7 @@ function injectLangSwitcher() {
  dd.className = 'lang-dd'; dd.id = 'langDd';
  dd.innerHTML = `<button class="lang-dd-btn" onclick="toggleLangDd(event)" title="Language">${cur.flag}</button>
  <div class="lang-dd-menu" id="langDdMenu">${Object.entries(LANGS).map(([c,o])=>`<button class="lang-dd-item${getLang()===c?' active':''}" onclick="setLang('${c}')"><span class="flag">${o.flag}</span>${o.name}</button>`).join('')}</div>`;
- tr.insertBefore(dd, tr.firstChild);
+ tr.appendChild(dd);
 }
 function toggleLangDd(e) { e.stopPropagation(); document.getElementById('langDdMenu')?.classList.toggle('open'); }
 document.addEventListener('click', e => { const m=document.getElementById('langDdMenu'); if (m && !e.target.closest('#langDd')) m.classList.remove('open'); });
