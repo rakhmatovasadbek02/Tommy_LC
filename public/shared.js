@@ -79,7 +79,7 @@ const I18N = {
   "Here's what's happening at Tommy Learning Center today.":"Вот что происходит в Tommy Learning Center сегодня."
  },
  uz: {
-  "Dashboard":"Boshqaruv","Leads":"Lidlar","Students":"Oʻquvchilar","Groups":"Guruhlar","Finance":"Moliya",
+  "Dashboard":"Asosiy","Leads":"Lidlar","Students":"Oʻquvchilar","Groups":"Guruhlar","Finance":"Moliya",
   "Teachers":"Oʻqituvchilar","Staff":"Xodimlar","Actions":"Amallar","Classrooms":"Sinflar","Archived":"Arxiv",
   "Learning Center":"Oʻquv markazi","Sign Out":"Chiqish","Search students…":"Oʻquvchilarni qidirish…",
   "Welcome back":"Xush kelibsiz","Sign in to continue":"Davom etish uchun kiring","Phone Number":"Telefon raqami",
