@@ -98,6 +98,7 @@ Raxmatovs Family LLC<br>
 <h2>Welcome back</h2>
 <div class="subtitle">Sign in to continue</div>
 <div class="error-msg" id="errorMsg"><span>⚠️</span><span id="errorText">Invalid phone or password.</span></div>
+<div id="loginFields">
 <div class="form-group">
 <label>Phone Number</label>
 <div class="phone-wrap">
@@ -115,6 +116,19 @@ Raxmatovs Family LLC<br>
 <button class="creator-access" id="creatorBtn" onclick="creatorLogin()" title="Sign in as creator">
 <span class="creator-dot"></span> Sign in
 </button>
+</div>
+</div>
+<div id="changePwFields" style="display:none">
+<div class="form-group">
+<label>New password</label>
+<input type="password" id="newPw" placeholder="At least 8 digits">
+<div style="font-size:12px;color:#994444;margin-top:6px;line-height:1.5">At least 8 digits, 3+ different digits, not sequential.</div>
+</div>
+<div class="form-group">
+<label>Confirm password</label>
+<input type="password" id="newPw2" placeholder="Repeat new password">
+</div>
+<button class="btn-login" id="changePwBtn" onclick="submitChangePw()">Save &amp; continue →</button>
 </div>
 </div>
 </div>
@@ -198,6 +212,7 @@ const session = { id:user.id, name:user.name, role:user.role, title:user.title, 
   permissions:user.permissions||[], token:user.token, loginTime:new Date().toISOString() };
 sessionStorage.setItem('lc_session', JSON.stringify(session));
 localStorage.setItem('lc_session', JSON.stringify(session));
+if (user.mustChangePassword) { showChangePw(); return; }
 window.location.replace('index.html');
 } catch(e) {
 errText.textContent = 'Could not connect to server.';
@@ -206,7 +221,37 @@ errMsg.classList.add('show');
 btn.disabled = false; btn.textContent = 'Sign In →';
 }
 }
-document.addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+function showChangePw() {
+document.getElementById('loginFields').style.display = 'none';
+document.getElementById('changePwFields').style.display = '';
+document.querySelector('.form-wrap h2').textContent = 'Set a new password';
+document.querySelector('.form-wrap .subtitle').textContent = 'Required before first use';
+document.getElementById('errorMsg').classList.remove('show');
+document.getElementById('newPw').focus();
+}
+function validateNewPw(pw){
+const d=String(pw||'').replace(/\D/g,'');
+if(d.length<8) return 'Password must contain at least 8 digits.';
+if(new Set(d.split('')).size<3) return 'Too simple — use at least 3 different digits.';
+let up=true,down=true;
+for(let i=1;i<d.length;i++){ if(+d[i]!==+d[i-1]+1)up=false; if(+d[i]!==+d[i-1]-1)down=false; }
+if(up||down) return 'Too simple — avoid sequential numbers.';
+return null;
+}
+async function submitChangePw(){
+const pw=document.getElementById('newPw').value, pw2=document.getElementById('newPw2').value;
+const errMsg=document.getElementById('errorMsg'), errText=document.getElementById('errorText');
+const err=validateNewPw(pw) || (pw!==pw2 ? 'Passwords do not match.' : null);
+if(err){ errText.textContent=err; errMsg.classList.add('show'); return; }
+const btn=document.getElementById('changePwBtn'); btn.disabled=true; btn.textContent='Saving…';
+try{
+await apiPost('/api/account/change-password',{ newPassword:pw });
+const s=JSON.parse(localStorage.getItem('lc_session')); s.mustChangePassword=false;
+sessionStorage.setItem('lc_session',JSON.stringify(s)); localStorage.setItem('lc_session',JSON.stringify(s));
+window.location.replace('index.html');
+}catch(e){ errText.textContent=e.message||'Could not save password.'; errMsg.classList.add('show'); btn.disabled=false; btn.textContent='Save & continue →'; }
+}
+document.addEventListener('keydown', e => { if (e.key==='Enter') { if(document.getElementById('changePwFields').style.display!=='none') submitChangePw(); else doLogin(); } });
 </script>
 </body>
 </html>

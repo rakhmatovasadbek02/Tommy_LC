@@ -33,6 +33,25 @@ const ROLES = Object.keys(ROLE_PERMS);
 function permsForRole(title) { return (ROLE_PERMS[title] || ['dashboard']).slice(); }
 function isTeacherTitle(t) { return String(t||'').trim().toLowerCase() === 'teacher'; }
 
+// Password rules. Creation: at least 8 digits (repetition allowed).
+function validateCreatePassword(pw) {
+  if (((String(pw||'').match(/\d/g))||[]).length < 8) return 'Password must contain at least 8 digits.';
+  return null;
+}
+// First-login change: at least 8 digits, not all the same, not sequential, not too simple.
+function validateNewPassword(pw) {
+  const digits = String(pw||'').replace(/\D/g, '');
+  if (digits.length < 8) return 'Password must contain at least 8 digits.';
+  if (new Set(digits.split('')).size < 3) return 'Too simple — use at least 3 different digits.';
+  let up = true, down = true;
+  for (let i = 1; i < digits.length; i++) {
+    if (+digits[i] !== +digits[i-1] + 1) up = false;
+    if (+digits[i] !== +digits[i-1] - 1) down = false;
+  }
+  if (up || down) return 'Too simple — avoid sequential numbers.';
+  return null;
+}
+
 /* ══════════════════════════════════════
    AUTH TOKENS  (HMAC-signed identity token)
 ══════════════════════════════════════ */
@@ -252,6 +271,7 @@ async function initDB() {
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS address TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
     `CREATE INDEX IF NOT EXISTS idx_comments_student ON student_comments(student_id)`,
@@ -421,6 +441,7 @@ app.post('/api/auth/login', async (req, res) => {
       id: u.id, name: u.first_name+' '+u.last_name,
       role: u.role, title: u.title || u.role, avatar: u.avatar, phone: u.phone,
       permissions: u.permissions || [],
+      mustChangePassword: !!u.must_change_password,
       token: signToken(u.id)
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -437,8 +458,19 @@ app.post('/api/auth/creator-login', async (req, res) => {
       id: u.id, name: u.first_name+' '+u.last_name,
       role: u.role, title: u.title || u.role, avatar: u.avatar, phone: u.phone,
       permissions: u.permissions || [],
+      mustChangePassword: !!u.must_change_password,
       token: signToken(u.id)
     });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Force-change password (first login). Authenticated via token (middleware sets req.user).
+app.post('/api/account/change-password', async (req, res) => {
+  try {
+    const err = validateNewPassword(req.body.newPassword);
+    if (err) return res.status(400).json({ error: err });
+    await pool.query('UPDATE users SET password=$1, must_change_password=FALSE WHERE id=$2', [req.body.newPassword, req.user.id]);
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -463,10 +495,12 @@ app.post('/api/users', async (req, res) => {
   try {
     const { id, firstName, lastName, phone, password, title } = req.body;
     if (!ROLE_PERMS[title]) return res.status(400).json({ error: 'Invalid role' });
+    const pwErr = validateCreatePassword(password);
+    if (pwErr) return res.status(400).json({ error: pwErr });
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     const perms = permsForRole(title);
     await pool.query(
-      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)',
       [id, firstName, lastName, phone, password, title, title, avatar, JSON.stringify(perms)]
     );
     res.json({ ok: true });
@@ -480,8 +514,10 @@ app.put('/api/users/:id', async (req, res) => {
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     const perms = permsForRole(title);
     if (password) {
+      const pwErr = validateCreatePassword(password);
+      if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7 WHERE id=$8',
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7,must_change_password=TRUE WHERE id=$8',
         [firstName, lastName, phone, password, title, avatar, JSON.stringify(perms), req.params.id]
       );
     } else {
