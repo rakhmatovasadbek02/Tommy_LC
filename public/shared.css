@@ -166,10 +166,14 @@ input[type=number] { -moz-appearance: textfield; }
 .main {
  margin-left: var(--nav-w);
  flex: 1;
+ min-width: 0;
+ max-width: calc(100vw - var(--nav-w));
  min-height: 100vh;
  display: flex;
  flex-direction: column;
 }
+@media (max-width: 640px) { .main { max-width: 100vw; } }
+.page-content { min-width: 0; }
 
 .topbar {
  background: var(--white);
