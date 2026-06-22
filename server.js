@@ -273,6 +273,7 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
+    `CREATE TABLE IF NOT EXISTS support_sessions (id TEXT PRIMARY KEY, date DATE, time TEXT, duration INT DEFAULT 30, teacher TEXT, student_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
     `CREATE INDEX IF NOT EXISTS idx_comments_student ON student_comments(student_id)`,
     `CREATE INDEX IF NOT EXISTS idx_calls_student ON student_calls(student_id)`,
@@ -380,6 +381,7 @@ function requiredPerm(method, p) {
   if (top === 'pricing')    return write ? 'finance'    : null;
   if (top === 'levels')     return write ? 'groups'     : null;
   if (top === 'attendance') return write ? 'groups'     : null;
+  if (top === 'support')    return write ? 'groups'     : null;
   if (top === 'admin')      return 'finance';
   return null;
 }
@@ -1158,6 +1160,39 @@ app.delete('/api/invoices/:id', async (req, res) => {
     await pool.query('DELETE FROM invoices WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* SUPPORT SESSIONS — one-time lessons, one room, max 2 teachers at a time */
+function toMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
+
+app.get('/api/support/:date', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1 ORDER BY time', [req.params.date]);
+    res.json(rows.map(s => ({ id:s.id, date:s.date, time:s.time, duration:s.duration, teacher:s.teacher, studentId:s.student_id })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/support', async (req, res) => {
+  try {
+    const { id, date, time, duration, teacher, studentId } = req.body;
+    if (!date || !time || !teacher || !studentId) return res.status(400).json({ error: 'Date, time, teacher and student are required.' });
+    const dur = Number(duration) === 60 ? 60 : 30;
+    const start = toMin(time), end = start + dur;
+    const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
+    const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });
+    if (overlap.length >= 2) return res.status(409).json({ error: 'Both support slots are already taken at this time.' });
+    if (overlap.some(s => s.teacher === teacher)) return res.status(409).json({ error: 'This teacher already has a session at this time.' });
+    await pool.query(
+      'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id) VALUES($1,$2,$3,$4,$5,$6)',
+      [id, date, time, dur, teacher, studentId]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/support/:id', async (req, res) => {
+  try { await pool.query('DELETE FROM support_sessions WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 /* ATTENDANCE */

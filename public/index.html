@@ -120,6 +120,46 @@ onblur="this.style.borderColor='var(--border)'">
 <div class="timetable-wrap">
 <div id="ttGrid"></div>
 </div>
+
+<div class="timetable-header" style="margin-top:34px">
+<div class="timetable-title">Support</div>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+<input type="date" id="supportDate" onchange="loadSupport()" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px">
+<button class="btn btn-primary btn-sm" id="addSupportBtn" onclick="openSupport()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add session</button>
+</div>
+</div>
+<div class="timetable-wrap">
+<div id="supportGrid"></div>
+</div>
+</div>
+</div>
+
+<!-- SUPPORT SESSION MODAL -->
+<div class="modal-overlay" id="supportModal">
+<div class="modal" style="width:460px">
+<div class="modal-header">
+<div class="modal-title">Add support session</div>
+<button class="modal-close" onclick="closeModal('supportModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+</div>
+<div class="modal-body">
+<div class="form-row">
+<div class="form-group"><label>Date *</label><input type="date" id="spDate"></div>
+<div class="form-group"><label>Time *</label><input type="time" id="spTime" step="1800" value="09:00"></div>
+</div>
+<div class="form-group">
+<label>Duration *</label>
+<div style="display:flex;gap:10px;margin-top:4px">
+<label class="dur-opt"><input type="radio" name="spDur" value="30" checked> 30 min</label>
+<label class="dur-opt"><input type="radio" name="spDur" value="60"> 60 min</label>
+</div>
+</div>
+<div class="form-group"><label>Support teacher *</label><select id="spTeacher"><option value="">— Select —</option></select></div>
+<div class="form-group"><label>Student *</label><select id="spStudent"><option value="">— Select —</option></select></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-outline" onclick="closeModal('supportModal')">Cancel</button>
+<button class="btn btn-primary" onclick="saveSupport()">Save session</button>
+</div>
 </div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
@@ -342,6 +382,105 @@ document.querySelectorAll('.day-tab').forEach(btn => {
 btn.classList.toggle('active', btn.textContent.toLowerCase().startsWith(autoTab));
 });
 renderTimetable();
+const sd = document.getElementById('supportDate');
+sd.value = new Date().toISOString().split('T')[0];
+if (!can('groups')) document.getElementById('addSupportBtn').style.display = 'none';
+loadSupport();
+}
+
+/* ── Support timetable ── */
+let _support = [];
+const CAN_SUPPORT = can('groups');
+function spMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
+function supportTeacherColor(name){ return avatarColor(name||'?'); }
+async function loadSupport() {
+const date = document.getElementById('supportDate').value;
+if (!window._supportStudents) { try { window._supportStudents = await apiGet('/api/students'); } catch { window._supportStudents=[]; } }
+try { _support = await apiGet('/api/support/'+date); } catch(e) { _support = []; }
+renderSupportGrid();
+}
+function renderSupportGrid() {
+const grid = document.getElementById('supportGrid');
+const sessions = [..._support].sort((a,b)=>spMin(a.time)-spMin(b.time));
+if (!sessions.length) {
+grid.innerHTML = `<div style="padding:32px;text-align:center;color:var(--muted)"><p>No support sessions for this day.</p></div>`;
+return;
+}
+// Greedy 2-lane assignment (max two concurrent).
+const laneEnd = [0,0]; const placed = sessions.map(s=>{
+const st = spMin(s.time), en = st + Number(s.duration||30);
+let lane = laneEnd[0] <= st ? 0 : (laneEnd[1] <= st ? 1 : 0);
+laneEnd[lane] = en; return {...s, st, en, lane};
+});
+let rangeStart = 9*60, rangeEnd = 18*60;
+placed.forEach(s => { if (s.st < rangeStart) rangeStart = Math.floor(s.st/60)*60; if (s.en > rangeEnd) rangeEnd = Math.ceil(s.en/60)*60; });
+const slots = []; for (let m=rangeStart; m<rangeEnd; m+=30) slots.push(m);
+const COL_W=60, LANE_W=130;
+const minToTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+let html = `<div style="display:flex;position:sticky;top:0;z-index:5;">
+<div style="width:${LANE_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);">Room</div>
+${slots.map(s=>{const isHour=s%60===0;return `<div style="width:${COL_W}px;flex-shrink:0;background:var(--crimson);padding:10px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.12);"><div style="font-size:${isHour?12:10}px;font-weight:${isHour?700:400};color:${isHour?'#fff':'rgba(255,255,255,0.55)'};white-space:nowrap;">${minToTime(s)}</div></div>`;}).join('')}
+</div>`;
+[0,1].forEach(lane => {
+const laneSessions = placed.filter(p=>p.lane===lane);
+html += `<div style="display:flex;border-bottom:1px solid var(--border);">
+<div style="width:${LANE_W}px;flex-shrink:0;padding:14px 16px;border-right:1px solid var(--border);background:var(--crimson-soft);display:flex;align-items:center;font-weight:700;font-size:13px;color:var(--crimson)">Support ${lane+1}</div>
+${slots.map(s=>{
+const starting = laneSessions.filter(p=>p.st===s);
+const covered = laneSessions.some(p=>s>p.st && s<p.en);
+if (covered) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid var(--border);min-height:74px;pointer-events:none;"></div>`;
+return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid var(--border);min-height:74px;position:relative;">
+${starting.map(p=>{
+const span = slots.filter(s2=>s2>=p.st && s2<p.en).length;
+const w = span*COL_W-4;
+const stu = (window._supportStudents||[]).find(x=>x.id===p.studentId);
+const sName = stu ? stu.firstName+' '+stu.lastName : 'Student';
+const col = supportTeacherColor(p.teacher);
+return `<div style="position:absolute;top:2px;left:2px;width:${w}px;bottom:2px;background:${col};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
+<div style="font-weight:800;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sName}</div>
+<div style="font-size:10px;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.teacher} · ${p.duration}m</div>
+${CAN_SUPPORT?`<button onclick="deleteSupport('${p.id}')" title="Delete" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.25);border:none;color:#fff;border-radius:4px;width:16px;height:16px;font-size:11px;line-height:1;cursor:pointer;padding:0">×</button>`:''}
+</div>`;
+}).join('')}
+</div>`;
+}).join('')}
+</div>`;
+});
+grid.innerHTML = `<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
+}
+async function openSupport() {
+if (!window._supportTeachers) { try { window._supportTeachers = await apiGet('/api/teachers'); } catch { window._supportTeachers=[]; } }
+if (!window._supportStudents) { try { window._supportStudents = await apiGet('/api/students'); } catch { window._supportStudents=[]; } }
+document.getElementById('spDate').value = document.getElementById('supportDate').value || new Date().toISOString().split('T')[0];
+document.getElementById('spTime').value = '09:00';
+document.querySelector('input[name="spDur"][value="30"]').checked = true;
+document.getElementById('spTeacher').innerHTML = '<option value="">— Select —</option>' + (window._supportTeachers||[]).map(t=>`<option>${t.firstName} ${t.lastName}</option>`).join('');
+document.getElementById('spStudent').innerHTML = '<option value="">— Select —</option>' + (window._supportStudents||[]).filter(s=>s.status==='Active'||s.status==='Trial').map(s=>`<option value="${s.id}">${s.firstName} ${s.lastName}</option>`).join('');
+openModal('supportModal');
+}
+async function saveSupport() {
+const data = {
+id: genId(),
+date: document.getElementById('spDate').value,
+time: document.getElementById('spTime').value,
+duration: Number(document.querySelector('input[name="spDur"]:checked').value),
+teacher: document.getElementById('spTeacher').value,
+studentId: document.getElementById('spStudent').value,
+};
+if (!data.date || !data.time || !data.teacher || !data.studentId) { showToast('Fill all fields.','error'); return; }
+try {
+await apiPost('/api/support', data);
+closeModal('supportModal');
+document.getElementById('supportDate').value = data.date;
+if (!window._supportStudents) window._supportStudents = await apiGet('/api/students').catch(()=>[]);
+await loadSupport();
+showToast('Support session added!');
+} catch(e) { showToast(e.message||'Error.','error'); }
+}
+async function deleteSupport(id) {
+if (!confirm('Delete this session?')) return;
+try { await apiDelete('/api/support/'+id); await loadSupport(); showToast('Deleted.','error'); }
+catch(e) { showToast(e.message||'Error.','error'); }
 }
 init();
 </script>
