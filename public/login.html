@@ -56,12 +56,6 @@ input[type="password"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba
 .btn-login { width: 100%; padding: 14px; background: #FF0000; color: #fff; border: none; border-radius: 11px; font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.18s; margin-top: 6px; }
 .btn-login:hover { background: #CC0000; transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,0,0,0.30); }
 .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
-.creator-row { margin-top: 22px; padding-top: 20px; border-top: 1px solid #FFE0E0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.creator-label { font-size: 12.5px; color: #994444; }
-.creator-access { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #FFD0D0; color: #990000; border-radius: 100px; padding: 7px 15px 7px 12px; font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.16s; }
-.creator-access:hover { background: #FFF0F0; border-color: #FF0000; }
-.creator-access:disabled { opacity: 0.5; cursor: not-allowed; }
-.creator-dot { width: 7px; height: 7px; border-radius: 50%; background: #1E6B45; box-shadow: 0 0 0 3px rgba(30,107,69,0.18); flex-shrink: 0; }
 
 .login-lang { position: fixed; top: 18px; right: 22px; display: flex; gap: 6px; z-index: 20; }
 .login-lang button { display: flex; align-items: center; gap: 5px; background: #fff; border: 1.5px solid #FFD0D0; color: #990000; border-radius: 100px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.14s; }
@@ -111,12 +105,6 @@ Raxmatovs Family LLC<br>
 <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
 </div>
 <button class="btn-login" id="loginBtn" onclick="doLogin()">Sign In →</button>
-<div class="creator-row">
-<span class="creator-label">Are you the creator?</span>
-<button class="creator-access" id="creatorBtn" onclick="creatorLogin()" title="Sign in as creator">
-<span class="creator-dot"></span> Sign in
-</button>
-</div>
 </div>
 <div id="changePwFields" style="display:none">
 <div class="form-group">
@@ -167,25 +155,6 @@ input.value = o;
 const existing = JSON.parse(sessionStorage.getItem('lc_session')||localStorage.getItem('lc_session')||'null');
 if (existing && existing.token) window.location.replace('index.html');
 else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); }
-async function creatorLogin() {
-const btn = document.getElementById('creatorBtn');
-btn.disabled = true;
-try {
-const res = await fetch('/api/auth/creator-login', { method:'POST' });
-if (!res.ok) throw new Error('unavailable');
-const user = await res.json();
-const session = { id:user.id, name:user.name, role:user.role, title:user.title, avatar:user.avatar,
-  permissions:user.permissions||[], token:user.token, loginTime:new Date().toISOString() };
-sessionStorage.setItem('lc_session', JSON.stringify(session));
-localStorage.setItem('lc_session', JSON.stringify(session));
-window.location.replace('index.html');
-} catch(e) {
-btn.disabled = false;
-const errText = document.getElementById('errorText');
-errText.textContent = 'Creator sign-in unavailable.';
-document.getElementById('errorMsg').classList.add('show');
-}
-}
 async function doLogin() {
 const phone = document.getElementById('loginPhone').value.trim();
 const password = document.getElementById('loginPassword').value;

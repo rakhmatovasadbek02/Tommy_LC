@@ -447,23 +447,6 @@ app.post('/api/auth/login', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Public: one-click login as the creator/owner (the earliest-created account).
-// NOTE: intentionally passwordless — anyone on the login page can use it.
-app.post('/api/auth/creator-login', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM users ORDER BY created_at ASC LIMIT 1');
-    const u = rows[0];
-    if (!u) return res.status(404).json({ error: 'No accounts exist yet' });
-    res.json({
-      id: u.id, name: u.first_name+' '+u.last_name,
-      role: u.role, title: u.title || u.role, avatar: u.avatar, phone: u.phone,
-      permissions: u.permissions || [],
-      mustChangePassword: !!u.must_change_password,
-      token: signToken(u.id)
-    });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
 // Force-change password (first login). Authenticated via token (middleware sets req.user).
 app.post('/api/account/change-password', async (req, res) => {
   try {
