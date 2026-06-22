@@ -490,6 +490,12 @@ app.post('/api/account/change-password', async (req, res) => {
 function cleanPerms(permissions) {
   return Array.isArray(permissions) ? permissions.filter(p => ALL_PERMISSIONS.includes(p)) : [];
 }
+// Support-teacher shift fields, only meaningful when title === 'Support Teacher'.
+function supportShift(body, title) {
+  if (!isSupportTitle(title)) return { start:null, end:null, days:null };
+  const days = ['odd','even','daily'].includes(body.supportDays) ? body.supportDays : 'daily';
+  return { start: body.supportStart || '09:00', end: body.supportEnd || '18:00', days };
+}
 
 app.get('/api/users', async (req, res) => {
   try {
@@ -498,7 +504,8 @@ app.get('/api/users', async (req, res) => {
       id: u.id, firstName: u.first_name, lastName: u.last_name,
       name: u.first_name+' '+u.last_name, phone: u.phone,
       role: u.role, title: u.title || u.role, avatar: u.avatar,
-      permissions: u.permissions || []
+      permissions: u.permissions || [],
+      supportStart: u.support_start, supportEnd: u.support_end, supportDays: u.support_days
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -511,9 +518,10 @@ app.post('/api/users', async (req, res) => {
     if (pwErr) return res.status(400).json({ error: pwErr });
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     const perms = permsForRole(title);
+    const sh = supportShift(req.body, title);
     await pool.query(
-      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)',
-      [id, firstName, lastName, phone, password, title, title, avatar, JSON.stringify(perms)]
+      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password,support_start,support_end,support_days) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11,$12)',
+      [id, firstName, lastName, phone, password, title, title, avatar, JSON.stringify(perms), sh.start, sh.end, sh.days]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -525,17 +533,18 @@ app.put('/api/users/:id', async (req, res) => {
     if (!ROLE_PERMS[title]) return res.status(400).json({ error: 'Invalid role' });
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     const perms = permsForRole(title);
+    const sh = supportShift(req.body, title);
     if (password) {
       const pwErr = validateCreatePassword(password);
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7,must_change_password=TRUE WHERE id=$8',
-        [firstName, lastName, phone, password, title, avatar, JSON.stringify(perms), req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7,must_change_password=TRUE,support_start=$8,support_end=$9,support_days=$10 WHERE id=$11',
+        [firstName, lastName, phone, password, title, avatar, JSON.stringify(perms), sh.start, sh.end, sh.days, req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,avatar=$5,permissions=$6 WHERE id=$7',
-        [firstName, lastName, phone, title, avatar, JSON.stringify(perms), req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,avatar=$5,permissions=$6,support_start=$7,support_end=$8,support_days=$9 WHERE id=$10',
+        [firstName, lastName, phone, title, avatar, JSON.stringify(perms), sh.start, sh.end, sh.days, req.params.id]
       );
     }
     res.json({ ok: true });
@@ -1198,11 +1207,12 @@ app.delete('/api/invoices/:id', async (req, res) => {
 
 /* SUPPORT SESSIONS — one-time lessons, one room, max 2 teachers at a time */
 function toMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
+function supportWorksOn(dateStr, days){ const dow=new Date(dateStr+'T00:00:00').getDay(); if(days==='odd')return [1,3,5].includes(dow); if(days==='even')return [2,4,6].includes(dow); return dow>=1&&dow<=6; }
 
 app.get('/api/support-teachers', async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id, first_name, last_name FROM users WHERE title='Support Teacher' ORDER BY first_name");
-    res.json(rows.map(u => ({ id: u.id, name: u.first_name+' '+u.last_name })));
+    const { rows } = await pool.query("SELECT id, first_name, last_name, support_start, support_end, support_days FROM users WHERE title='Support Teacher' ORDER BY first_name");
+    res.json(rows.map(u => ({ id: u.id, name: u.first_name+' '+u.last_name, start: u.support_start||'09:00', end: u.support_end||'18:00', days: u.support_days||'daily' })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1219,6 +1229,13 @@ app.post('/api/support', async (req, res) => {
     if (!date || !time || !teacher || !studentId) return res.status(400).json({ error: 'Date, time, teacher and student are required.' });
     const dur = Number(duration) === 60 ? 60 : 30;
     const start = toMin(time), end = start + dur;
+    // Enforce the teacher's working shift (days + hours).
+    const tRes = await pool.query("SELECT support_start, support_end, support_days FROM users WHERE title='Support Teacher' AND (first_name||' '||last_name)=$1 LIMIT 1", [teacher]);
+    const sh = tRes.rows[0];
+    if (sh) {
+      if (!supportWorksOn(date, sh.support_days||'daily')) return res.status(409).json({ error: 'This teacher does not work on this day.' });
+      if (start < toMin(sh.support_start||'09:00') || end > toMin(sh.support_end||'18:00')) return res.status(409).json({ error: "Outside this teacher's working hours." });
+    }
     const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
     const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });
     if (overlap.length >= 2) return res.status(409).json({ error: 'Both support slots are already taken at this time.' });

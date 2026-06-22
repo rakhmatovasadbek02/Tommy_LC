@@ -76,6 +76,20 @@
         </select>
         <div id="roleDesc" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:8px"></div>
       </div>
+      <div id="supportShiftFields" style="display:none">
+        <div class="form-group">
+          <label>Working days *</label>
+          <select id="uSupDays">
+            <option value="daily">Every day (Mon–Sat)</option>
+            <option value="odd">Odd days (Mon · Wed · Fri)</option>
+            <option value="even">Even days (Tue · Thu · Sat)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Shift start *</label><select id="uSupStart"></select></div>
+          <div class="form-group"><label>Shift end *</label><select id="uSupEnd"></select></div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('userModal')">Cancel</button>
@@ -108,8 +122,14 @@
     input.value=o;
   }
 
+  function buildTimeOpts(sel, val){
+    let o=''; for(let m=8*60;m<=21*60+30;m+=30){const hh=String(Math.floor(m/60)).padStart(2,'0'),mm=String(m%60).padStart(2,'0');o+=`<option>${hh}:${mm}</option>`;}
+    sel.innerHTML=o; sel.value=val;
+  }
   function onRoleChange() {
-    document.getElementById('roleDesc').textContent = ROLE_DESC[document.getElementById('uRole').value] || '';
+    const role = document.getElementById('uRole').value;
+    document.getElementById('roleDesc').textContent = ROLE_DESC[role] || '';
+    document.getElementById('supportShiftFields').style.display = role==='Support Teacher' ? '' : 'none';
   }
 
   async function load() { users = await apiGet('/api/users'); renderUsers(); }
@@ -154,6 +174,9 @@
     document.getElementById('uLast').value=u.lastName;
     document.getElementById('uPhone').value=u.phone||'';
     document.getElementById('uRole').value=ROLE_DESC[u.title]?u.title:(ROLE_DESC[u.role]?u.role:'Admin');
+    document.getElementById('uSupDays').value=u.supportDays||'daily';
+    buildTimeOpts(document.getElementById('uSupStart'), u.supportStart||'09:00');
+    buildTimeOpts(document.getElementById('uSupEnd'), u.supportEnd||'18:00');
     onRoleChange();
     document.getElementById('pwHint').style.display='block';
     document.getElementById('pwLabel').textContent='(optional)';
@@ -173,6 +196,12 @@
     if(!id&&!pass){showToast('Password required.','error');return;}
     if(pass && ((pass.match(/\d/g)||[]).length<8)){showToast('Password must contain at least 8 digits.','error');return;}
     const data={firstName:first,lastName:last,phone,title};
+    if(title==='Support Teacher'){
+      data.supportDays=document.getElementById('uSupDays').value;
+      data.supportStart=document.getElementById('uSupStart').value;
+      data.supportEnd=document.getElementById('uSupEnd').value;
+      if(data.supportStart>=data.supportEnd){showToast('Shift end must be after start.','error');return;}
+    }
     if(pass)data.password=pass;
     try {
       if(id){await apiPut('/api/users/'+id,data);logActivity(`Updated staff: ${first} ${last}`,'');}
@@ -194,6 +223,9 @@
   function clearForm() {
     ['editUserId','uFirst','uLast','uPhone','uPassword'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('uRole').value='Admin';
+    document.getElementById('uSupDays').value='daily';
+    buildTimeOpts(document.getElementById('uSupStart'),'09:00');
+    buildTimeOpts(document.getElementById('uSupEnd'),'18:00');
     onRoleChange();
     document.getElementById('pwHint').style.display='none';
     document.getElementById('pwLabel').textContent='*';
