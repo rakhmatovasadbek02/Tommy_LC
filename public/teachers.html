@@ -50,7 +50,8 @@
       </div>
       <div class="form-group">
         <label>Password <span id="tPwLabel" style="font-weight:400;text-transform:none;letter-spacing:0">*</span></label>
-        <input type="password" id="tPassword" placeholder="Set a password for this teacher">
+        <input type="password" id="tPassword" placeholder="At least 8 digits">
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">At least 8 digits. The teacher must change it on first login.</div>
         <div id="tPwHint" style="font-size:12px;color:var(--muted);margin-top:5px;display:none">Leave blank to keep existing password.</div>
       </div>
     </div>
@@ -129,6 +130,7 @@
     if(!phone){showToast('Phone required.','error');return;}
     const id=document.getElementById('editTeacherId').value;
     if(!id&&!pass){showToast('Password required.','error');return;}
+    if(pass && ((pass.match(/\d/g)||[]).length<8)){showToast('Password must contain at least 8 digits.','error');return;}
     const data={firstName:first,lastName:last,phone,status:'Active'};
     if(pass)data.password=pass;
     try {

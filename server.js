@@ -274,6 +274,9 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT '[]'`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS title TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_start TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_end TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_days TEXT`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
     `CREATE TABLE IF NOT EXISTS support_sessions (id TEXT PRIMARY KEY, date DATE, time TEXT, duration INT DEFAULT 30, teacher TEXT, student_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
@@ -315,12 +318,33 @@ async function initDB() {
     }
   } catch(e) { console.warn('Trial cleanup skipped:', e.message); }
 
-  // Null out group teacher names that no longer exist in the teachers table
+  // Merge legacy teachers into staff (users) as 'Teacher' accounts, then drain the table.
+  try {
+    const ts = await pool.query('SELECT * FROM teachers');
+    for (const t of ts.rows) {
+      const phone = t.phone || ('temp-'+t.id);
+      const dup = await pool.query("SELECT 1 FROM users WHERE REPLACE(phone,' ','')=REPLACE($1,' ','') LIMIT 1", [phone]);
+      let ok = dup.rows.length > 0;
+      if (!ok) {
+        const avatar = ((t.first_name||'?')[0]+((t.last_name||'')[0]||'')).toUpperCase();
+        try {
+          await pool.query(
+            "INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password) VALUES($1,$2,$3,$4,$5,'Teacher','Teacher',$6,$7,TRUE)",
+            [t.id, t.first_name, t.last_name, phone, t.password||'00000000', avatar, JSON.stringify(ROLE_PERMS['Teacher'])]
+          );
+          ok = true;
+        } catch(e) { ok = false; }
+      }
+      if (ok) await pool.query('DELETE FROM teachers WHERE id=$1', [t.id]);
+    }
+  } catch(e) { console.warn('Teacher→staff merge skipped:', e.message); }
+
+  // Null out group teacher names that no longer match a Teacher staff member
   try {
     await pool.query(`
       UPDATE groups SET teacher = NULL
       WHERE teacher IS NOT NULL
-      AND teacher NOT IN (SELECT first_name || ' ' || last_name FROM teachers)
+      AND teacher NOT IN (SELECT first_name || ' ' || last_name FROM users WHERE title='Teacher')
     `);
   } catch(e) { console.warn('Teacher orphan cleanup skipped:', e.message); }
 
@@ -837,22 +861,26 @@ app.get('/api/students/:id/invoices', async (req, res) => {
 });
 
 /* TEACHERS */
+// Teachers are now Staff users with the 'Teacher' role.
 app.get('/api/teachers', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT id,first_name,last_name,phone,status,created_at FROM teachers ORDER BY created_at DESC');
+    const { rows } = await pool.query("SELECT id,first_name,last_name,phone,created_at FROM users WHERE title='Teacher' ORDER BY first_name");
     res.json(rows.map(t => ({
       id: t.id, firstName: t.first_name, lastName: t.last_name,
-      phone: t.phone, status: t.status, createdAt: t.created_at
+      phone: t.phone, status: 'Active', createdAt: t.created_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/teachers', async (req, res) => {
   try {
-    const { id, firstName, lastName, phone, password, status } = req.body;
+    const { id, firstName, lastName, phone, password } = req.body;
+    const pwErr = validateCreatePassword(password);
+    if (pwErr) return res.status(400).json({ error: pwErr });
+    const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     await pool.query(
-      'INSERT INTO teachers(id,first_name,last_name,phone,password,status) VALUES($1,$2,$3,$4,$5,$6)',
-      [id, firstName, lastName, phone||null, password||null, status||'Active']
+      "INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password) VALUES($1,$2,$3,$4,$5,'Teacher','Teacher',$6,$7,TRUE)",
+      [id, firstName, lastName, phone, password, avatar, JSON.stringify(permsForRole('Teacher'))]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -860,19 +888,22 @@ app.post('/api/teachers', async (req, res) => {
 
 app.put('/api/teachers/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, password, status } = req.body;
+    const { firstName, lastName, phone, password } = req.body;
     const newName = `${firstName} ${lastName}`;
-    const old = await pool.query('SELECT first_name, last_name FROM teachers WHERE id=$1', [req.params.id]);
+    const old = await pool.query('SELECT first_name, last_name FROM users WHERE id=$1', [req.params.id]);
     const oldName = old.rows[0] ? `${old.rows[0].first_name} ${old.rows[0].last_name}` : null;
+    const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     if (password) {
+      const pwErr = validateCreatePassword(password);
+      if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE teachers SET first_name=$1,last_name=$2,phone=$3,password=$4,status=$5 WHERE id=$6',
-        [firstName, lastName, phone||null, password, status||'Active', req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,avatar=$5,must_change_password=TRUE WHERE id=$6',
+        [firstName, lastName, phone, password, avatar, req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE teachers SET first_name=$1,last_name=$2,phone=$3,status=$4 WHERE id=$5',
-        [firstName, lastName, phone||null, status||'Active', req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,avatar=$4 WHERE id=$5',
+        [firstName, lastName, phone, avatar, req.params.id]
       );
     }
     if (oldName && oldName !== newName) {
@@ -884,12 +915,12 @@ app.put('/api/teachers/:id', async (req, res) => {
 
 app.delete('/api/teachers/:id', async (req, res) => {
   try {
-    const old = await pool.query('SELECT first_name, last_name FROM teachers WHERE id=$1', [req.params.id]);
+    const old = await pool.query('SELECT first_name, last_name FROM users WHERE id=$1', [req.params.id]);
     if (old.rows[0]) {
       const name = `${old.rows[0].first_name} ${old.rows[0].last_name}`;
       await pool.query('UPDATE groups SET teacher=NULL WHERE teacher=$1', [name]);
     }
-    await pool.query('DELETE FROM teachers WHERE id=$1', [req.params.id]);
+    await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
