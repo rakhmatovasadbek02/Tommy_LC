@@ -28,7 +28,9 @@ const ROLE_PERMS = {
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','classrooms','archived'],
   'Admin':      ['dashboard','leads','students','groups','teachers'],
   'Teacher':    ['dashboard','students','groups'],
+  'Support Teacher': ['dashboard'],
 };
+function isSupportTitle(t) { return String(t||'').trim().toLowerCase() === 'support teacher'; }
 const ROLES = Object.keys(ROLE_PERMS);
 function permsForRole(title) { return (ROLE_PERMS[title] || ['dashboard']).slice(); }
 function isTeacherTitle(t) { return String(t||'').trim().toLowerCase() === 'teacher'; }
@@ -1164,6 +1166,13 @@ app.delete('/api/invoices/:id', async (req, res) => {
 
 /* SUPPORT SESSIONS — one-time lessons, one room, max 2 teachers at a time */
 function toMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
+
+app.get('/api/support-teachers', async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT id, first_name, last_name FROM users WHERE title='Support Teacher' ORDER BY first_name");
+    res.json(rows.map(u => ({ id: u.id, name: u.first_name+' '+u.last_name })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/api/support/:date', async (req, res) => {
   try {

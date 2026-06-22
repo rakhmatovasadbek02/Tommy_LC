@@ -152,6 +152,7 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 const PERM_ALIAS = { payments:'finance', settings:'staff' };
 
 function isTeacher() { const s = getSession(); return String(s && s.title || '').trim().toLowerCase() === 'teacher'; }
+function isSupportTeacher() { const s = getSession(); return String(s && s.title || '').trim().toLowerCase() === 'support teacher'; }
 function canManageFinance() { return can('finance') && !getPermissions().includes('finance_view_only'); }
 // For teacher accounts, a group is "own" when its assigned teacher matches the user's name.
 function ownsGroup(g) { const s = getSession(); return !isTeacher() ? true : String(g && g.teacher || '') === (s && s.name || ''); }

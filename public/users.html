@@ -72,6 +72,7 @@
           <option value="Manager">Manager</option>
           <option value="Admin">Admin</option>
           <option value="Teacher">Teacher</option>
+          <option value="Support Teacher">Support Teacher</option>
         </select>
         <div id="roleDesc" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:8px"></div>
       </div>
@@ -94,7 +95,8 @@
     'Head Admin': 'Everything except Actions and Staff. Finance is view-only (cannot record or edit payments).',
     'Manager': 'Everything except Actions.',
     'Admin': 'Dashboard, Leads, Students, Groups, Teachers. Cannot see Finance, Staff, Archived, Actions or Classrooms.',
-    'Teacher': 'Own groups only — Dashboard, own Students, and Groups (view & mark attendance).'
+    'Teacher': 'Own groups only — Dashboard, own Students, and Groups (view & mark attendance).',
+    'Support Teacher': 'Sees only their own Support timetable. Cannot change anything.'
   };
   const canManage = can('staff');
 
