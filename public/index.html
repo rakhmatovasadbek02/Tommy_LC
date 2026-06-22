@@ -447,28 +447,29 @@ if (!sessions.length) {
 grid.innerHTML = `<div style="padding:32px;text-align:center;color:var(--muted)"><p>No support sessions for this day.</p></div>`;
 return;
 }
-// Greedy 2-lane assignment (max two concurrent).
-const laneEnd = [0,0]; const placed = sessions.map(s=>{
-const st = spMin(s.time), en = st + Number(s.duration||30);
-let lane = laneEnd[0] <= st ? 0 : (laneEnd[1] <= st ? 1 : 0);
-laneEnd[lane] = en; return {...s, st, en, lane};
-});
+// One row per support teacher (name as the row label).
+const placed = sessions.map(s => ({ ...s, st: spMin(s.time), en: spMin(s.time)+Number(s.duration||30) }));
+const teachers = [...new Set(placed.map(p=>p.teacher))].sort();
 let rangeStart = 9*60, rangeEnd = 18*60;
 placed.forEach(s => { if (s.st < rangeStart) rangeStart = Math.floor(s.st/60)*60; if (s.en > rangeEnd) rangeEnd = Math.ceil(s.en/60)*60; });
 const slots = []; for (let m=rangeStart; m<rangeEnd; m+=30) slots.push(m);
-const COL_W=60, LANE_W=130;
+const COL_W=60, LANE_W=150;
 const minToTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 let html = `<div style="display:flex;position:sticky;top:0;z-index:5;">
-<div style="width:${LANE_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);">Room</div>
+<div style="width:${LANE_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);">Support</div>
 ${slots.map(s=>{const isHour=s%60===0;return `<div style="width:${COL_W}px;flex-shrink:0;background:var(--crimson);padding:10px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.12);"><div style="font-size:${isHour?12:10}px;font-weight:${isHour?700:400};color:${isHour?'#fff':'rgba(255,255,255,0.55)'};white-space:nowrap;">${minToTime(s)}</div></div>`;}).join('')}
 </div>`;
-[0,1].forEach(lane => {
-const laneSessions = placed.filter(p=>p.lane===lane);
+teachers.forEach(teacher => {
+const tSessions = placed.filter(p=>p.teacher===teacher);
+const tCol = supportTeacherColor(teacher);
 html += `<div style="display:flex;border-bottom:1px solid var(--border);">
-<div style="width:${LANE_W}px;flex-shrink:0;padding:14px 16px;border-right:1px solid var(--border);background:var(--crimson-soft);display:flex;align-items:center;font-weight:700;font-size:13px;color:var(--crimson)">Support ${lane+1}</div>
+<div style="width:${LANE_W}px;flex-shrink:0;padding:12px 16px;border-right:1px solid var(--border);background:var(--crimson-soft);display:flex;align-items:center;gap:9px;">
+<div class="avatar" style="width:28px;height:28px;font-size:11px;background:${tCol}">${initials(teacher)}</div>
+<span style="font-weight:700;font-size:13px;color:var(--text);line-height:1.2">${teacher}</span>
+</div>
 ${slots.map(s=>{
-const starting = laneSessions.filter(p=>p.st===s);
-const covered = laneSessions.some(p=>s>p.st && s<p.en);
+const starting = tSessions.filter(p=>p.st===s);
+const covered = tSessions.some(p=>s>p.st && s<p.en);
 if (covered) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid var(--border);min-height:74px;pointer-events:none;"></div>`;
 return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid var(--border);min-height:74px;position:relative;">
 ${starting.map(p=>{
@@ -476,10 +477,9 @@ const span = slots.filter(s2=>s2>=p.st && s2<p.en).length;
 const w = span*COL_W-4;
 const stu = (window._supportStudents||[]).find(x=>x.id===p.studentId);
 const sName = stu ? stu.firstName+' '+stu.lastName : 'Student';
-const col = supportTeacherColor(p.teacher);
-return `<div style="position:absolute;top:2px;left:2px;width:${w}px;bottom:2px;background:${col};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
+return `<div style="position:absolute;top:2px;left:2px;width:${w}px;bottom:2px;background:${tCol};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
 <div style="font-weight:800;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sName}</div>
-<div style="font-size:10px;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.teacher} · ${p.duration}m</div>
+<div style="font-size:10px;opacity:0.9;white-space:nowrap">${p.time} · ${p.duration}m</div>
 ${CAN_SUPPORT?`<button onclick="deleteSupport('${p.id}')" title="Delete" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.25);border:none;color:#fff;border-radius:4px;width:16px;height:16px;font-size:11px;line-height:1;cursor:pointer;padding:0">×</button>`:''}
 </div>`;
 }).join('')}
