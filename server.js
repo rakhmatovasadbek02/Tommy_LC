@@ -436,9 +436,10 @@ app.use('/api', async (req, res, next) => {
     const write = req.method !== 'GET';
     const top = p.split('/').filter(Boolean)[0];
 
-    // Teacher accounts: read-only everywhere; only attendance (+ activity log) may be written.
+    // Teacher accounts: read-only everywhere; only attendance, activity log, and their own
+    // account (e.g. first-login password change) may be written.
     if (isTeacherTitle(req.user.title)) {
-      if (write && top !== 'attendance' && top !== 'activity') {
+      if (write && top !== 'attendance' && top !== 'activity' && top !== 'account') {
         return res.status(403).json({ error: 'Teachers can only mark attendance.' });
       }
       return next();
