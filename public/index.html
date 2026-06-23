@@ -413,7 +413,7 @@ document.querySelectorAll('.timetable-wrap')[0].style.display = 'none';
 document.getElementById('supportHeader').style.marginTop = '0';
 document.querySelector('.welcome-banner p').textContent = 'Your support timetable';
 }
-supportDateISO = new Date().toISOString().split('T')[0];
+supportDateISO = isoLocal(new Date());
 renderSupportDateLabel();
 if (!can('groups')) document.getElementById('addSupportBtn').style.display = 'none';
 loadSupport();
@@ -421,21 +421,23 @@ loadSupport();
 
 /* ── Support timetable ── */
 let _support = [];
-let supportDateISO = new Date().toISOString().split('T')[0];
+function isoLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+let supportDateISO = isoLocal(new Date());
 let _spDur = 30;
 const CAN_SUPPORT = can('groups');
 const SUPPORT_OWNER = isSupportTeacher() ? (getSession()?.name||'') : null;
 function spMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
 function supportTeacherColor(name){ return avatarColor(name||'?'); }
-function supTeacherMeta(name){ return (window._supportTeachers||[]).find(t=>t.name===name) || {start:'09:00',end:'18:00',days:'daily'}; }
-function supWorksOn(days){ const dow=new Date(supportDateISO+'T00:00:00').getDay(); if(days==='odd')return [1,3,5].includes(dow); if(days==='even')return [2,4,6].includes(dow); return dow>=1&&dow<=6; }
+function supDayType(){ const dow=new Date(supportDateISO+'T00:00:00').getDay(); if([1,3,5].includes(dow))return 'odd'; if([2,4,6].includes(dow))return 'even'; return null; }
+function supTeacherObj(name){ return (window._supportTeachers||[]).find(t=>t.name===name)||null; }
+function supShiftFor(name){ const t=supTeacherObj(name), dt=supDayType(); return (t&&dt)?t[dt]:null; }
 function renderSupportDateLabel(){
 const d = new Date(supportDateISO+'T00:00:00');
 document.getElementById('supportDateLabel').textContent = d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
 }
 function supportDay(delta){
 const d = new Date(supportDateISO+'T00:00:00'); d.setDate(d.getDate()+delta);
-supportDateISO = d.toISOString().split('T')[0]; renderSupportDateLabel(); loadSupport();
+supportDateISO = isoLocal(d); renderSupportDateLabel(); loadSupport();
 }
 async function loadSupport() {
 if (!window._supportStudents) { try { window._supportStudents = await apiGet('/api/students'); } catch { window._supportStudents=[]; } }
@@ -447,8 +449,8 @@ renderSupportGrid();
 function renderSupportGrid() {
 const grid = document.getElementById('supportGrid');
 const placed = _support.map(s => ({ ...s, st: spMin(s.time), en: spMin(s.time)+Number(s.duration||30) }));
-// Rows: support teachers scheduled to work this day, plus anyone who already has a session.
-let teachers = (window._supportTeachers||[]).filter(t=>supWorksOn(t.days)).map(t=>t.name);
+// Rows: support teachers whose shift covers this day type, plus anyone who already has a session.
+let teachers = (window._supportTeachers||[]).filter(t=>supShiftFor(t.name)).map(t=>t.name);
 [...new Set(placed.map(p=>p.teacher))].forEach(n=>{ if(!teachers.includes(n)) teachers.push(n); });
 if (SUPPORT_OWNER) teachers = teachers.filter(n=>n===SUPPORT_OWNER);
 teachers.sort();
@@ -458,7 +460,7 @@ grid.innerHTML = `<div style="padding:32px;text-align:center;color:var(--muted)"
 return;
 }
 let rangeStart = 9*60, rangeEnd = 18*60;
-teachers.forEach(n=>{ const m=supTeacherMeta(n); rangeStart=Math.min(rangeStart, spMin(m.start)); rangeEnd=Math.max(rangeEnd, spMin(m.end)); });
+teachers.forEach(n=>{ const sh=supShiftFor(n); if(sh){ rangeStart=Math.min(rangeStart, spMin(sh.start)); rangeEnd=Math.max(rangeEnd, spMin(sh.end)); } });
 placed.forEach(s => { if (s.st < rangeStart) rangeStart = Math.floor(s.st/60)*60; if (s.en > rangeEnd) rangeEnd = Math.ceil(s.en/60)*60; });
 const slots = []; for (let m=rangeStart; m<rangeEnd; m+=30) slots.push(m);
 const COL_W=60, LANE_W=150;
@@ -471,12 +473,12 @@ teachers.forEach(teacher => {
 const tSessions = placed.filter(p=>p.teacher===teacher);
 const tCol = supportTeacherColor(teacher);
 const tEsc = teacher.replace(/"/g,'&quot;');
-const meta = supTeacherMeta(teacher);
-const shStart = spMin(meta.start), shEnd = spMin(meta.end);
+const shift = supShiftFor(teacher);
+const shStart = shift ? spMin(shift.start) : -1, shEnd = shift ? spMin(shift.end) : -1;
 html += `<div style="display:flex;border-bottom:1px solid var(--border);">
 <div style="width:${LANE_W}px;flex-shrink:0;padding:12px 16px;border-right:1px solid var(--border);background:var(--crimson-soft);display:flex;align-items:center;gap:9px;">
 <div class="avatar" style="width:28px;height:28px;font-size:11px;background:${tCol}">${initials(teacher)}</div>
-<div style="min-width:0"><div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.2">${teacher}</div><div style="font-size:10px;color:var(--muted)">${meta.start}–${meta.end}</div></div>
+<div style="min-width:0"><div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.2">${teacher}</div><div style="font-size:10px;color:var(--muted)">${shift?shift.start+'–'+shift.end:'off'}</div></div>
 </div>
 ${slots.map(s=>{
 const starting = tSessions.filter(p=>p.st===s);
@@ -521,8 +523,8 @@ document.getElementById('spStudentResults').style.display='none';
 document.addEventListener('click', e=>{ if(!e.target.closest('#spStudentResults') && e.target.id!=='spStudentSearch'){ const b=document.getElementById('spStudentResults'); if(b) b.style.display='none'; } });
 
 function supBuildTimes(teacher, want){
-const m = teacher ? supTeacherMeta(teacher) : {start:'08:00',end:'21:30'};
-const lo = spMin(m.start), hi = spMin(m.end);
+const sh = teacher ? supShiftFor(teacher) : null;
+const lo = sh ? spMin(sh.start) : 8*60, hi = sh ? spMin(sh.end) : 21*60+30;
 let times=''; for(let t=lo; t<=hi-30; t+=30){ const hh=String(Math.floor(t/60)).padStart(2,'0'), mm=String(t%60).padStart(2,'0'); times+=`<option>${hh}:${mm}</option>`; }
 const sel=document.getElementById('spTime'); sel.innerHTML=times||'<option disabled>No slots</option>';
 if (want && [...sel.options].some(o=>o.value===want)) sel.value=want;
@@ -532,7 +534,7 @@ async function openSupport(prefillTeacher, prefillTime) {
 if (!window._supportTeachers) { try { window._supportTeachers = await apiGet('/api/support-teachers'); } catch { window._supportTeachers=[]; } }
 if (!window._supportStudents) { try { window._supportStudents = await apiGet('/api/students'); } catch { window._supportStudents=[]; } }
 _spDur = 30; document.querySelectorAll('#spDurSeg button').forEach((b,i)=>b.classList.toggle('active', i===0));
-const onlyWorking = (window._supportTeachers||[]).filter(t=>supWorksOn(t.days));
+const onlyWorking = (window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
 document.getElementById('spTeacher').innerHTML = '<option value="">— Select —</option>' + onlyWorking.map(t=>`<option>${t.name}</option>`).join('');
 const pre = (prefillTeacher && typeof prefillTeacher==='string') ? prefillTeacher : '';
 if (pre) document.getElementById('spTeacher').value = pre;

@@ -277,6 +277,10 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_start TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_end TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_days TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_odd_start TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_odd_end TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_start TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_end TEXT`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
     `CREATE TABLE IF NOT EXISTS support_sessions (id TEXT PRIMARY KEY, date DATE, time TEXT, duration INT DEFAULT 30, teacher TEXT, student_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
@@ -288,6 +292,17 @@ async function initDB() {
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
   }
+
+  // One-time: migrate old single support shift → separate odd/even shifts.
+  try {
+    await pool.query(`
+      UPDATE users SET
+        support_odd_start  = CASE WHEN COALESCE(support_days,'daily') IN ('odd','daily')  THEN COALESCE(support_start,'09:00') END,
+        support_odd_end    = CASE WHEN COALESCE(support_days,'daily') IN ('odd','daily')  THEN COALESCE(support_end,'18:00')  END,
+        support_even_start = CASE WHEN COALESCE(support_days,'daily') IN ('even','daily') THEN COALESCE(support_start,'09:00') END,
+        support_even_end   = CASE WHEN COALESCE(support_days,'daily') IN ('even','daily') THEN COALESCE(support_end,'18:00')  END
+      WHERE title='Support Teacher' AND support_odd_start IS NULL AND support_even_start IS NULL`);
+  } catch(e) { console.warn('Support shift migration skipped:', e.message); }
 
   // One-time migration: give existing users a permission list derived from their old role.
   // Runs only for users whose permissions are still empty (NULL or []).
@@ -490,11 +505,17 @@ app.post('/api/account/change-password', async (req, res) => {
 function cleanPerms(permissions) {
   return Array.isArray(permissions) ? permissions.filter(p => ALL_PERMISSIONS.includes(p)) : [];
 }
-// Support-teacher shift fields, only meaningful when title === 'Support Teacher'.
+// Support-teacher shifts (separate odd/even), only meaningful for Support Teacher.
+// A null start means the teacher does NOT work that day type.
 function supportShift(body, title) {
-  if (!isSupportTitle(title)) return { start:null, end:null, days:null };
-  const days = ['odd','even','daily'].includes(body.supportDays) ? body.supportDays : 'daily';
-  return { start: body.supportStart || '09:00', end: body.supportEnd || '18:00', days };
+  if (!isSupportTitle(title)) return { oddStart:null, oddEnd:null, evenStart:null, evenEnd:null };
+  const v = t => /^\d{2}:\d{2}$/.test(t) ? t : null;
+  return {
+    oddStart:  body.oddStart  ? v(body.oddStart)  : null,
+    oddEnd:    body.oddStart  ? (v(body.oddEnd)  || '18:00') : null,
+    evenStart: body.evenStart ? v(body.evenStart) : null,
+    evenEnd:   body.evenStart ? (v(body.evenEnd) || '18:00') : null,
+  };
 }
 
 app.get('/api/users', async (req, res) => {
@@ -505,7 +526,8 @@ app.get('/api/users', async (req, res) => {
       name: u.first_name+' '+u.last_name, phone: u.phone,
       role: u.role, title: u.title || u.role, avatar: u.avatar,
       permissions: u.permissions || [],
-      supportStart: u.support_start, supportEnd: u.support_end, supportDays: u.support_days
+      oddStart: u.support_odd_start, oddEnd: u.support_odd_end,
+      evenStart: u.support_even_start, evenEnd: u.support_even_end
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -520,8 +542,8 @@ app.post('/api/users', async (req, res) => {
     const perms = permsForRole(title);
     const sh = supportShift(req.body, title);
     await pool.query(
-      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password,support_start,support_end,support_days) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11,$12)',
-      [id, firstName, lastName, phone, password, title, title, avatar, JSON.stringify(perms), sh.start, sh.end, sh.days]
+      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password,support_odd_start,support_odd_end,support_even_start,support_even_end) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11,$12,$13)',
+      [id, firstName, lastName, phone, password, title, title, avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -538,13 +560,13 @@ app.put('/api/users/:id', async (req, res) => {
       const pwErr = validateCreatePassword(password);
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7,must_change_password=TRUE,support_start=$8,support_end=$9,support_days=$10 WHERE id=$11',
-        [firstName, lastName, phone, password, title, avatar, JSON.stringify(perms), sh.start, sh.end, sh.days, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7,must_change_password=TRUE,support_odd_start=$8,support_odd_end=$9,support_even_start=$10,support_even_end=$11 WHERE id=$12',
+        [firstName, lastName, phone, password, title, avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,avatar=$5,permissions=$6,support_start=$7,support_end=$8,support_days=$9 WHERE id=$10',
-        [firstName, lastName, phone, title, avatar, JSON.stringify(perms), sh.start, sh.end, sh.days, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,avatar=$5,permissions=$6,support_odd_start=$7,support_odd_end=$8,support_even_start=$9,support_even_end=$10 WHERE id=$11',
+        [firstName, lastName, phone, title, avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
       );
     }
     res.json({ ok: true });
@@ -1207,12 +1229,16 @@ app.delete('/api/invoices/:id', async (req, res) => {
 
 /* SUPPORT SESSIONS — one-time lessons, one room, max 2 teachers at a time */
 function toMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
-function supportWorksOn(dateStr, days){ const dow=new Date(dateStr+'T00:00:00').getDay(); if(days==='odd')return [1,3,5].includes(dow); if(days==='even')return [2,4,6].includes(dow); return dow>=1&&dow<=6; }
+function dateDayType(dateStr){ const dow=new Date(dateStr+'T00:00:00').getDay(); if([1,3,5].includes(dow))return 'odd'; if([2,4,6].includes(dow))return 'even'; return null; }
 
 app.get('/api/support-teachers', async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id, first_name, last_name, support_start, support_end, support_days FROM users WHERE title='Support Teacher' ORDER BY first_name");
-    res.json(rows.map(u => ({ id: u.id, name: u.first_name+' '+u.last_name, start: u.support_start||'09:00', end: u.support_end||'18:00', days: u.support_days||'daily' })));
+    const { rows } = await pool.query("SELECT id, first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' ORDER BY first_name");
+    res.json(rows.map(u => ({
+      id: u.id, name: u.first_name+' '+u.last_name,
+      odd:  u.support_odd_start  ? { start:u.support_odd_start,  end:u.support_odd_end  } : null,
+      even: u.support_even_start ? { start:u.support_even_start, end:u.support_even_end } : null,
+    })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1229,12 +1255,15 @@ app.post('/api/support', async (req, res) => {
     if (!date || !time || !teacher || !studentId) return res.status(400).json({ error: 'Date, time, teacher and student are required.' });
     const dur = Number(duration) === 60 ? 60 : 30;
     const start = toMin(time), end = start + dur;
-    // Enforce the teacher's working shift (days + hours).
-    const tRes = await pool.query("SELECT support_start, support_end, support_days FROM users WHERE title='Support Teacher' AND (first_name||' '||last_name)=$1 LIMIT 1", [teacher]);
+    // Enforce the teacher's working shift for this day type (odd/even).
+    const tRes = await pool.query("SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' AND (first_name||' '||last_name)=$1 LIMIT 1", [teacher]);
     const sh = tRes.rows[0];
     if (sh) {
-      if (!supportWorksOn(date, sh.support_days||'daily')) return res.status(409).json({ error: 'This teacher does not work on this day.' });
-      if (start < toMin(sh.support_start||'09:00') || end > toMin(sh.support_end||'18:00')) return res.status(409).json({ error: "Outside this teacher's working hours." });
+      const dt = dateDayType(date);
+      const shiftStart = dt==='odd' ? sh.support_odd_start : dt==='even' ? sh.support_even_start : null;
+      const shiftEnd   = dt==='odd' ? sh.support_odd_end   : dt==='even' ? sh.support_even_end   : null;
+      if (!shiftStart) return res.status(409).json({ error: 'This teacher does not work on this day.' });
+      if (start < toMin(shiftStart) || end > toMin(shiftEnd)) return res.status(409).json({ error: "Outside this teacher's working hours." });
     }
     const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
     const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });

@@ -22,6 +22,13 @@
     .sf-banner{height:72px;background:linear-gradient(135deg,#1a1a2e,#16213e);position:relative}
     .sf-avatar{position:absolute;bottom:-28px;left:20px;width:56px;height:56px;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:white}
     .sf-body{padding:36px 20px 16px}
+    .shift-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1.5px solid var(--border);border-radius:9px;padding:8px 12px;margin-top:8px;flex-wrap:wrap}
+    .shift-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--text);text-transform:none;letter-spacing:0;margin:0;cursor:pointer}
+    .shift-toggle span{font-size:11px;font-weight:500;color:var(--muted)}
+    .shift-toggle input{width:16px;height:16px;accent-color:var(--crimson);cursor:pointer}
+    .shift-times{display:flex;align-items:center;gap:6px}
+    .shift-times select{width:auto;padding:6px 8px}
+    .shift-times span{color:var(--muted)}
     .sf-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:900;color:var(--text)}
     .sf-meta{font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .sf-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
@@ -77,18 +84,16 @@
         <div id="roleDesc" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:8px"></div>
       </div>
       <div id="supportShiftFields" style="display:none">
-        <div class="form-group">
-          <label>Working days *</label>
-          <select id="uSupDays">
-            <option value="daily">Every day (Mon–Sat)</option>
-            <option value="odd">Odd days (Mon · Wed · Fri)</option>
-            <option value="even">Even days (Tue · Thu · Sat)</option>
-          </select>
+        <label>Working shifts *</label>
+        <div class="shift-row">
+          <label class="shift-toggle"><input type="checkbox" id="uOddOn" onchange="toggleShift('Odd')"> Odd <span>Mon·Wed·Fri</span></label>
+          <div class="shift-times"><select id="uOddStart"></select><span>–</span><select id="uOddEnd"></select></div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label>Shift start *</label><select id="uSupStart"></select></div>
-          <div class="form-group"><label>Shift end *</label><select id="uSupEnd"></select></div>
+        <div class="shift-row">
+          <label class="shift-toggle"><input type="checkbox" id="uEvenOn" onchange="toggleShift('Even')"> Even <span>Tue·Thu·Sat</span></label>
+          <div class="shift-times"><select id="uEvenStart"></select><span>–</span><select id="uEvenEnd"></select></div>
         </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Tick the days the teacher works and set hours for each.</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -124,7 +129,12 @@
 
   function buildTimeOpts(sel, val){
     let o=''; for(let m=8*60;m<=21*60+30;m+=30){const hh=String(Math.floor(m/60)).padStart(2,'0'),mm=String(m%60).padStart(2,'0');o+=`<option>${hh}:${mm}</option>`;}
-    sel.innerHTML=o; sel.value=val;
+    sel.innerHTML=o; if(val) sel.value=val;
+  }
+  function toggleShift(kind){
+    const on = document.getElementById('u'+kind+'On').checked;
+    document.getElementById('u'+kind+'Start').disabled = !on;
+    document.getElementById('u'+kind+'End').disabled = !on;
   }
   function onRoleChange() {
     const role = document.getElementById('uRole').value;
@@ -174,9 +184,13 @@
     document.getElementById('uLast').value=u.lastName;
     document.getElementById('uPhone').value=u.phone||'';
     document.getElementById('uRole').value=ROLE_DESC[u.title]?u.title:(ROLE_DESC[u.role]?u.role:'Admin');
-    document.getElementById('uSupDays').value=u.supportDays||'daily';
-    buildTimeOpts(document.getElementById('uSupStart'), u.supportStart||'09:00');
-    buildTimeOpts(document.getElementById('uSupEnd'), u.supportEnd||'18:00');
+    document.getElementById('uOddOn').checked=!!u.oddStart;
+    document.getElementById('uEvenOn').checked=!!u.evenStart;
+    buildTimeOpts(document.getElementById('uOddStart'), u.oddStart||'09:00');
+    buildTimeOpts(document.getElementById('uOddEnd'), u.oddEnd||'12:30');
+    buildTimeOpts(document.getElementById('uEvenStart'), u.evenStart||'14:00');
+    buildTimeOpts(document.getElementById('uEvenEnd'), u.evenEnd||'18:30');
+    toggleShift('Odd'); toggleShift('Even');
     onRoleChange();
     document.getElementById('pwHint').style.display='block';
     document.getElementById('pwLabel').textContent='(optional)';
@@ -197,10 +211,10 @@
     if(pass && ((pass.match(/\d/g)||[]).length<8)){showToast('Password must contain at least 8 digits.','error');return;}
     const data={firstName:first,lastName:last,phone,title};
     if(title==='Support Teacher'){
-      data.supportDays=document.getElementById('uSupDays').value;
-      data.supportStart=document.getElementById('uSupStart').value;
-      data.supportEnd=document.getElementById('uSupEnd').value;
-      if(data.supportStart>=data.supportEnd){showToast('Shift end must be after start.','error');return;}
+      const odd=document.getElementById('uOddOn').checked, even=document.getElementById('uEvenOn').checked;
+      if(!odd&&!even){showToast('Select at least one working shift (odd or even).','error');return;}
+      if(odd){ data.oddStart=document.getElementById('uOddStart').value; data.oddEnd=document.getElementById('uOddEnd').value; if(data.oddStart>=data.oddEnd){showToast('Odd shift end must be after start.','error');return;} }
+      if(even){ data.evenStart=document.getElementById('uEvenStart').value; data.evenEnd=document.getElementById('uEvenEnd').value; if(data.evenStart>=data.evenEnd){showToast('Even shift end must be after start.','error');return;} }
     }
     if(pass)data.password=pass;
     try {
@@ -223,9 +237,12 @@
   function clearForm() {
     ['editUserId','uFirst','uLast','uPhone','uPassword'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('uRole').value='Admin';
-    document.getElementById('uSupDays').value='daily';
-    buildTimeOpts(document.getElementById('uSupStart'),'09:00');
-    buildTimeOpts(document.getElementById('uSupEnd'),'18:00');
+    document.getElementById('uOddOn').checked=false; document.getElementById('uEvenOn').checked=false;
+    buildTimeOpts(document.getElementById('uOddStart'),'09:00');
+    buildTimeOpts(document.getElementById('uOddEnd'),'12:30');
+    buildTimeOpts(document.getElementById('uEvenStart'),'14:00');
+    buildTimeOpts(document.getElementById('uEvenEnd'),'18:30');
+    toggleShift('Odd'); toggleShift('Even');
     onRoleChange();
     document.getElementById('pwHint').style.display='none';
     document.getElementById('pwLabel').textContent='*';
