@@ -343,7 +343,7 @@ const unassignedGroups = visibleClasses.filter(c => !roomNames.includes(c.room))
 const allRooms = [...rooms, ...(unassignedGroups.length ? [{ name:'Unassigned', id:'_unassigned' }] : [])];
 allRooms.forEach(room => {
 const roomClasses = visibleClasses.filter(c => c.room === room.name);
-html += `<div style="display:flex;border-bottom:1px solid #e0a0a0;">
+html += `<div style="display:flex;">
 <div style="width:${ROOM_W}px;flex-shrink:0;padding:14px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;flex-direction:column;justify-content:center;">
 <div style="font-weight:700;font-size:14px;color:var(--crimson)">${room.name}</div>
 </div>
@@ -353,8 +353,8 @@ const coveredByEarlier = roomClasses.some(cls => {
 const cStart = timeToMin(cls.time), cEnd = cStart + Number(cls.duration || 90);
 return s > cStart && s < cEnd;
 });
-if (coveredByEarlier) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;min-height:90px;pointer-events:none;"></div>`;
-return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;min-height:90px;position:relative;">
+if (coveredByEarlier) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:90px;pointer-events:none;"></div>`;
+return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:90px;position:relative;">
 ${startingHere.map(cls => {
 const c = classColor(cls);
 const textCol = classTextColor(cls);
@@ -475,7 +475,7 @@ const tCol = supportTeacherColor(teacher);
 const tEsc = teacher.replace(/"/g,'&quot;');
 const shift = supShiftFor(teacher);
 const shStart = shift ? spMin(shift.start) : -1, shEnd = shift ? spMin(shift.end) : -1;
-html += `<div style="display:flex;border-bottom:1px solid #e0a0a0;">
+html += `<div style="display:flex;">
 <div style="width:${LANE_W}px;flex-shrink:0;padding:12px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;align-items:center;gap:9px;">
 <div class="avatar" style="width:28px;height:28px;font-size:11px;background:${tCol}">${initials(teacher)}</div>
 <div style="min-width:0"><div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.2">${teacher}</div><div style="font-size:10px;color:var(--muted)">${shift?shift.start+'–'+shift.end:'off'}</div></div>
@@ -483,11 +483,11 @@ html += `<div style="display:flex;border-bottom:1px solid #e0a0a0;">
 ${slots.map(s=>{
 const starting = tSessions.filter(p=>p.st===s);
 const covered = tSessions.some(p=>s>p.st && s<p.en);
-if (covered) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;min-height:74px;pointer-events:none;"></div>`;
+if (covered) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;pointer-events:none;"></div>`;
 const inShift = s >= shStart && s < shEnd;
-if (!inShift) return `<div title="Off shift" style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;min-height:74px;background:repeating-linear-gradient(45deg,#ffc5c5,#ffc5c5 6px,#ffd9d9 6px,#ffd9d9 12px);"></div>`;
+if (!inShift) return `<div title="Off shift" style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;background:repeating-linear-gradient(45deg,#ffc5c5,#ffc5c5 6px,#ffd9d9 6px,#ffd9d9 12px);"></div>`;
 const clickable = CAN_SUPPORT && !starting.length;
-return `<div ${clickable?`onclick="openSupport(&quot;${tEsc}&quot;,'${minToTime(s)}')" class="sup-cell"`:''} style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;min-height:74px;position:relative;${clickable?'cursor:pointer;':''}">
+return `<div ${clickable?`onclick="openSupport(&quot;${tEsc}&quot;,'${minToTime(s)}')" class="sup-cell"`:''} style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;position:relative;${clickable?'cursor:pointer;':''}">
 ${starting.map(p=>{
 const span = slots.filter(s2=>s2>=p.st && s2<p.en).length;
 const w = span*COL_W-4;
