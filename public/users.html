@@ -72,16 +72,16 @@
         <div id="pwHint" style="font-size:12px;color:var(--muted);margin-top:5px;display:none">Leave blank to keep existing password.</div>
       </div>
       <div class="form-group">
-        <label>Role *</label>
-        <select id="uRole" onchange="onRoleChange()">
-          <option value="CEO">CEO</option>
-          <option value="Head Admin">Head Admin</option>
-          <option value="Manager">Manager</option>
-          <option value="Admin">Admin</option>
-          <option value="Teacher">Teacher</option>
-          <option value="Support Teacher">Support Teacher</option>
-        </select>
-        <div id="roleDesc" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:8px"></div>
+        <label>Roles * <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(select one or more)</span></label>
+        <div id="roleCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+          <label class="perm-chip" id="rchk_CEO"><input type="checkbox" value="CEO" onchange="onRoleChange()"> <span class="perm-chip-label">CEO</span></label>
+          <label class="perm-chip" id="rchk_HeadAdmin"><input type="checkbox" value="Head Admin" onchange="onRoleChange()"> <span class="perm-chip-label">Head Admin</span></label>
+          <label class="perm-chip" id="rchk_Manager"><input type="checkbox" value="Manager" onchange="onRoleChange()"> <span class="perm-chip-label">Manager</span></label>
+          <label class="perm-chip" id="rchk_Admin"><input type="checkbox" value="Admin" onchange="onRoleChange()"> <span class="perm-chip-label">Admin</span></label>
+          <label class="perm-chip" id="rchk_Teacher"><input type="checkbox" value="Teacher" onchange="onRoleChange()"> <span class="perm-chip-label">Teacher</span></label>
+          <label class="perm-chip" id="rchk_SupportTeacher"><input type="checkbox" value="Support Teacher" onchange="onRoleChange()"> <span class="perm-chip-label">Support Teacher</span></label>
+        </div>
+        <div id="roleDesc" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:8px;display:none"></div>
       </div>
       <div id="supportShiftFields" style="display:none">
         <label>Working shifts *</label>
@@ -136,10 +136,32 @@
     document.getElementById('u'+kind+'Start').disabled = !on;
     document.getElementById('u'+kind+'End').disabled = !on;
   }
+  function getSelectedRoles() {
+    return [...document.querySelectorAll('#roleCheckboxes input[type=checkbox]:checked')].map(c => c.value);
+  }
+  function setSelectedRoles(roles) {
+    document.querySelectorAll('#roleCheckboxes input[type=checkbox]').forEach(c => {
+      c.checked = roles.includes(c.value);
+      c.closest('.perm-chip').classList.toggle('on', roles.includes(c.value));
+    });
+    onRoleChange();
+  }
   function onRoleChange() {
-    const role = document.getElementById('uRole').value;
-    document.getElementById('roleDesc').textContent = ROLE_DESC[role] || '';
-    document.getElementById('supportShiftFields').style.display = role==='Support Teacher' ? '' : 'none';
+    document.querySelectorAll('#roleCheckboxes input[type=checkbox]').forEach(c => {
+      c.closest('.perm-chip').classList.toggle('on', c.checked);
+    });
+    const roles = getSelectedRoles();
+    const desc = document.getElementById('roleDesc');
+    if (roles.length === 1) {
+      desc.textContent = ROLE_DESC[roles[0]] || '';
+      desc.style.display = '';
+    } else if (roles.length > 1) {
+      desc.textContent = 'Combined access from: ' + roles.join(', ') + '.';
+      desc.style.display = '';
+    } else {
+      desc.style.display = 'none';
+    }
+    document.getElementById('supportShiftFields').style.display = roles.includes('Support Teacher') ? '' : 'none';
   }
 
   async function load() { users = await apiGet('/api/users'); renderUsers(); }
@@ -159,7 +181,7 @@
           <div class="sf-name">${name} ${isMe?'<span style="font-size:11px;color:var(--muted);font-family:Inter,sans-serif;font-weight:400">(you)</span>':''}</div>
           <div class="sf-meta">
             ${u.phone?`<span>📞 +998 ${u.phone}</span>`:''}
-            <span style="background:var(--surface);color:var(--muted);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700">${u.title||u.role}</span>
+            ${(u.roles||[u.title||u.role]).map(r=>`<span style="background:var(--surface);color:var(--muted);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700">${r}</span>`).join('')}
           </div>
           <div class="sf-perms">🔑 ${summary}</div>
         </div>
@@ -183,7 +205,8 @@
     document.getElementById('uFirst').value=u.firstName;
     document.getElementById('uLast').value=u.lastName;
     document.getElementById('uPhone').value=u.phone||'';
-    document.getElementById('uRole').value=ROLE_DESC[u.title]?u.title:(ROLE_DESC[u.role]?u.role:'Admin');
+    const existingRoles = u.roles && u.roles.length ? u.roles : [u.title||u.role||'Admin'];
+    setSelectedRoles(existingRoles);
     document.getElementById('uOddOn').checked=!!u.oddStart;
     document.getElementById('uEvenOn').checked=!!u.evenStart;
     buildTimeOpts(document.getElementById('uOddStart'), u.oddStart||'09:00');
@@ -191,7 +214,6 @@
     buildTimeOpts(document.getElementById('uEvenStart'), u.evenStart||'14:00');
     buildTimeOpts(document.getElementById('uEvenEnd'), u.evenEnd||'18:30');
     toggleShift('Odd'); toggleShift('Even');
-    onRoleChange();
     document.getElementById('pwHint').style.display='block';
     document.getElementById('pwLabel').textContent='(optional)';
     document.getElementById('userModalTitle').textContent='Edit Staff Member';
@@ -203,14 +225,15 @@
     const last =document.getElementById('uLast').value.trim();
     const phone=document.getElementById('uPhone').value.trim();
     const pass =document.getElementById('uPassword').value;
-    const title=document.getElementById('uRole').value;
+    const roles=getSelectedRoles();
     const id   =document.getElementById('editUserId').value;
     if(!first||!last){showToast('Name required.','error');return;}
     if(!phone){showToast('Phone required.','error');return;}
+    if(!roles.length){showToast('Select at least one role.','error');return;}
     if(!id&&!pass){showToast('Password required.','error');return;}
     if(pass && ((pass.match(/\d/g)||[]).length<8)){showToast('Password must contain at least 8 digits.','error');return;}
-    const data={firstName:first,lastName:last,phone,title};
-    if(title==='Support Teacher'){
+    const data={firstName:first,lastName:last,phone,roles};
+    if(roles.includes('Support Teacher')){
       const odd=document.getElementById('uOddOn').checked, even=document.getElementById('uEvenOn').checked;
       if(!odd&&!even){showToast('Select at least one working shift (odd or even).','error');return;}
       if(odd){ data.oddStart=document.getElementById('uOddStart').value; data.oddEnd=document.getElementById('uOddEnd').value; if(data.oddStart>=data.oddEnd){showToast('Odd shift end must be after start.','error');return;} }
@@ -236,14 +259,13 @@
 
   function clearForm() {
     ['editUserId','uFirst','uLast','uPhone','uPassword'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('uRole').value='Admin';
+    setSelectedRoles(['Admin']);
     document.getElementById('uOddOn').checked=false; document.getElementById('uEvenOn').checked=false;
     buildTimeOpts(document.getElementById('uOddStart'),'09:00');
     buildTimeOpts(document.getElementById('uOddEnd'),'12:30');
     buildTimeOpts(document.getElementById('uEvenStart'),'14:00');
     buildTimeOpts(document.getElementById('uEvenEnd'),'18:30');
     toggleShift('Odd'); toggleShift('Even');
-    onRoleChange();
     document.getElementById('pwHint').style.display='none';
     document.getElementById('pwLabel').textContent='*';
   }

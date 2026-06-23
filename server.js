@@ -33,6 +33,12 @@ const ROLE_PERMS = {
 function isSupportTitle(t) { return String(t||'').trim().toLowerCase() === 'support teacher'; }
 const ROLES = Object.keys(ROLE_PERMS);
 function permsForRole(title) { return (ROLE_PERMS[title] || ['dashboard']).slice(); }
+function permsForRoles(roles) {
+  const set = new Set();
+  (roles||[]).forEach(r => (ROLE_PERMS[r]||[]).forEach(p => set.add(p)));
+  if (!set.size) set.add('dashboard');
+  return [...set];
+}
 function isTeacherTitle(t) { return String(t||'').trim().toLowerCase() === 'teacher'; }
 
 // Password rules. Creation: at least 8 digits (repetition allowed).
@@ -281,6 +287,7 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_odd_end TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_start TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_end TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS roles JSONB DEFAULT '[]'`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
     `CREATE TABLE IF NOT EXISTS support_sessions (id TEXT PRIMARY KEY, date DATE, time TEXT, duration INT DEFAULT 30, teacher TEXT, student_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
@@ -315,6 +322,16 @@ async function initDB() {
         [JSON.stringify(permsForRole(roleName)), roleName, u.id]);
     }
   } catch(e) { console.warn('Permission migration skipped:', e.message); }
+
+  // One-time migration: populate roles[] from title for existing users.
+  try {
+    await pool.query(`UPDATE users SET roles=$1 WHERE roles IS NULL OR roles='[]'::jsonb`, [JSON.stringify([])]);
+    const all = await pool.query('SELECT id, title FROM users WHERE roles=\'[]\'::jsonb OR roles IS NULL');
+    for (const u of all.rows) {
+      const t = ROLE_PERMS[u.title] ? u.title : 'Admin';
+      await pool.query('UPDATE users SET roles=$1 WHERE id=$2', [JSON.stringify([t]), u.id]);
+    }
+  } catch(e) { console.warn('Roles migration skipped:', e.message); }
 
   // Remove trial lead IDs from group student_ids (they should never be in there)
   try {
@@ -443,7 +460,7 @@ app.use('/api', async (req, res, next) => {
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || '');
     const userId = token && verifyToken(token);
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
-    const r = await pool.query('SELECT id, first_name, last_name, role, title, permissions FROM users WHERE id=$1', [userId]);
+    const r = await pool.query('SELECT id, first_name, last_name, role, title, roles, permissions FROM users WHERE id=$1', [userId]);
     if (!r.rows[0]) return res.status(401).json({ error: 'Session no longer valid' });
     req.user = r.rows[0];
     const perms = req.user.permissions || [];
@@ -451,9 +468,11 @@ app.use('/api', async (req, res, next) => {
     const write = req.method !== 'GET';
     const top = p.split('/').filter(Boolean)[0];
 
-    // Teacher accounts: read-only everywhere; only attendance, activity log, and their own
-    // account (e.g. first-login password change) may be written.
-    if (isTeacherTitle(req.user.title)) {
+    // Pure Teacher accounts (Teacher is their only role): read-only everywhere; only attendance,
+    // activity log, and their own account (e.g. first-login password change) may be written.
+    const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
+    const isPureTeacher = userRoles.every(r => isTeacherTitle(r));
+    if (isPureTeacher) {
       if (write && top !== 'attendance' && top !== 'activity' && top !== 'account') {
         return res.status(403).json({ error: 'Teachers can only mark attendance.' });
       }
@@ -525,6 +544,7 @@ app.get('/api/users', async (req, res) => {
       id: u.id, firstName: u.first_name, lastName: u.last_name,
       name: u.first_name+' '+u.last_name, phone: u.phone,
       role: u.role, title: u.title || u.role, avatar: u.avatar,
+      roles: Array.isArray(u.roles) && u.roles.length ? u.roles : [u.title || u.role],
       permissions: u.permissions || [],
       oddStart: u.support_odd_start, oddEnd: u.support_odd_end,
       evenStart: u.support_even_start, evenEnd: u.support_even_end
@@ -534,16 +554,18 @@ app.get('/api/users', async (req, res) => {
 
 app.post('/api/users', async (req, res) => {
   try {
-    const { id, firstName, lastName, phone, password, title } = req.body;
-    if (!ROLE_PERMS[title]) return res.status(400).json({ error: 'Invalid role' });
+    const { id, firstName, lastName, phone, password } = req.body;
+    const roles = Array.isArray(req.body.roles) && req.body.roles.length ? req.body.roles : [req.body.title];
+    if (!roles.every(r => ROLE_PERMS[r])) return res.status(400).json({ error: 'Invalid role' });
+    const title = roles[0];
     const pwErr = validateCreatePassword(password);
     if (pwErr) return res.status(400).json({ error: pwErr });
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
-    const perms = permsForRole(title);
-    const sh = supportShift(req.body, title);
+    const perms = permsForRoles(roles);
+    const sh = supportShift(req.body, roles.includes('Support Teacher') ? 'Support Teacher' : title);
     await pool.query(
-      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password,support_odd_start,support_odd_end,support_even_start,support_even_end) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11,$12,$13)',
-      [id, firstName, lastName, phone, password, title, title, avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd]
+      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,roles,avatar,permissions,must_change_password,support_odd_start,support_odd_end,support_even_start,support_even_end) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12,$13,$14)',
+      [id, firstName, lastName, phone, password, title, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -551,22 +573,24 @@ app.post('/api/users', async (req, res) => {
 
 app.put('/api/users/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, password, title } = req.body;
-    if (!ROLE_PERMS[title]) return res.status(400).json({ error: 'Invalid role' });
+    const { firstName, lastName, phone, password } = req.body;
+    const roles = Array.isArray(req.body.roles) && req.body.roles.length ? req.body.roles : [req.body.title];
+    if (!roles.every(r => ROLE_PERMS[r])) return res.status(400).json({ error: 'Invalid role' });
+    const title = roles[0];
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
-    const perms = permsForRole(title);
-    const sh = supportShift(req.body, title);
+    const perms = permsForRoles(roles);
+    const sh = supportShift(req.body, roles.includes('Support Teacher') ? 'Support Teacher' : title);
     if (password) {
       const pwErr = validateCreatePassword(password);
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,avatar=$6,permissions=$7,must_change_password=TRUE,support_odd_start=$8,support_odd_end=$9,support_even_start=$10,support_even_end=$11 WHERE id=$12',
-        [firstName, lastName, phone, password, title, avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,roles=$6,avatar=$7,permissions=$8,must_change_password=TRUE,support_odd_start=$9,support_odd_end=$10,support_even_start=$11,support_even_end=$12 WHERE id=$13',
+        [firstName, lastName, phone, password, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,avatar=$5,permissions=$6,support_odd_start=$7,support_odd_end=$8,support_even_start=$9,support_even_end=$10 WHERE id=$11',
-        [firstName, lastName, phone, title, avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,roles=$5,avatar=$6,permissions=$7,support_odd_start=$8,support_odd_end=$9,support_even_start=$10,support_even_end=$11 WHERE id=$12',
+        [firstName, lastName, phone, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
       );
     }
     res.json({ ok: true });
@@ -1233,7 +1257,7 @@ function dateDayType(dateStr){ const dow=new Date(dateStr+'T00:00:00').getDay();
 
 app.get('/api/support-teachers', async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id, first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' ORDER BY first_name");
+    const { rows } = await pool.query("SELECT id, first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name");
     res.json(rows.map(u => ({
       id: u.id, name: u.first_name+' '+u.last_name,
       odd:  u.support_odd_start  ? { start:u.support_odd_start,  end:u.support_odd_end  } : null,
@@ -1256,7 +1280,7 @@ app.post('/api/support', async (req, res) => {
     const dur = Number(duration) === 60 ? 60 : 30;
     const start = toMin(time), end = start + dur;
     // Enforce the teacher's working shift for this day type (odd/even).
-    const tRes = await pool.query("SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' AND (first_name||' '||last_name)=$1 LIMIT 1", [teacher]);
+    const tRes = await pool.query("SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE (title='Support Teacher' OR roles @> '[\"Support Teacher\"]') AND (first_name||' '||last_name)=$1 LIMIT 1", [teacher]);
     const sh = tRes.rows[0];
     if (sh) {
       const dt = dateDayType(date);
