@@ -6,7 +6,8 @@
   <link rel="stylesheet" href="shared.css">
   <style>
     /* ── Layout ── */
-    .tasks-layout { display:grid; grid-template-columns:220px 1fr; gap:0; height:calc(100vh - 62px); overflow:hidden; }
+    .main { overflow:hidden; }
+    .tasks-layout { display:grid; grid-template-columns:220px 1fr; gap:0; flex:1; overflow:hidden; min-height:0; }
     .tasks-sidebar { border-right:1px solid var(--border); padding:20px 0; overflow-y:auto; background:var(--white); }
     .tasks-main { overflow-y:auto; padding:28px; }
 
