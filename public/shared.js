@@ -189,7 +189,7 @@ function requireAuth(requiredFeature) {
    .find(f => can(f));
  const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html',
    finance:'finance.html', staff:'users.html', actions:'actions.html',
-   classrooms:'classrooms.html', archived:'archived.html' };
+   archived:'archived.html' };
  if (fallback) window.location.replace(pageFor[fallback]);
  else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); window.location.replace('login.html'); }
  }
@@ -282,8 +282,7 @@ function renderSidebar(activePage) {
    { feature:'actions',  href:'actions.html',  iconKey:'actions',   label:'Actions'  },
  ]},
  { label: 'Settings', items: [
-   { feature:'classrooms', href:'classrooms.html', iconKey:'classrooms', label:'Classrooms' },
-   { feature:'archived',   href:'archived.html',   iconKey:'archived',   label:'Archived'   },
+    { feature:'archived',   href:'archived.html',   iconKey:'archived',   label:'Archived'   },
  ]},
  ];
 

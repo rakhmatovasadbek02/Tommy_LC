@@ -306,17 +306,16 @@ return dow !== null && cls.schedType === 'custom' && (cls.customDays||[]).includ
 }
 return false;
 }
+const FIXED_ROOMS = [
+  { id:'r1', name:'Room 1' },
+  { id:'r2', name:'Room 2' },
+  { id:'r3', name:'Room 3' },
+  { id:'r4', name:'Room 4' },
+];
 function renderTimetable() {
-const rooms = window._classrooms || [];
+const rooms = FIXED_ROOMS;
 const classes = window._groups || [];
 const grid = document.getElementById('ttGrid');
-if (!rooms.length) {
-grid.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">
-<div style="font-size:32px;margin-bottom:10px"></div><p>No classrooms yet.</p>
-<a href="classrooms.html" class="btn btn-outline btn-sm" style="margin-top:10px">Add Classrooms</a>
-</div>`;
-return;
-}
 if (dayFilter === 'custom' && getCustomDow() === null) {
 grid.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)"><p>Select a day above to view the groups.</p></div>`;
 return;

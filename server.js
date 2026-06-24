@@ -1690,12 +1690,11 @@ app.get('/api/dashboard', async (req, res) => {
     const today = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }))
       .toISOString().split('T')[0];
 
-    const [grpR, stuR, invR, leadR, clsR, attR] = await Promise.all([
+    const [grpR, stuR, invR, leadR, attR] = await Promise.all([
       pool.query('SELECT id,name,teacher,room,level,lang,time,duration,sched_type,custom_days,current_unit,student_ids FROM groups ORDER BY created_at DESC'),
       pool.query('SELECT id,status,balance FROM students WHERE archived IS NOT TRUE'),
       pool.query("SELECT COUNT(*)::int n FROM invoices WHERE status='Paid'"),
       pool.query('SELECT status, COUNT(*)::int n FROM leads GROUP BY status'),
-      pool.query('SELECT id,name FROM classrooms ORDER BY name'),
       pool.query("SELECT group_id, student_id FROM attendance WHERE date=$1 AND status='absent'", [today]),
     ]);
 
@@ -1717,7 +1716,7 @@ app.get('/api/dashboard', async (req, res) => {
 
     res.json({
       stats: { activeStudents, debtors, paidCount: invR.rows[0].n, leads: leadCount, trial, absentToday: absentIds.size },
-      classrooms: clsR.rows.map(c => ({ id: c.id, name: c.name })),
+      classrooms: [],
       groups: groups.map(g => ({
         id: g.id, name: g.name, teacher: g.teacher, room: g.room, level: g.level, lang: g.lang,
         time: g.time, duration: g.duration, schedType: g.sched_type, customDays: g.custom_days,
