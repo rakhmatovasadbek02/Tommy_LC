@@ -241,11 +241,9 @@
       </div>
       <div class="form-group">
         <label>Assign To *</label>
-        <div class="usd">
-          <input type="text" id="tmAssignSearch" class="form-control" placeholder="Search member…" autocomplete="off" oninput="searchAssign()">
-          <div id="tmAssignDd" class="usd-dropdown"></div>
-        </div>
-        <input type="hidden" id="tmAssignId">
+        <select id="tmAssignId" class="form-control">
+          <option value="">Select member…</option>
+        </select>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -324,6 +322,14 @@ async function init() {
   initPrintSection();
   ALL_TASKS = tasks || [];
   ALL_USERS = users || [];
+  // Populate assign select
+  const sel = document.getElementById('tmAssignId');
+  ALL_USERS.forEach(u => {
+    const o = document.createElement('option');
+    o.value = u.id;
+    o.textContent = u.name + (u.title ? ` — ${u.title}` : '');
+    sel.appendChild(o);
+  });
   updateCounts();
   renderStats();
   renderList();
@@ -489,8 +495,7 @@ function openTaskModal(task) {
   document.getElementById('tmHour').value = timeParts[0] || '';
   document.getElementById('tmMinute').value = timeParts[1] ? String(Math.round(parseInt(timeParts[1])/5)*5).padStart(2,'0') : '';
   document.getElementById('tmPriority').value = task?.priority || '';
-  document.getElementById('tmAssignSearch').value = task ? (task.assignedToName || '') : me.name;
-  document.getElementById('tmAssignId').value = task ? (task.assignedToId || '') : me.id;
+  document.getElementById('tmAssignId').value = task ? (task.assignedToId || me.id) : me.id;
   document.getElementById('taskModalTitle').textContent = task ? 'Edit Task' : 'New Task';
   document.getElementById('taskModal').classList.add('open');
 }
@@ -506,26 +511,6 @@ function closeTaskModal() {
 }
 
 function editTask(id) { const t = ALL_TASKS.find(x => x.id === id); if (t) openTaskModal(t); }
-
-function searchAssign() {
-  const q = document.getElementById('tmAssignSearch').value.trim().toLowerCase();
-  document.getElementById('tmAssignId').value = '';
-  const dd = document.getElementById('tmAssignDd');
-  if (!q) { dd.style.display='none'; return; }
-  const hits = ALL_USERS.filter(u => u.name && u.name.toLowerCase().includes(q)).slice(0,8);
-  if (!hits.length) { dd.style.display='none'; return; }
-  dd.innerHTML = hits.map(u => `<div class="usd-item" onclick="pickAssign('${u.id}','${esc(u.name)}')">${esc(u.name)}<span style="color:var(--text-muted);font-size:11px;margin-left:6px">${u.title||''}</span></div>`).join('');
-  dd.style.display = 'block';
-}
-function pickAssign(id, name) {
-  document.getElementById('tmAssignId').value = id;
-  document.getElementById('tmAssignSearch').value = name;
-  document.getElementById('tmAssignDd').style.display = 'none';
-}
-document.addEventListener('click', e => {
-  if (!e.target.closest('#tmAssignSearch') && !e.target.closest('#tmAssignDd'))
-    document.getElementById('tmAssignDd').style.display = 'none';
-});
 
 async function saveTask() {
   const id           = document.getElementById('tmId').value;
