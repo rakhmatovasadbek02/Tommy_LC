@@ -522,9 +522,10 @@ grid.innerHTML = `<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
 function setDur(min, btn){ _spDur = min; document.querySelectorAll('#spDurSeg button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
 function spSearchStudents(q){
 const box = document.getElementById('spStudentResults');
-const list = (window._supportStudents||[]).filter(s=>s.status==='Active'||s.status==='Trial');
+const list = window._supportStudents||[];
 const ql = (q||'').toLowerCase().trim();
-const res = (ql ? list.filter(s=>(s.firstName+' '+s.lastName).toLowerCase().includes(ql)||(s.phone||'').includes(ql)) : list).slice(0,8);
+if (!ql) { document.getElementById('spStudentResults').style.display='none'; return; }
+const res = list.filter(s=>(s.firstName+' '+s.lastName).toLowerCase().includes(ql)||(s.phone||'').includes(ql)).slice(0,12);
 if (!res.length) { box.style.display='none'; return; }
 box.innerHTML = res.map(s=>{const n=(s.firstName+' '+s.lastName).replace(/"/g,'&quot;');return `<div class="sp-result" onclick="spPickStudent('${s.id}', &quot;${n}&quot;)"><div class="avatar" style="width:28px;height:28px;font-size:11px;background:${avatarColor(n)}">${initials(n)}</div><div><div style="font-size:13px;font-weight:600">${n}</div><div style="font-size:11px;color:var(--muted)">${s.phone||''}${s.level?' · '+s.level:''}</div></div></div>`;}).join('');
 box.style.display='block';
