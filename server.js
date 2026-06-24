@@ -726,7 +726,7 @@ app.post('/api/students', async (req, res) => {
       [id, firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null]
     );
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
-    await notifyRole('students', 'new_student', 'New student enrolled',
+    await notifyRole('staff', 'new_student', 'New student enrolled',
       `${firstName} ${lastName} was added by ${actor}`, 'students.html', req.user?.id);
     res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -901,12 +901,8 @@ app.post('/api/students/:id/payment', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6,$7,'Paid',$8,$9,$10)`,
       [id, number, req.params.id, groupId||null, month, desc||'Payment', num, paymentType||'Cash', notes||null, creator||null]
     );
-    const balRes = await pool.query('SELECT balance,first_name,last_name FROM students WHERE id=$1', [req.params.id]);
+    const balRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
     const newBalance = Number(balRes.rows[0]?.balance || 0);
-    const stuName = balRes.rows[0] ? balRes.rows[0].first_name+' '+balRes.rows[0].last_name : 'Student';
-    const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
-    await notifyRole('finance', 'payment', 'Payment received',
-      `${stuName} paid ${num.toLocaleString()} UZS — recorded by ${actor}`, 'finance.html', req.user?.id);
     res.json({ ok: true, newBalance });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1130,11 +1126,30 @@ app.delete('/api/groups/comments/:commentId', async (req, res) => {
 app.patch('/api/groups/:id/students', async (req, res) => {
   try {
     const { studentIds } = req.body;
-    const prev = await pool.query('SELECT student_ids FROM groups WHERE id=$1', [req.params.id]);
+    const prev = await pool.query('SELECT student_ids, name, teacher FROM groups WHERE id=$1', [req.params.id]);
     const prevIds = prev.rows[0]?.student_ids || [];
+    const groupName = prev.rows[0]?.name || 'a group';
+    const teacherName = prev.rows[0]?.teacher || null;
     const newSet = new Set(studentIds || []);
     const removed = prevIds.filter(id => !newSet.has(id));
+    const added = (studentIds || []).filter(id => !prevIds.includes(id));
     await pool.query('UPDATE groups SET student_ids=$1 WHERE id=$2', [JSON.stringify(studentIds||[]), req.params.id]);
+    // Notify the group's teacher when new students are added to their group
+    if (added.length && teacherName) {
+      const teacherUser = await pool.query(
+        `SELECT id FROM users WHERE (first_name||' '||last_name)=$1 LIMIT 1`, [teacherName]
+      ).catch(()=>({rows:[]}));
+      if (teacherUser.rows.length) {
+        const stuRows = await pool.query(
+          `SELECT first_name||' '||last_name AS name FROM students WHERE id=ANY($1)`,
+          [added]
+        ).catch(()=>({rows:[]}));
+        const names = stuRows.rows.map(r=>r.name).join(', ');
+        await createNotif(teacherUser.rows[0].id, 'new_student',
+          `New student${added.length>1?'s':''} added to your group`,
+          `${names} added to ${groupName}`, 'students.html');
+      }
+    }
     // Auto-deactivate students no longer in any group
     if (removed.length) {
       const allGroups = await pool.query('SELECT student_ids FROM groups WHERE id!=$1', [req.params.id]);
@@ -1603,7 +1618,7 @@ app.post('/api/leads', async (req, res) => {
       [id, firstName, lastName, phoneStudent||null, phoneFather||null, phoneMother||null, phoneOther||null, currentLevel||null, testResult||null, notes||null]
     );
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
-    await notifyRole('leads', 'new_lead', 'New lead registered',
+    await notifyRole('staff', 'new_lead', 'New lead registered',
       `${firstName} ${lastName} registered by ${actor}`, 'leads.html', req.user?.id);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
