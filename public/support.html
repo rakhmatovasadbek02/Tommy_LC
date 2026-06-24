@@ -16,6 +16,23 @@
     .teacher-stats td{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border)}
     .teacher-stats tr:last-child td{border-bottom:none}
     .fined-list{display:flex;flex-direction:column;gap:8px;margin-bottom:28px}
+    .timetable-wrap{background:white;border:1px solid #e0a0a0;border-radius:var(--radius);overflow:auto;box-shadow:var(--shadow)}
+    .sup-datenav{display:flex;align-items:center;gap:4px;border:1.5px solid var(--border);border-radius:8px;background:white;overflow:hidden}
+    .sup-datenav button{border:none;background:none;cursor:pointer;font-size:18px;line-height:1;color:var(--crimson);padding:7px 12px;font-family:'Inter',sans-serif}
+    .sup-datenav button:hover{background:var(--crimson-soft)}
+    .sup-datenav span{font-size:13px;font-weight:700;color:var(--text);min-width:92px;text-align:center}
+    .dur-seg{display:flex;gap:0;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
+    .dur-seg button{flex:1;border:none;background:white;cursor:pointer;padding:9px 12px;font-size:13px;font-weight:600;color:var(--muted);font-family:'Inter',sans-serif;transition:all 0.14s}
+    .dur-seg button:first-child{border-right:1.5px solid var(--border)}
+    .dur-seg button.active{background:var(--crimson);color:white}
+    .sup-cell:hover{background:var(--crimson-soft)!important}
+    .sp-result{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer}
+    .sp-result:hover{background:var(--surface)}
+    .form-group{margin-bottom:14px}
+    .form-group label{display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+    .form-group input,.form-group select{width:100%;border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;font-size:14px;font-family:'Inter',sans-serif;outline:none;box-sizing:border-box;background:white}
+    .form-group input:focus,.form-group select:focus{border-color:var(--crimson)}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .section-title{font-size:13px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
     .session-list{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
     .session-card{background:white;border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -51,6 +68,23 @@
   <div class="page-content">
     <div class="stat-row" id="statRow"></div>
     <div id="adminExtra"></div>
+
+    <!-- Timetable -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <div class="section-title" style="margin:0">Timetable</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="sup-datenav">
+          <button type="button" onclick="supportDay(-1)">‹</button>
+          <span id="supportDateLabel"></span>
+          <button type="button" onclick="supportDay(1)">›</button>
+        </div>
+        <button class="btn btn-primary btn-sm" id="addSupportBtn" onclick="openSupport()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add session</button>
+      </div>
+    </div>
+    <div class="timetable-wrap" style="margin-bottom:28px">
+      <div id="supportGrid"></div>
+    </div>
+
     <div class="section-title">Today's Sessions</div>
     <div id="todaySessions" class="session-list"></div>
     <div class="section-title">My Students</div>
@@ -72,6 +106,45 @@
       </table>
     </div>
   </div>
+</div>
+<!-- SUPPORT SESSION MODAL -->
+<div class="modal-overlay" id="supportModal">
+<div class="modal" style="width:460px">
+<div class="modal-header">
+<div class="modal-title">Add support session</div>
+<button class="modal-close" onclick="closeModal('supportModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+</div>
+<div class="modal-body">
+<div class="form-group"><label>Support teacher *</label><select id="spTeacher" onchange="onSupTeacherChange()"><option value="">— Select —</option></select></div>
+<div class="form-group" style="position:relative">
+<label>Student *</label>
+<input type="text" id="spStudentSearch" placeholder="Search student…" autocomplete="off" oninput="spSearchStudents(this.value)" onfocus="spSearchStudents(this.value)">
+<input type="hidden" id="spStudentId">
+<div id="spStudentResults" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);z-index:5;max-height:220px;overflow-y:auto;margin-top:4px"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>Time *</label><select id="spTime"></select></div>
+<div class="form-group"><label>Duration *</label>
+<div class="dur-seg" id="spDurSeg">
+<button type="button" class="active" onclick="setDur(30,this)">30 min</button>
+<button type="button" onclick="setDur(60,this)">60 min</button>
+</div></div>
+</div>
+<div id="spGroupInfo" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 14px;margin-bottom:12px;font-size:13px">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+    <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Group</div><div style="font-weight:600" id="spGroupName">—</div></div>
+    <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Level</div><div style="font-weight:600" id="spGroupLevel">—</div></div>
+    <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Teacher</div><div style="font-weight:600" id="spGroupTeacher">—</div></div>
+    <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Current Unit</div><div style="font-weight:600" id="spGroupUnit">—</div></div>
+  </div>
+</div>
+<div class="form-group"><label>Support Theme * <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(what the support teacher will cover)</span></label><input type="text" id="spTheme" placeholder="e.g. Past Simple exercises, Unit 3 vocabulary…"></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-outline" onclick="closeModal('supportModal')">Cancel</button>
+<button class="btn btn-primary" onclick="saveSupport()">Save session</button>
+</div>
+</div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
@@ -213,6 +286,150 @@
       showToast(attended ? 'Marked present.' : 'Marked absent.');
     } catch(e) { showToast(e.message||'Error','error'); }
   }
+
+  /* ── Support timetable ── */
+  let _support = [];
+  let _spDur = 30;
+  const SUPPORT_OWNER = isSupportTeacher() ? (getSession()?.name||'') : null;
+  function isoLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  let supportDateISO = isoLocal(new Date());
+  function spMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
+  function supportTeacherColor(name){ return avatarColor(name||'?'); }
+  function supDayType(){ const dow=new Date(supportDateISO+'T00:00:00').getDay(); if([1,3,5].includes(dow))return 'odd'; if([2,4,6].includes(dow))return 'even'; return null; }
+  function supTeacherObj(name){ return (window._supportTeachers||[]).find(t=>t.name===name)||null; }
+  function supShiftFor(name){ const t=supTeacherObj(name), dt=supDayType(); return (t&&dt)?t[dt]:null; }
+  function renderSupportDateLabel(){ const d=new Date(supportDateISO+'T00:00:00'); document.getElementById('supportDateLabel').textContent=d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}); }
+  function supportDay(delta){ const d=new Date(supportDateISO+'T00:00:00'); d.setDate(d.getDate()+delta); supportDateISO=isoLocal(d); renderSupportDateLabel(); loadTimetable(); }
+  async function loadTimetable() {
+    if (!window._supportStudents) { try { window._supportStudents = await apiGet('/api/students'); } catch { window._supportStudents=[]; } }
+    if (!window._supportTeachers) { try { window._supportTeachers = await apiGet('/api/support-teachers'); } catch { window._supportTeachers=[]; } }
+    try { _support = await apiGet('/api/support/'+supportDateISO); } catch { _support=[]; }
+    if (SUPPORT_OWNER) _support = _support.filter(s => s.teacher === SUPPORT_OWNER);
+    renderSupportGrid();
+  }
+  function renderSupportGrid() {
+    const grid = document.getElementById('supportGrid');
+    const placed = _support.map(s => ({ ...s, st: spMin(s.time), en: spMin(s.time)+Number(s.duration||30) }));
+    let teachers = (window._supportTeachers||[]).filter(t=>supShiftFor(t.name)).map(t=>t.name);
+    [...new Set(placed.map(p=>p.teacher))].forEach(n=>{ if(!teachers.includes(n)) teachers.push(n); });
+    if (SUPPORT_OWNER) teachers = teachers.filter(n=>n===SUPPORT_OWNER);
+    teachers.sort();
+    if (!teachers.length) { grid.innerHTML=`<div style="padding:32px;text-align:center;color:var(--muted)"><p>No support teachers work on this day.</p></div>`; return; }
+    let rangeStart=9*60, rangeEnd=18*60;
+    teachers.forEach(n=>{ const sh=supShiftFor(n); if(sh){ rangeStart=Math.min(rangeStart,spMin(sh.start)); rangeEnd=Math.max(rangeEnd,spMin(sh.end)); } });
+    placed.forEach(s=>{ if(s.st<rangeStart)rangeStart=Math.floor(s.st/60)*60; if(s.en>rangeEnd)rangeEnd=Math.ceil(s.en/60)*60; });
+    const slots=[]; for(let m=rangeStart; m<rangeEnd; m+=30) slots.push(m);
+    const COL_W=60, LANE_W=150;
+    const minToTime=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+    let html=`<div style="display:flex;position:sticky;top:0;z-index:5;">
+<div style="width:${LANE_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);">Support</div>
+${slots.map(s=>{const isHour=s%60===0;return `<div style="width:${COL_W}px;flex-shrink:0;background:var(--crimson);padding:10px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.12);"><div style="font-size:${isHour?12:10}px;font-weight:${isHour?700:400};color:${isHour?'#fff':'rgba(255,255,255,0.55)'};white-space:nowrap;">${minToTime(s)}</div></div>`;}).join('')}
+</div>`;
+    teachers.forEach(teacher=>{
+      const tSessions=placed.filter(p=>p.teacher===teacher);
+      const tCol=supportTeacherColor(teacher);
+      const tEsc=teacher.replace(/"/g,'&quot;');
+      const shift=supShiftFor(teacher);
+      const shStart=shift?spMin(shift.start):-1, shEnd=shift?spMin(shift.end):-1;
+      html+=`<div style="display:flex;">
+<div style="width:${LANE_W}px;flex-shrink:0;padding:12px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;align-items:center;gap:9px;">
+<div class="avatar" style="width:28px;height:28px;font-size:11px;background:${tCol}">${initials(teacher)}</div>
+<div style="min-width:0"><div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.2">${teacher}</div><div style="font-size:10px;color:var(--muted)">${shift?shift.start+'–'+shift.end:'off'}</div></div>
+</div>
+${slots.map(s=>{
+  const starting=tSessions.filter(p=>p.st===s);
+  const covered=tSessions.some(p=>s>p.st && s<p.en);
+  if(covered) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;pointer-events:none;"></div>`;
+  const inShift=s>=shStart && s<shEnd;
+  if(!inShift) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;background:repeating-linear-gradient(45deg,#ffc5c5,#ffc5c5 6px,#ffd9d9 6px,#ffd9d9 12px);"></div>`;
+  const nowTz=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+  const isToday=supportDateISO===nowTz.toISOString().split('T')[0];
+  const isPast=isToday && s<=nowTz.getHours()*60+nowTz.getMinutes();
+  const canAdd=isAdministration() && !starting.length && !isPast;
+  return `<div ${canAdd?`onclick="openSupport('${tEsc}','${minToTime(s)}')" class="sup-cell"`:''} style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;position:relative;${canAdd?'cursor:pointer;':''}">
+${starting.map(p=>{
+  const span=slots.filter(s2=>s2>=p.st && s2<p.en).length;
+  const stu=(window._supportStudents||[]).find(x=>x.id===p.studentId);
+  const sName=stu?stu.firstName+' '+stu.lastName:'Student';
+  return `<div style="position:absolute;top:2px;left:2px;width:${span*COL_W-4}px;bottom:2px;background:${tCol};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
+<div style="font-weight:800;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sName}</div>
+<div style="font-size:10px;opacity:0.9;white-space:nowrap">${p.time} · ${p.duration}m</div>
+${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${p.id}')" title="Delete" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.25);border:none;color:#fff;border-radius:4px;width:16px;height:16px;font-size:11px;line-height:1;cursor:pointer;padding:0">×</button>`:''}
+</div>`;}).join('')}
+</div>`;
+}).join('')}
+</div>`;
+    });
+    grid.innerHTML=`<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
+  }
+  function setDur(min,btn){ _spDur=min; document.querySelectorAll('#spDurSeg button').forEach((b,i)=>b.classList.toggle('active',i===(min===30?0:1))); }
+  function spSearchStudents(q){
+    const box=document.getElementById('spStudentResults');
+    const list=window._supportStudents||[];
+    const ql=(q||'').toLowerCase().trim();
+    if(!ql){box.style.display='none';return;}
+    const res=list.filter(s=>(s.firstName+' '+s.lastName).toLowerCase().includes(ql)||(s.phone||'').includes(ql)).slice(0,12);
+    if(!res.length){box.style.display='none';return;}
+    box.innerHTML=res.map(s=>{const n=(s.firstName+' '+s.lastName).replace(/"/g,'&quot;');return `<div class="sp-result" onclick="spPickStudent('${s.id}','${n}')"><div class="avatar" style="width:28px;height:28px;font-size:11px;background:${avatarColor(n)}">${initials(n)}</div><div><div style="font-size:13px;font-weight:600">${n}</div><div style="font-size:11px;color:var(--muted)">${s.phone||''}${s.level?' · '+s.level:''}</div></div></div>`;}).join('');
+    box.style.display='block';
+  }
+  function spPickStudent(id,name){
+    document.getElementById('spStudentId').value=id;
+    document.getElementById('spStudentSearch').value=name;
+    const grp=(window._supportGroups||[]).find(g=>(g.studentIds||g.student_ids||[]).includes(id));
+    document.getElementById('spGroupInfo').style.display=grp?'':'none';
+    if(grp){
+      document.getElementById('spGroupName').textContent=grp.name||'—';
+      document.getElementById('spGroupLevel').textContent=grp.level||'—';
+      document.getElementById('spGroupTeacher').textContent=grp.teacher||'—';
+      document.getElementById('spGroupUnit').textContent=grp.currentUnit||grp.current_unit||'—';
+    }
+    document.getElementById('spStudentResults').style.display='none';
+  }
+  document.addEventListener('click',e=>{if(!e.target.closest('#spStudentResults')&&e.target.id!=='spStudentSearch'){const b=document.getElementById('spStudentResults');if(b)b.style.display='none';}});
+  function supBuildTimes(teacher,want){
+    const sh=teacher?supShiftFor(teacher):null;
+    const lo=sh?spMin(sh.start):8*60, hi=sh?spMin(sh.end):21*60+30;
+    const nowTz=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+    const isToday=supportDateISO===nowTz.toISOString().split('T')[0];
+    const nowMin=isToday?nowTz.getHours()*60+nowTz.getMinutes():0;
+    let times=''; for(let t=lo;t<=hi-30;t+=30){if(t<=nowMin&&isToday)continue;const hh=String(Math.floor(t/60)).padStart(2,'0'),mm=String(t%60).padStart(2,'0');times+=`<option>${hh}:${mm}</option>`;}
+    const sel=document.getElementById('spTime'); sel.innerHTML=times||'<option disabled>No available slots</option>';
+    if(want&&[...sel.options].some(o=>o.value===want))sel.value=want;
+  }
+  function onSupTeacherChange(){ supBuildTimes(document.getElementById('spTeacher').value); }
+  async function openSupport(prefillTeacher,prefillTime){
+    if(!window._supportTeachers){try{window._supportTeachers=await apiGet('/api/support-teachers');}catch{window._supportTeachers=[];}}
+    if(!window._supportStudents){try{window._supportStudents=await apiGet('/api/students');}catch{window._supportStudents=[];}}
+    if(!window._supportGroups){try{window._supportGroups=await apiGet('/api/groups');}catch{window._supportGroups=[];}}
+    document.getElementById('spGroupInfo').style.display='none';
+    _spDur=30; document.querySelectorAll('#spDurSeg button').forEach((b,i)=>b.classList.toggle('active',i===0));
+    const onlyWorking=(window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
+    document.getElementById('spTeacher').innerHTML='<option value="">— Select —</option>'+onlyWorking.map(t=>`<option>${t.name}</option>`).join('');
+    const pre=(prefillTeacher&&typeof prefillTeacher==='string')?prefillTeacher:'';
+    if(pre)document.getElementById('spTeacher').value=pre;
+    supBuildTimes(pre,(prefillTime&&typeof prefillTime==='string')?prefillTime:'09:00');
+    document.getElementById('spStudentSearch').value='';document.getElementById('spStudentId').value='';document.getElementById('spStudentResults').style.display='none';
+    document.getElementById('spTheme').value='';
+    openModal('supportModal');
+  }
+  async function saveSupport(){
+    const theme=document.getElementById('spTheme').value.trim();
+    const d={id:genId(),date:supportDateISO,time:document.getElementById('spTime').value,duration:_spDur,teacher:document.getElementById('spTeacher').value,studentId:document.getElementById('spStudentId').value,theme};
+    if(!d.teacher){showToast('Select a support teacher.','error');return;}
+    if(!d.studentId){showToast('Select a student.','error');return;}
+    if(!theme){showToast('Theme is required.','error');return;}
+    try{await apiPost('/api/support',d);closeModal('supportModal');await loadTimetable();showToast('Support session added!');}
+    catch(e){showToast(e.message||'Error.','error');}
+  }
+  async function deleteSupport(id){
+    if(!confirm('Delete this session?'))return;
+    try{await apiDelete('/api/support/'+id);await loadTimetable();showToast('Deleted.');}
+    catch(e){showToast(e.message||'Error.','error');}
+  }
+  if(!isAdministration())document.getElementById('addSupportBtn').style.display='none';
+  renderSupportDateLabel();
+  loadTimetable();
 
   load();
 </script>
