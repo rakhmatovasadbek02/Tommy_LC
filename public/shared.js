@@ -153,6 +153,7 @@ const PERM_ALIAS = { payments:'finance', settings:'staff' };
 
 function isTeacher() { const s = getSession(); const roles = s && s.roles || [s && s.title || '']; return roles.some(r => String(r).trim().toLowerCase() === 'teacher'); }
 function isSupportTeacher() { const s = getSession(); const roles = s && s.roles || [s && s.title || '']; return roles.some(r => String(r).trim().toLowerCase() === 'support teacher'); }
+function isAdministration() { const s = getSession(); const roles = s && s.roles || [s && s.title || '']; const adm = ['ceo','head admin','manager','admin']; return roles.some(r => adm.includes(String(r).trim().toLowerCase())); }
 function canManageFinance() { return can('finance') && !getPermissions().includes('finance_view_only'); }
 // For teacher accounts, a group is "own" when its assigned teacher matches the user's name.
 function ownsGroup(g) { const s = getSession(); return !isTeacher() ? true : String(g && g.teacher || '') === (s && s.name || ''); }

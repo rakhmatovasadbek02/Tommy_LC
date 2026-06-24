@@ -1331,6 +1331,10 @@ app.post('/api/support', async (req, res) => {
 });
 
 app.delete('/api/support/:id', async (req, res) => {
+  const adminRoles = ['CEO','Head Admin','Manager','Admin'];
+  const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
+  if (!userRoles.some(r => adminRoles.includes(r)))
+    return res.status(403).json({ error: 'Only administration can delete support sessions.' });
   try { await pool.query('DELETE FROM support_sessions WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });

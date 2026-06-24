@@ -510,7 +510,7 @@ const sName = stu ? stu.firstName+' '+stu.lastName : 'Student';
 return `<div style="position:absolute;top:2px;left:2px;width:${w}px;bottom:2px;background:${tCol};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
 <div style="font-weight:800;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sName}</div>
 <div style="font-size:10px;opacity:0.9;white-space:nowrap">${p.time} · ${p.duration}m</div>
-${CAN_SUPPORT?`<button onclick="event.stopPropagation();deleteSupport('${p.id}')" title="Delete" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.25);border:none;color:#fff;border-radius:4px;width:16px;height:16px;font-size:11px;line-height:1;cursor:pointer;padding:0">×</button>`:''}
+${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${p.id}')" title="Delete" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.25);border:none;color:#fff;border-radius:4px;width:16px;height:16px;font-size:11px;line-height:1;cursor:pointer;padding:0">×</button>`:''}
 </div>`;
 }).join('')}
 </div>`;

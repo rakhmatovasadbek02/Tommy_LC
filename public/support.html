@@ -161,6 +161,7 @@
               <span class="attended-badge ${attended?'present':'absent'}">${attended?'✓ Present':'✗ Absent'}</span>
               ${s.theme ? `<span style="font-size:12px;color:var(--muted)">${s.theme}</span>` : ''}
             `}
+            ${isAdministration() ? `<button class="attend-btn absent" style="margin-left:4px" onclick="deleteSession('${s.id}')">✕</button>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -193,6 +194,15 @@
         </tr>`;
       }).join('');
     }
+  }
+
+  async function deleteSession(id) {
+    if (!confirm('Delete this support session?')) return;
+    try {
+      await apiDelete('/api/support/'+id);
+      await load();
+      showToast('Session deleted.');
+    } catch(e) { showToast(e.message||'Error','error'); }
   }
 
   async function markAttend(id, attended) {
