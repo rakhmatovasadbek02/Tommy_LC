@@ -159,12 +159,13 @@ requireAuth('groups');
 renderSidebar('groups');
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const PALETTE = ['#FF0000','#1D4ED8','#1E6B45','#7C3AED','#A05C00','#0891B2','#BE185D'];
-let groups=[], students=[], teachers=[], classrooms=[], leadsData=[], customLevels=[];
+const FIXED_ROOMS = ['Room 1','Room 2','Room 3','Room 4'];
+let groups=[], students=[], teachers=[], leadsData=[], customLevels=[];
 function groupColor(id){let h=0;for(let c of(id||'?'))h=(h<<5)-h+c.charCodeAt(0);return PALETTE[Math.abs(h)%PALETTE.length];}
 async function load() {
-[groups,students,teachers,classrooms,leadsData,customLevels] = await Promise.all([
+[groups,students,teachers,leadsData,customLevels] = await Promise.all([
 apiGet('/api/groups'), apiGet('/api/students'),
-apiGet('/api/teachers'), apiGet('/api/classrooms'),
+apiGet('/api/teachers'),
 apiGet('/api/leads').catch(()=>[]), apiGet('/api/levels').catch(()=>[])
 ]);
 if(isTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';}
@@ -306,8 +307,7 @@ async function populateSelects() {
 const tSel=document.getElementById('gTeacher');
 tSel.innerHTML='<option value="">— Select teacher —</option>'+teachers.map(t=>`<option value="${t.firstName} ${t.lastName}">${t.firstName} ${t.lastName}</option>`).join('');
 const rSel=document.getElementById('gRoom');
-if(!classrooms.length){rSel.innerHTML='<option value="">No classrooms yet</option>';rSel.disabled=true;}
-else{rSel.disabled=false;rSel.innerHTML='<option value="">— Select room —</option>'+classrooms.map(r=>`<option value="${r.name}">${r.name}</option>`).join('');}
+rSel.disabled=false;rSel.innerHTML='<option value="">— Select room —</option>'+FIXED_ROOMS.map(r=>`<option value="${r}">${r}</option>`).join('');
 }
 function clearForm(){
 ['editGroupId','gCode','gLevel','gTime','gDate'].forEach(id=>document.getElementById(id).value='');

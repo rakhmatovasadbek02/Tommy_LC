@@ -403,9 +403,9 @@ grid.innerHTML = `<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
 async function init() {
 try {
 const d = await apiGet('/api/dashboard');
-window._groups = d.groups; window._classrooms = d.classrooms; window._stats = d.stats;
+window._groups = d.groups; window._stats = d.stats;
 } catch(e) {
-window._groups=[]; window._classrooms=[]; window._stats=null;
+window._groups=[]; window._stats=null;
 }
 renderStats();
 const autoTab = autoDetectTab();

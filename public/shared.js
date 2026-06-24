@@ -146,7 +146,7 @@ function initials(name) {
 }
 
 // Page permissions (page = see + manage), plus the finance view-only modifier.
-const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived'];
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived'];
 const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Sidebar/page feature keys that differ from permission keys.
 const PERM_ALIAS = { payments:'finance', settings:'staff' };
@@ -185,7 +185,7 @@ function requireAuth(requiredFeature) {
  if (requiredFeature && !can(requiredFeature)) {
  sessionStorage.setItem('lc_access_denied', requiredFeature);
  // Send them to the first section they CAN open. If none, the account is unusable → sign out.
- const fallback = ['dashboard','students','groups','leads','finance','staff','actions','classrooms','archived']
+ const fallback = ['dashboard','students','groups','leads','finance','staff','actions','archived']
    .find(f => can(f));
  const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html',
    finance:'finance.html', staff:'users.html', actions:'actions.html',
@@ -223,7 +223,7 @@ function checkAccessDeniedMessage() {
  const denied = sessionStorage.getItem('lc_access_denied');
  if (denied) {
  sessionStorage.removeItem('lc_access_denied');
- const labels = { payments:'Finance', finance:'Finance', teachers:'Teachers', settings:'Staff', staff:'Staff', groups:'Groups', classrooms:'Classrooms', leads:'Leads', students:'Students', actions:'Actions', archived:'Archived', dashboard:'Dashboard' };
+ const labels = { payments:'Finance', finance:'Finance', teachers:'Teachers', settings:'Staff', staff:'Staff', groups:'Groups', leads:'Leads', students:'Students', actions:'Actions', archived:'Archived', dashboard:'Dashboard' };
  showToast(`Your role does not have access to ${labels[denied]||denied}.`, 'error');
  }
 }

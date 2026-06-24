@@ -17,15 +17,15 @@ app.use(express.json());
    PERMISSIONS
 ══════════════════════════════════════ */
 // Page permissions: having one = full see + manage of that section.
-const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived','support'];
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived','support'];
 // finance_view_only restricts Finance to read (no recording/editing).
 const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
   'CEO':        [...PAGE_PERMISSIONS],
-  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','classrooms','archived','finance_view_only'],
-  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','classrooms','archived'],
+  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','archived','finance_view_only'],
+  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived'],
   'Admin':      ['dashboard','leads','students','groups','teachers'],
   'Teacher':    ['dashboard','students','groups'],
   'Support Teacher': ['dashboard','support'],
@@ -447,7 +447,6 @@ function requiredPerm(method, p) {
   }
   if (top === 'invoices')   return write ? 'finance'    : null;
   if (top === 'teachers')   return write ? 'teachers'   : null;
-  if (top === 'classrooms') return write ? 'classrooms' : null;
   if (top === 'leads')      return write ? 'leads'      : null;
   if (top === 'pricing')    return write ? 'finance'    : null;
   if (top === 'levels')     return write ? 'groups'     : null;
@@ -991,45 +990,6 @@ app.delete('/api/teachers/:id', async (req, res) => {
       await pool.query('UPDATE groups SET teacher=NULL WHERE teacher=$1', [name]);
     }
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-/* CLASSROOMS */
-app.get('/api/classrooms', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM classrooms ORDER BY name');
-    res.json(rows.map(r => ({ id: r.id, name: r.name })));
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/classrooms', async (req, res) => {
-  try {
-    const { id, name } = req.body;
-    await pool.query('INSERT INTO classrooms(id,name) VALUES($1,$2)', [id, name]);
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/classrooms/:id', async (req, res) => {
-  try {
-    const { name } = req.body;
-    const old = await pool.query('SELECT name FROM classrooms WHERE id=$1', [req.params.id]);
-    if (old.rows[0] && old.rows[0].name !== name) {
-      await pool.query('UPDATE groups SET room=$1 WHERE room=$2', [name, old.rows[0].name]);
-    }
-    await pool.query('UPDATE classrooms SET name=$1 WHERE id=$2', [name, req.params.id]);
-    res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/classrooms/:id', async (req, res) => {
-  try {
-    const old = await pool.query('SELECT name FROM classrooms WHERE id=$1', [req.params.id]);
-    if (old.rows[0]) {
-      await pool.query('UPDATE groups SET room=NULL WHERE room=$1', [old.rows[0].name]);
-    }
-    await pool.query('DELETE FROM classrooms WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1716,7 +1676,6 @@ app.get('/api/dashboard', async (req, res) => {
 
     res.json({
       stats: { activeStudents, debtors, paidCount: invR.rows[0].n, leads: leadCount, trial, absentToday: absentIds.size },
-      classrooms: [],
       groups: groups.map(g => ({
         id: g.id, name: g.name, teacher: g.teacher, room: g.room, level: g.level, lang: g.lang,
         time: g.time, duration: g.duration, schedType: g.sched_type, customDays: g.custom_days,
