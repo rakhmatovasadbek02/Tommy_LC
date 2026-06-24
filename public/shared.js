@@ -151,8 +151,8 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Sidebar/page feature keys that differ from permission keys.
 const PERM_ALIAS = { payments:'finance', settings:'staff' };
 
-function isTeacher() { const s = getSession(); return String(s && s.title || '').trim().toLowerCase() === 'teacher'; }
-function isSupportTeacher() { const s = getSession(); return String(s && s.title || '').trim().toLowerCase() === 'support teacher'; }
+function isTeacher() { const s = getSession(); const roles = s && s.roles || [s && s.title || '']; return roles.some(r => String(r).trim().toLowerCase() === 'teacher'); }
+function isSupportTeacher() { const s = getSession(); const roles = s && s.roles || [s && s.title || '']; return roles.some(r => String(r).trim().toLowerCase() === 'support teacher'); }
 function canManageFinance() { return can('finance') && !getPermissions().includes('finance_view_only'); }
 // For teacher accounts, a group is "own" when its assigned teacher matches the user's name.
 function ownsGroup(g) { const s = getSession(); return !isTeacher() ? true : String(g && g.teacher || '') === (s && s.name || ''); }
@@ -244,6 +244,7 @@ const NAV_ICONS = {
  settings: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41"/></svg>`,
  actions: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
  archived: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`,
+ support: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
 };
 
 const IC = {
@@ -265,13 +266,15 @@ function renderSidebar(activePage) {
  const session = getSession();
  if (!session) return;
 
+ const hasBothRoles = isTeacher() && isSupportTeacher();
  const NAV_SECTIONS = [
  { label: null, items: [
-   { feature:'dashboard', href:'index.html',    iconKey:'dashboard', label:'Dashboard' },
+   { feature:'dashboard', href:'index.html',    iconKey:'dashboard', label: hasBothRoles ? 'Teaching' : 'Dashboard' },
    { feature:'leads',     href:'leads.html',    iconKey:'leads',     label:'Leads'     },
    { feature:'students',  href:'students.html', iconKey:'students',  label:'Students'  },
    { feature:'groups',    href:'groups.html',   iconKey:'groups',    label:'Groups'    },
    { feature:'payments',  href:'finance.html',  iconKey:'payments',  label:'Finance'   },
+   { feature:'support',   href:'support.html',  iconKey:'support',   label:'Support'   },
  ]},
  { label: 'Staff', items: [
    { feature:'settings', href:'users.html',    iconKey:'settings',  label:'Staff'    },
@@ -284,7 +287,7 @@ function renderSidebar(activePage) {
  ];
 
  const meta = { color: avatarColor(session.name||'?'), badge: 'badge-grey' };
- const roleLabel = session.title || session.role || 'Staff';
+ const roleLabel = (session.roles && session.roles.length > 1) ? session.roles.join(' · ') : (session.title || session.role || 'Staff');
  const navHTML = NAV_SECTIONS.map(section => {
    const links = section.items
      .filter(item => can(item.feature))

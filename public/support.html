@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support — TommyLC CRM</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .stat-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:28px}
+    .stat-card{background:white;border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+    .stat-card-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+    .stat-card-val{font-size:28px;font-weight:900;color:var(--text)}
+    .stat-card.red .stat-card-val{color:var(--crimson)}
+    .section-title{font-size:13px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+    .session-list{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+    .session-card{background:white;border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .session-time{font-size:22px;font-weight:900;color:var(--crimson);min-width:64px;flex-shrink:0}
+    .session-info{flex:1;min-width:0}
+    .session-name{font-weight:700;font-size:14px;color:var(--text)}
+    .session-meta{font-size:12px;color:var(--muted);margin-top:2px}
+    .session-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+    .theme-input{border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-family:'Inter',sans-serif;width:160px;outline:none}
+    .theme-input:focus{border-color:var(--crimson)}
+    .attend-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;transition:all 0.13s}
+    .attend-btn.present{background:var(--crimson);color:#fff}
+    .attend-btn.present:hover{background:var(--crimson-dark)}
+    .attend-btn.absent{background:#f3f3f3;color:var(--muted)}
+    .attend-btn.absent:hover{background:#ffe0e0;color:var(--crimson)}
+    .attended-badge{padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700}
+    .attended-badge.present{background:#e6f9f0;color:#16a34a}
+    .attended-badge.absent{background:#ffe4e4;color:var(--crimson)}
+    .student-table{background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+    .student-table table{width:100%;border-collapse:collapse}
+    .student-table th{padding:11px 16px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);text-align:left;background:var(--surface)}
+    .student-table td{padding:13px 16px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border)}
+    .student-table tr:last-child td{border-bottom:none}
+    .fine-badge{background:#ffe4e4;color:var(--crimson);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap}
+  </style>
+</head>
+<body>
+<nav class="sidebar"></nav>
+<div class="main">
+  <div class="topbar">
+    <div class="page-title">Support</div>
+  </div>
+  <div class="page-content">
+    <div class="stat-row" id="statRow"></div>
+    <div class="section-title">Today's Sessions</div>
+    <div id="todaySessions" class="session-list"></div>
+    <div class="section-title">My Students</div>
+    <div class="student-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Group</th>
+            <th>Main Teacher</th>
+            <th>Last Theme</th>
+            <th>Last Session</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="studentBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="toast-container" id="toastContainer"></div>
+<script src="shared.js"></script>
+<script>
+  requireAuth('support');
+  renderSidebar('support');
+
+  let data = { students: [], todaySessions: [] };
+
+  async function load() {
+    data = await apiGet('/api/support-dashboard');
+    render();
+  }
+
+  function render() {
+    // Stats
+    const fined = data.students.filter(s => s.fined).length;
+    document.getElementById('statRow').innerHTML = `
+      <div class="stat-card"><div class="stat-card-label">Today's Sessions</div><div class="stat-card-val">${data.todaySessions.length}</div></div>
+      <div class="stat-card"><div class="stat-card-label">My Students</div><div class="stat-card-val">${data.totalStudents}</div></div>
+      <div class="stat-card red"><div class="stat-card-label">Fined Students</div><div class="stat-card-val">${fined}</div></div>
+    `;
+
+    // Today's sessions
+    const sl = document.getElementById('todaySessions');
+    if (!data.todaySessions.length) {
+      sl.innerHTML = '<div class="empty-state" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">No sessions scheduled for today.</div>';
+    } else {
+      sl.innerHTML = data.todaySessions.map(s => {
+        const attended = s.attended;
+        return `<div class="session-card" id="sc_${s.id}">
+          <div class="session-time">${s.time}</div>
+          <div class="session-info">
+            <div class="session-name">${s.studentName}</div>
+            <div class="session-meta">${s.duration} min</div>
+          </div>
+          <div class="session-actions">
+            ${attended === null || attended === undefined ? `
+              <input class="theme-input" id="th_${s.id}" placeholder="Theme (optional)">
+              <button class="attend-btn present" onclick="markAttend('${s.id}',true)">✓ Present</button>
+              <button class="attend-btn absent" onclick="markAttend('${s.id}',false)">✗ Absent</button>
+            ` : `
+              <span class="attended-badge ${attended?'present':'absent'}">${attended?'✓ Present':'✗ Absent'}</span>
+              ${s.theme ? `<span style="font-size:12px;color:var(--muted)">${s.theme}</span>` : ''}
+            `}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Students table
+    const tb = document.getElementById('studentBody');
+    if (!data.students.length) {
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No students assigned yet.</td></tr>';
+    } else {
+      tb.innerHTML = data.students.map(s => {
+        const fineHtml = s.fined
+          ? `<span class="fine-badge">Fined · until ${new Date(s.blockedUntil).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>`
+          : '<span style="color:var(--muted);font-size:12px">—</span>';
+        const lastDate = s.lastDate ? new Date(s.lastDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
+        return `<tr>
+          <td style="font-weight:600">${s.name}</td>
+          <td>${s.groupName}</td>
+          <td>${s.mainTeacher}</td>
+          <td style="color:var(--muted)">${s.lastTheme || '—'}</td>
+          <td style="color:var(--muted)">${lastDate}</td>
+          <td>${fineHtml}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  async function markAttend(id, attended) {
+    const theme = document.getElementById('th_'+id)?.value.trim() || null;
+    try {
+      await apiPut('/api/support/'+id+'/attend', { attended, theme });
+      await load();
+      showToast(attended ? 'Marked present.' : 'Marked absent.');
+    } catch(e) { showToast(e.message||'Error','error'); }
+  }
+
+  load();
+</script>
+</body>
+</html>

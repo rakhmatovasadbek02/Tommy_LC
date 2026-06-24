@@ -17,7 +17,7 @@ app.use(express.json());
    PERMISSIONS
 ══════════════════════════════════════ */
 // Page permissions: having one = full see + manage of that section.
-const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived'];
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','classrooms','archived','support'];
 // finance_view_only restricts Finance to read (no recording/editing).
 const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 
@@ -28,7 +28,7 @@ const ROLE_PERMS = {
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','classrooms','archived'],
   'Admin':      ['dashboard','leads','students','groups','teachers'],
   'Teacher':    ['dashboard','students','groups'],
-  'Support Teacher': ['dashboard'],
+  'Support Teacher': ['dashboard','support'],
 };
 function isSupportTitle(t) { return String(t||'').trim().toLowerCase() === 'support teacher'; }
 const ROLES = Object.keys(ROLE_PERMS);
@@ -288,6 +288,9 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_start TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_end TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS roles JSONB DEFAULT '[]'`,
+    `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS attended BOOLEAN`,
+    `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS theme TEXT`,
+    `CREATE TABLE IF NOT EXISTS support_fines (id TEXT PRIMARY KEY, student_id TEXT NOT NULL, issued_at TIMESTAMPTZ DEFAULT NOW(), blocked_until TIMESTAMPTZ NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
     `CREATE TABLE IF NOT EXISTS support_sessions (id TEXT PRIMARY KEY, date DATE, time TEXT, duration INT DEFAULT 30, teacher TEXT, student_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
@@ -322,6 +325,16 @@ async function initDB() {
         [JSON.stringify(permsForRole(roleName)), roleName, u.id]);
     }
   } catch(e) { console.warn('Permission migration skipped:', e.message); }
+
+  // Re-sync permissions from roles[] for all users (runs every startup to pick up new role perms).
+  try {
+    const all = await pool.query('SELECT id, roles, title FROM users');
+    for (const u of all.rows) {
+      const roles = Array.isArray(u.roles) && u.roles.length ? u.roles : [u.title||'Admin'];
+      const perms = permsForRoles(roles);
+      await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms), u.id]);
+    }
+  } catch(e) { console.warn('Permissions re-sync skipped:', e.message); }
 
   // One-time migration: populate roles[] from title for existing users.
   try {
@@ -503,6 +516,7 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({
       id: u.id, name: u.first_name+' '+u.last_name,
       role: u.role, title: u.title || u.role, avatar: u.avatar, phone: u.phone,
+      roles: Array.isArray(u.roles) && u.roles.length ? u.roles : [u.title || u.role],
       permissions: u.permissions || [],
       mustChangePassword: !!u.must_change_password,
       token: signToken(u.id)
@@ -1289,6 +1303,10 @@ app.post('/api/support', async (req, res) => {
       if (!shiftStart) return res.status(409).json({ error: 'This teacher does not work on this day.' });
       if (start < toMin(shiftStart) || end > toMin(shiftEnd)) return res.status(409).json({ error: "Outside this teacher's working hours." });
     }
+    // Block fined students
+    const fineCheck = await pool.query('SELECT 1 FROM support_fines WHERE student_id=$1 AND blocked_until > NOW() LIMIT 1', [studentId]);
+    if (fineCheck.rows.length) return res.status(409).json({ error: 'This student is currently fined and cannot book support sessions.' });
+
     const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
     const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });
     if (overlap.length >= 2) return res.status(409).json({ error: 'Both support slots are already taken at this time.' });
@@ -1304,6 +1322,97 @@ app.post('/api/support', async (req, res) => {
 app.delete('/api/support/:id', async (req, res) => {
   try { await pool.query('DELETE FROM support_sessions WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Mark attendance + optional theme for a session
+app.put('/api/support/:id/attend', async (req, res) => {
+  try {
+    const { attended, theme } = req.body;
+    await pool.query('UPDATE support_sessions SET attended=$1, theme=$2 WHERE id=$3', [attended, theme||null, req.params.id]);
+    // Fine check: if marked absent, see if student has 2+ absences this calendar month
+    if (attended === false) {
+      const sess = await pool.query('SELECT student_id, date FROM support_sessions WHERE id=$1', [req.params.id]);
+      if (sess.rows[0]) {
+        const { student_id } = sess.rows[0];
+        const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+        const absences = await pool.query(
+          `SELECT COUNT(*)::int n FROM support_sessions WHERE student_id=$1 AND attended=false AND date >= $2`,
+          [student_id, monthStart.toISOString().split('T')[0]]
+        );
+        if (absences.rows[0].n >= 2) {
+          const activeFine = await pool.query(
+            `SELECT 1 FROM support_fines WHERE student_id=$1 AND blocked_until > NOW() LIMIT 1`,
+            [student_id]
+          );
+          if (!activeFine.rows.length) {
+            const { genId } = require('crypto'); // fallback
+            const fineId = require('crypto').randomUUID();
+            const blockedUntil = new Date(Date.now() + 30*24*60*60*1000);
+            await pool.query('INSERT INTO support_fines(id,student_id,blocked_until) VALUES($1,$2,$3)',
+              [fineId, student_id, blockedUntil.toISOString()]);
+          }
+        }
+      }
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Support dashboard: my students + today's sessions + fines
+app.get('/api/support-dashboard', async (req, res) => {
+  try {
+    const me = req.user;
+    const myName = me.first_name + ' ' + me.last_name;
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' })).toISOString().split('T')[0];
+
+    const [sessR, stuR, grpR, fineR, todayR] = await Promise.all([
+      pool.query(`SELECT DISTINCT ON (student_id) student_id, date, theme, attended FROM support_sessions WHERE teacher=$1 ORDER BY student_id, date DESC`, [myName]),
+      pool.query('SELECT id, first_name, last_name FROM students WHERE archived IS NOT TRUE'),
+      pool.query('SELECT id, name, teacher, student_ids FROM groups'),
+      pool.query('SELECT student_id, blocked_until FROM support_fines WHERE blocked_until > NOW()'),
+      pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today]),
+    ]);
+
+    const stuMap = new Map(stuR.rows.map(s => [s.id, s]));
+    const fineMap = new Map(fineR.rows.map(f => [f.student_id, f.blocked_until]));
+
+    // Find each student's group and main teacher
+    const studentGroupMap = new Map();
+    grpR.rows.forEach(g => {
+      (g.student_ids||[]).forEach(sid => {
+        if (!studentGroupMap.has(sid)) studentGroupMap.set(sid, { groupName: g.name, teacher: g.teacher });
+      });
+    });
+
+    const students = sessR.rows.map(s => {
+      const stu = stuMap.get(s.student_id);
+      if (!stu) return null;
+      const ginfo = studentGroupMap.get(s.student_id) || {};
+      return {
+        id: s.student_id,
+        name: stu.first_name + ' ' + stu.last_name,
+        groupName: ginfo.groupName || '—',
+        mainTeacher: ginfo.teacher || '—',
+        lastTheme: s.theme || null,
+        lastDate: s.date,
+        fined: !!fineMap.get(s.student_id),
+        blockedUntil: fineMap.get(s.student_id) || null,
+      };
+    }).filter(Boolean);
+
+    const todaySessions = todayR.rows.map(s => {
+      const stu = stuMap.get(s.student_id);
+      return {
+        id: s.id, time: s.time, duration: s.duration,
+        studentId: s.student_id,
+        studentName: stu ? stu.first_name + ' ' + stu.last_name : '?',
+        attended: s.attended,
+        theme: s.theme,
+      };
+    });
+
+    res.json({ students, todaySessions, totalStudents: students.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 /* ATTENDANCE */
