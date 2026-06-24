@@ -343,46 +343,41 @@ function renderList() {
 
 function cardHTML(t) {
   const isAssignee = t.assignedToId === me.id;
-  const canEdit = isCEO || (t.createdById === me.id && t.status !== 'overdue');
+  const canEdit   = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const canDelete = isCEO || (t.createdById === me.id && t.status !== 'overdue');
-  const dueLabel = t.dueDate
-    ? fmtDate(t.dueDate) + (t.dueTime ? ' ' + t.dueTime.slice(0,5) : '')
+  const dueLabel  = t.dueDate
+    ? fmtDate(t.dueDate) + (t.dueTime ? ' · ' + t.dueTime.slice(0,5) : '')
     : (t.dueTime ? t.dueTime.slice(0,5) : '');
-  const isOverdueDue = t.dueDate && t.status === 'overdue';
-  const personPill = t.assignedToId === t.createdById
-    ? `<span class="pill" style="background:#f0f0f0;color:#666">Self</span>`
-    : CURRENT_FILTER === 'inbox'
-      ? `<span class="pill pill-person">From: ${esc(t.createdByName||'')}</span>`
-      : `<span class="pill pill-person">To: ${esc(t.assignedToName||'')}</span>`;
+  const isOverdueDue = t.status === 'overdue';
 
-  // Progress button: only assignee, only on non-overdue non-completed
-  let progressBtn = '';
-  if (isAssignee && STATUS_BTN[t.status]) {
-    const [cls, label] = STATUS_BTN[t.status];
-    progressBtn = `<button class="progress-btn ${cls}" onclick="advanceStatus('${t.id}','${STATUS_NEXT[t.status]}')">${label}</button>`;
-  }
+  const isSelf = t.assignedToId === t.createdById;
+  const personLabel = isSelf ? null
+    : CURRENT_FILTER === 'inbox'
+      ? `From: ${t.createdByName||''}`
+      : `To: ${t.assignedToName||''}`;
 
   // Draggable: only assignee on non-overdue, non-completed tasks
   const canDrag = isAssignee && t.status !== 'overdue' && t.status !== 'completed';
 
-  const hasFooter = progressBtn || canEdit || canDelete || dueLabel || personPill;
+  const PRIO_COLORS = { high:'#c0392b', medium:'#e67e22', low:'#27ae60' };
+  const prioColor = PRIO_COLORS[t.priority] || '#999';
+
   return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''}>
-    <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
-    ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
-    <div class="task-meta">
-      <span class="pill pill-${t.priority}">${cap(t.priority)}</span>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:${t.note?'5px':'0'}">
+      <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
+      <span style="font-size:10px;font-weight:700;color:${prioColor};white-space:nowrap;flex-shrink:0;margin-top:2px">${cap(t.priority)}</span>
     </div>
-    ${hasFooter ? `<div class="task-footer">
-      <div class="task-footer-left">
+    ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
+    <div class="task-footer" style="margin-top:10px">
+      <div class="task-footer-left" style="flex:1;min-width:0">
         ${dueLabel ? `<span class="pill pill-due${isOverdueDue?' overdue':''}" style="font-size:10px">📅 ${dueLabel}</span>` : ''}
-        ${personPill}
+        ${personLabel ? `<span class="pill pill-person" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(personLabel)}</span>` : ''}
       </div>
       <div class="task-footer-right">
-        ${progressBtn}
-        ${canEdit ? `<button class="task-btn" onclick="editTask('${t.id}')">Edit</button>` : ''}
+        ${canEdit   ? `<button class="task-btn" onclick="editTask('${t.id}')">Edit</button>` : ''}
         ${canDelete ? `<button class="task-btn danger" onclick="deleteTask('${t.id}')">Del</button>` : ''}
       </div>
-    </div>` : ''}
+    </div>
   </div>`;
 }
 
