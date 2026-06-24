@@ -147,8 +147,8 @@
 <div id="toastContainer" class="toast-container"></div>
 
 <!-- Task Modal (Add / Edit) -->
-<div id="taskModal" class="modal" style="display:none">
-  <div class="modal-box">
+<div id="taskModal" class="modal-overlay">
+  <div class="modal" style="width:500px">
     <div class="modal-header">
       <span class="modal-title" id="taskModalTitle">New Task</span>
       <button class="modal-close" onclick="closeTaskModal()">×</button>
@@ -192,6 +192,7 @@
     </div>
   </div>
 </div>
+
 
 <script src="shared.js"></script>
 <script>
@@ -351,9 +352,9 @@ function openTaskModal(task) {
   document.getElementById('tmAssignSearch').value = task ? (task.assignedToName || '') : me.name;
   document.getElementById('tmAssignId').value = task ? (task.assignedToId || '') : me.id;
   document.getElementById('taskModalTitle').textContent = task ? 'Edit Task' : 'New Task';
-  document.getElementById('taskModal').style.display = 'flex';
+  document.getElementById('taskModal').classList.add('open');
 }
-function closeTaskModal() { document.getElementById('taskModal').style.display = 'none'; }
+function closeTaskModal() { document.getElementById('taskModal').classList.remove('open'); }
 
 function editTask(id) {
   const t = ALL_TASKS.find(x => x.id === id);
