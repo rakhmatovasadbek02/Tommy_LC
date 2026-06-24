@@ -1271,18 +1271,35 @@ function dateDayType(dateStr){ const dow=new Date(dateStr+'T00:00:00').getDay();
 
 app.get('/api/support-teachers', async (req, res) => {
   try {
+    const me = req.user;
+    const myName = me.first_name + ' ' + me.last_name;
+    const userRoles = Array.isArray(me.roles) && me.roles.length ? me.roles : [me.title];
+    const isSupport = userRoles.some(r => String(r).trim().toLowerCase() === 'support teacher');
+    const adminRoles = ['CEO','Head Admin','Manager','Admin'];
+    const isAdmin = userRoles.some(r => adminRoles.includes(r));
     const { rows } = await pool.query("SELECT id, first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name");
-    res.json(rows.map(u => ({
+    let result = rows.map(u => ({
       id: u.id, name: u.first_name+' '+u.last_name,
       odd:  u.support_odd_start  ? { start:u.support_odd_start,  end:u.support_odd_end  } : null,
       even: u.support_even_start ? { start:u.support_even_start, end:u.support_even_end } : null,
-    })));
+    }));
+    // Non-admin support teachers only see themselves
+    if (isSupport && !isAdmin) result = result.filter(t => t.name === myName);
+    res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/support/:date', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1 ORDER BY time', [req.params.date]);
+    const me = req.user;
+    const myName = me.first_name + ' ' + me.last_name;
+    const userRoles = Array.isArray(me.roles) && me.roles.length ? me.roles : [me.title];
+    const isSupport = userRoles.some(r => String(r).trim().toLowerCase() === 'support teacher');
+    const adminRoles = ['CEO','Head Admin','Manager','Admin'];
+    const isAdmin = userRoles.some(r => adminRoles.includes(r));
+    const { rows } = isSupport && !isAdmin
+      ? await pool.query('SELECT * FROM support_sessions WHERE date=$1 AND teacher=$2 ORDER BY time', [req.params.date, myName])
+      : await pool.query('SELECT * FROM support_sessions WHERE date=$1 ORDER BY time', [req.params.date]);
     res.json(rows.map(s => ({ id:s.id, date:s.date, time:s.time, duration:s.duration, teacher:s.teacher, studentId:s.student_id })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
