@@ -1830,6 +1830,14 @@ app.delete('/api/reminders/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+/* MEMBERS — lightweight user list for task assignment, accessible to all authenticated users */
+app.get('/api/members', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, first_name, last_name, title FROM users ORDER BY first_name');
+    res.json(rows.map(u => ({ id: u.id, name: u.first_name+' '+u.last_name, title: u.title })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 /* ACTIVITY */
 app.get('/api/activity', async (req, res) => {
   try {

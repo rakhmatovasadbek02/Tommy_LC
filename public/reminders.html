@@ -211,7 +211,10 @@ const STATUS_NEXT  = { pending:'in_process', in_process:'completed' };
 const STATUS_BTN   = { pending:['btn-start','Mark In Process'], in_process:['btn-done','Mark Completed'] };
 
 async function init() {
-  const [tasks, users] = await Promise.all([apiGet('/api/reminders'), apiGet('/api/users')]);
+  const [tasks, users] = await Promise.all([
+    apiGet('/api/reminders'),
+    apiGet('/api/members').catch(() => []),
+  ]);
   ALL_TASKS = tasks || [];
   ALL_USERS = users || [];
   updateCounts();
