@@ -353,17 +353,23 @@ function renderSidebar(activePage) {
 }
 
 function injectReminderBell() {
- const topbar = document.querySelector('.topbar');
- if (!topbar || document.getElementById('reminderBell')) return;
+ if (document.getElementById('reminderBell')) return;
+ let tr = document.querySelector('.topbar-right');
+ if (!tr) {
+   tr = document.createElement('div');
+   tr.className = 'topbar-right';
+   document.querySelector('.topbar')?.appendChild(tr);
+ }
+ if (!tr) return;
  const btn = document.createElement('a');
  btn.id = 'reminderBell';
  btn.href = 'reminders.html';
  btn.title = 'Reminders';
- btn.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);text-decoration:none;transition:background 0.14s;margin-left:auto;flex-shrink:0;';
- btn.onmouseover = () => btn.style.background = 'rgba(255,255,255,0.14)';
- btn.onmouseout = () => btn.style.background = 'rgba(255,255,255,0.07)';
- btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="reminderCount" style="display:none;position:absolute;top:4px;right:4px;background:#e74c3c;color:#fff;font-size:9px;font-weight:700;border-radius:50%;min-width:14px;height:14px;line-height:14px;text-align:center;padding:0 2px;"></span>`;
- topbar.appendChild(btn);
+ btn.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--bg,#f5f5f5);color:var(--text-muted,#666);text-decoration:none;transition:background 0.14s;flex-shrink:0;';
+ btn.onmouseover = () => btn.style.background = 'var(--border,#e8eaee)';
+ btn.onmouseout = () => btn.style.background = 'var(--bg,#f5f5f5)';
+ btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="reminderCount" style="display:none;position:absolute;top:3px;right:3px;background:#e74c3c;color:#fff;font-size:9px;font-weight:700;border-radius:50%;min-width:14px;height:14px;line-height:14px;text-align:center;padding:0 2px;"></span>`;
+ tr.appendChild(btn);
  refreshReminderCount();
 }
 
