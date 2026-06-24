@@ -1701,24 +1701,33 @@ app.get('/api/dashboard', async (req, res) => {
 app.get('/api/reminders', async (req, res) => {
   try {
     const me = req.user;
-    const { rows } = await pool.query(
-      `SELECT r.*,
-        cu.first_name||' '||cu.last_name AS created_by_name,
-        au.first_name||' '||au.last_name AS assigned_to_name
-       FROM reminders r
-       LEFT JOIN users cu ON cu.id = r.created_by_id
-       LEFT JOIN users au ON au.id = r.assigned_to_id
-       WHERE r.assigned_to_id=$1 OR r.created_by_id=$1
-       ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC`,
-      [me.id]
-    );
+    const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
+    const isSupervisor = myRoles.some(r=>['ceo','manager'].includes(r));
+    const { rows } = isSupervisor
+      ? await pool.query(
+          `SELECT r.*,
+            cu.first_name||' '||cu.last_name AS created_by_name,
+            au.first_name||' '||au.last_name AS assigned_to_name
+           FROM reminders r
+           LEFT JOIN users cu ON cu.id = r.created_by_id
+           LEFT JOIN users au ON au.id = r.assigned_to_id
+           ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC`)
+      : await pool.query(
+          `SELECT r.*,
+            cu.first_name||' '||cu.last_name AS created_by_name,
+            au.first_name||' '||au.last_name AS assigned_to_name
+           FROM reminders r
+           LEFT JOIN users cu ON cu.id = r.created_by_id
+           LEFT JOIN users au ON au.id = r.assigned_to_id
+           WHERE r.assigned_to_id=$1 OR r.created_by_id=$1
+           ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC`,
+          [me.id]);
     res.json(rows.map(r => ({
       id: r.id, title: r.title, note: r.note,
       dueDate: r.due_date, priority: r.priority,
       done: r.done, createdAt: r.created_at,
       createdById: r.created_by_id, createdByName: r.created_by_name,
       assignedToId: r.assigned_to_id, assignedToName: r.assigned_to_name,
-      mine: r.assigned_to_id === me.id,
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1757,11 +1766,29 @@ app.put('/api/reminders/:id/done', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put('/api/reminders/:id', async (req, res) => {
+  try {
+    const me = req.user;
+    const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
+    const isCEO = myRoles.includes('ceo');
+    const { title, note, dueDate, priority, assignedToId } = req.body;
+    const { rowCount } = await pool.query(
+      `UPDATE reminders SET title=$1,note=$2,due_date=$3,priority=$4,assigned_to_id=$5
+       WHERE id=$6 AND (created_by_id=$7 ${isCEO ? 'OR TRUE' : ''})`,
+      [title, note||null, dueDate||null, priority||'medium', assignedToId, req.params.id, me.id]
+    );
+    if (!rowCount) return res.status(403).json({ error: 'Not allowed.' });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.delete('/api/reminders/:id', async (req, res) => {
   try {
     const me = req.user;
+    const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
+    const isCEO = myRoles.includes('ceo');
     await pool.query(
-      `DELETE FROM reminders WHERE id=$1 AND created_by_id=$2`,
+      `DELETE FROM reminders WHERE id=$1 AND (created_by_id=$2 ${isCEO ? 'OR TRUE' : ''})`,
       [req.params.id, me.id]
     );
     res.json({ ok: true });

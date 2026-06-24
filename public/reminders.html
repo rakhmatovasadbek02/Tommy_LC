@@ -2,40 +2,76 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reminders — TommyLC CRM</title>
+  <title>Tasks — TommyLC CRM</title>
   <link rel="stylesheet" href="shared.css">
   <style>
-    .reminders-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-    @media(max-width:768px){ .reminders-grid{grid-template-columns:1fr;} }
-    .reminder-card { background:#fff; border:1px solid #e8eaee; border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:8px; transition:box-shadow 0.14s; }
-    .reminder-card:hover { box-shadow:0 2px 12px rgba(0,0,0,0.08); }
-    .reminder-card.done { opacity:0.5; }
-    .reminder-header { display:flex; align-items:flex-start; gap:10px; }
-    .reminder-check { width:18px; height:18px; border-radius:5px; border:2px solid #ccc; cursor:pointer; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; transition:all 0.14s; }
-    .reminder-check.checked { background:#27ae60; border-color:#27ae60; color:#fff; }
-    .reminder-title { font-size:14px; font-weight:600; color:#1a202c; line-height:1.4; flex:1; }
-    .reminder-title.done-text { text-decoration:line-through; color:#999; }
-    .reminder-meta { display:flex; flex-wrap:wrap; gap:6px; font-size:11px; align-items:center; }
-    .pill-priority { padding:2px 8px; border-radius:20px; font-weight:600; font-size:11px; }
-    .pill-priority.high { background:#fde8e8; color:#c0392b; }
-    .pill-priority.medium { background:#fef3cd; color:#b7791f; }
-    .pill-priority.low { background:#e8f5e9; color:#27ae60; }
-    .pill-due { padding:2px 8px; border-radius:20px; background:#f0f4ff; color:#3b5bdb; font-weight:500; }
+    /* ── Layout ── */
+    .tasks-layout { display:grid; grid-template-columns:220px 1fr; gap:0; height:calc(100vh - 62px); overflow:hidden; }
+    .tasks-sidebar { border-right:1px solid var(--border); padding:20px 0; overflow-y:auto; background:var(--white); }
+    .tasks-main { overflow-y:auto; padding:28px; }
+
+    /* ── Sidebar filters ── */
+    .filter-section { padding:0 16px 8px; }
+    .filter-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--text-muted); padding:0 4px; margin-bottom:6px; }
+    .filter-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--text); transition:background 0.12s; user-select:none; }
+    .filter-item:hover { background:var(--bg); }
+    .filter-item.active { background:rgba(192,57,43,0.08); color:var(--primary); font-weight:600; }
+    .filter-item .filter-count { margin-left:auto; font-size:11px; background:var(--bg); border-radius:20px; padding:1px 7px; color:var(--text-muted); font-weight:500; }
+    .filter-item.active .filter-count { background:rgba(192,57,43,0.12); color:var(--primary); }
+    .filter-divider { border:none; border-top:1px solid var(--border); margin:10px 16px; }
+
+    /* ── Stats row ── */
+    .stats-row { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+    .stat-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:14px 20px; min-width:110px; text-align:center; flex:1; }
+    .stat-card .stat-val { font-size:24px; font-weight:800; }
+    .stat-card .stat-lbl { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+    /* ── Task list ── */
+    .tasks-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+    .tasks-header h2 { font-size:18px; font-weight:800; flex:1; }
+    .task-row { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; transition:box-shadow 0.12s; }
+    .task-row:hover { box-shadow:0 2px 10px rgba(0,0,0,0.07); }
+    .task-row.done-row { opacity:.5; }
+    .task-check { width:18px; height:18px; border-radius:5px; border:2px solid #ccc; cursor:pointer; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; transition:all .14s; }
+    .task-check.checked { background:#27ae60; border-color:#27ae60; color:#fff; font-size:11px; }
+    .task-body { flex:1; min-width:0; }
+    .task-title { font-size:14px; font-weight:600; color:var(--text); line-height:1.4; }
+    .task-title.done-text { text-decoration:line-through; color:var(--text-muted); }
+    .task-note { font-size:12px; color:var(--text-muted); margin-top:3px; line-height:1.5; }
+    .task-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; align-items:center; }
+    .pill { padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+    .pill-high { background:#fde8e8; color:#c0392b; }
+    .pill-medium { background:#fef3cd; color:#b7791f; }
+    .pill-low { background:#e8f5e9; color:#27ae60; }
+    .pill-due { background:#f0f4ff; color:#3b5bdb; }
     .pill-due.overdue { background:#fde8e8; color:#c0392b; }
-    .pill-person { padding:2px 8px; border-radius:20px; background:#f5f0ff; color:#6f42c1; font-weight:500; }
-    .reminder-note { font-size:12px; color:#667; line-height:1.5; }
-    .reminder-actions { display:flex; gap:8px; margin-top:2px; }
-    .tab-bar { display:flex; gap:0; border-bottom:2px solid #e8eaee; margin-bottom:20px; }
-    .tab-btn { padding:9px 18px; font-size:13px; font-weight:500; color:#667; cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.14s; }
-    .tab-btn.active { color:#c0392b; border-bottom-color:#c0392b; }
-    .empty-state { text-align:center; padding:48px 20px; color:#aaa; font-size:14px; }
-    .empty-state svg { display:block; margin:0 auto 12px; opacity:0.3; }
-    #addReminderModal .modal-box { max-width:480px; }
+    .pill-person { background:#f5f0ff; color:#6f42c1; }
+    .pill-self { background:#e8f5e9; color:#27ae60; }
+    .task-actions { display:flex; gap:6px; flex-shrink:0; align-items:flex-start; }
+    .task-btn { border:1px solid var(--border); background:var(--white); color:var(--text-muted); border-radius:6px; padding:4px 9px; font-size:11px; cursor:pointer; transition:all .12s; }
+    .task-btn:hover { background:var(--bg); color:var(--text); }
+    .task-btn.danger:hover { background:#fde8e8; border-color:#fbb; color:#c0392b; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+    .empty-state svg { display:block; margin:0 auto 14px; opacity:.25; }
+    .empty-state p { font-size:14px; }
+
+    /* ── Modal ── */
+    #taskModal .modal-box { max-width:500px; }
     .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    @media(max-width:480px){ .form-row{grid-template-columns:1fr;} }
-    .user-search-dropdown { position:absolute; background:#fff; border:1px solid #e0e0e0; border-radius:8px; max-height:200px; overflow-y:auto; z-index:200; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
-    .user-search-dropdown .usd-item { padding:9px 14px; cursor:pointer; font-size:13px; }
-    .user-search-dropdown .usd-item:hover { background:#f5f5f5; }
+    @media(max-width:520px){ .form-row{grid-template-columns:1fr;} }
+    .usd { position:relative; }
+    .usd-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--white); border:1px solid var(--border); border-radius:8px; max-height:200px; overflow-y:auto; z-index:300; box-shadow:0 4px 12px rgba(0,0,0,.1); display:none; }
+    .usd-item { padding:9px 14px; cursor:pointer; font-size:13px; }
+    .usd-item:hover { background:var(--bg); }
+
+    /* ── Responsive ── */
+    @media(max-width:768px){
+      .tasks-layout { grid-template-columns:1fr; }
+      .tasks-sidebar { display:none; }
+      .tasks-main { padding:16px; }
+    }
   </style>
 </head>
 <body>
@@ -43,51 +79,97 @@
   <aside class="sidebar"></aside>
   <div class="main">
     <div class="topbar">
-      <div class="page-title">Reminders</div>
+      <div class="page-title">Tasks</div>
       <div class="topbar-right">
-        <button class="btn btn-primary btn-sm" onclick="openAddReminder()">+ Add Reminder</button>
+        <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ New Task</button>
       </div>
     </div>
-    <div class="content" style="padding:24px">
-      <div id="statsRow" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;"></div>
 
-      <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('inbox',this)">Inbox</button>
-        <button class="tab-btn" onclick="switchTab('sent',this)">Sent</button>
-        <button class="tab-btn" onclick="switchTab('done',this)">Completed</button>
+    <div class="tasks-layout">
+      <!-- Left sidebar filters -->
+      <div class="tasks-sidebar">
+        <div class="filter-section">
+          <div class="filter-label">View</div>
+          <div class="filter-item active" data-filter="inbox" onclick="setFilter('inbox',this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            My Tasks <span class="filter-count" id="fc-inbox">0</span>
+          </div>
+          <div class="filter-item" data-filter="assigned" onclick="setFilter('assigned',this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Assigned by Me <span class="filter-count" id="fc-assigned">0</span>
+          </div>
+          <div class="filter-item" id="filterAll" data-filter="all" onclick="setFilter('all',this)" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            All Tasks <span class="filter-count" id="fc-all">0</span>
+          </div>
+          <div class="filter-item" data-filter="done" onclick="setFilter('done',this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Completed <span class="filter-count" id="fc-done">0</span>
+          </div>
+        </div>
+
+        <hr class="filter-divider">
+
+        <div class="filter-section">
+          <div class="filter-label">Priority</div>
+          <div class="filter-item" data-filter="high" onclick="setFilter('high',this)">
+            <span style="width:8px;height:8px;border-radius:50%;background:#c0392b;flex-shrink:0"></span>
+            High <span class="filter-count" id="fc-high">0</span>
+          </div>
+          <div class="filter-item" data-filter="medium" onclick="setFilter('medium',this)">
+            <span style="width:8px;height:8px;border-radius:50%;background:#e67e22;flex-shrink:0"></span>
+            Medium <span class="filter-count" id="fc-medium">0</span>
+          </div>
+          <div class="filter-item" data-filter="low" onclick="setFilter('low',this)">
+            <span style="width:8px;height:8px;border-radius:50%;background:#27ae60;flex-shrink:0"></span>
+            Low <span class="filter-count" id="fc-low">0</span>
+          </div>
+        </div>
       </div>
 
-      <div id="reminderList"></div>
+      <!-- Main content -->
+      <div class="tasks-main">
+        <div class="stats-row" id="statsRow"></div>
+        <div class="tasks-header">
+          <h2 id="viewTitle">My Tasks</h2>
+          <input type="text" class="form-control" placeholder="Search tasks…" style="max-width:220px;font-size:13px" oninput="renderList()" id="searchInput">
+        </div>
+        <div id="taskList"></div>
+      </div>
     </div>
   </div>
 </div>
 <div id="toastContainer" class="toast-container"></div>
 
-<!-- Add Reminder Modal -->
-<div id="addReminderModal" class="modal" style="display:none">
+<!-- Task Modal (Add / Edit) -->
+<div id="taskModal" class="modal" style="display:none">
   <div class="modal-box">
-    <div class="modal-header"><span class="modal-title">New Reminder</span><button class="modal-close" onclick="closeAddReminder()">×</button></div>
+    <div class="modal-header">
+      <span class="modal-title" id="taskModalTitle">New Task</span>
+      <button class="modal-close" onclick="closeTaskModal()">×</button>
+    </div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="tmId">
       <div class="form-group">
         <label>Title *</label>
-        <input type="text" id="rmTitle" class="form-control" placeholder="e.g. Call parent about attendance">
+        <input type="text" id="tmTitle" class="form-control" placeholder="What needs to be done?">
       </div>
       <div class="form-group">
         <label>Assign To *</label>
-        <div style="position:relative">
-          <input type="text" id="rmAssignSearch" class="form-control" placeholder="Search member..." autocomplete="off" oninput="searchAssignUser()">
-          <div id="rmAssignDropdown" class="user-search-dropdown" style="display:none"></div>
-          <input type="hidden" id="rmAssignId">
+        <div class="usd">
+          <input type="text" id="tmAssignSearch" class="form-control" placeholder="Search member…" autocomplete="off" oninput="searchAssign()">
+          <div id="tmAssignDd" class="usd-dropdown"></div>
         </div>
+        <input type="hidden" id="tmAssignId">
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Due Date</label>
-          <input type="date" id="rmDueDate" class="form-control">
+          <input type="date" id="tmDue" class="form-control">
         </div>
         <div class="form-group">
           <label>Priority</label>
-          <select id="rmPriority" class="form-control">
+          <select id="tmPriority" class="form-control">
             <option value="low">Low</option>
             <option value="medium" selected>Medium</option>
             <option value="high">High</option>
@@ -95,13 +177,13 @@
         </div>
       </div>
       <div class="form-group">
-        <label>Note <span style="color:#aaa;font-weight:400">(optional)</span></label>
-        <textarea id="rmNote" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+        <label>Note <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
+        <textarea id="tmNote" class="form-control" rows="3" placeholder="Additional details…"></textarea>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeAddReminder()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveReminder()">Save Reminder</button>
+      <button class="btn btn-secondary" onclick="closeTaskModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
     </div>
   </div>
 </div>
@@ -111,164 +193,211 @@
 requireAuth();
 renderSidebar('reminders');
 
-let ALL_REMINDERS = [];
-let CURRENT_TAB = 'inbox';
+const me = getSession();
+const myRoles = (me.roles || [me.title || '']).map(r => String(r).trim().toLowerCase());
+const isSupervisor = myRoles.some(r => ['ceo','manager'].includes(r));
+const isCEO = myRoles.includes('ceo');
+
+let ALL_TASKS = [];
 let ALL_USERS = [];
+let CURRENT_FILTER = 'inbox';
+
+const VIEW_LABELS = {
+  inbox: 'My Tasks', assigned: 'Assigned by Me',
+  all: 'All Tasks', done: 'Completed',
+  high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority',
+};
 
 async function init() {
-  const [remData, usersData] = await Promise.all([
-    apiGet('/api/reminders'),
-    apiGet('/api/users'),
-  ]);
-  ALL_REMINDERS = remData || [];
-  ALL_USERS = usersData || [];
+  if (isSupervisor) document.getElementById('filterAll').style.display = 'flex';
+  const [tasks, users] = await Promise.all([apiGet('/api/reminders'), apiGet('/api/users')]);
+  ALL_TASKS = tasks || [];
+  ALL_USERS = users || [];
+  updateCounts();
   renderStats();
   renderList();
 }
 
-function renderStats() {
-  const me = getSession();
-  const inbox = ALL_REMINDERS.filter(r => r.assignedToId === me.id && !r.done);
-  const now2 = new Date(); const todayStr = `${now2.getUTCFullYear()}-${String(now2.getUTCMonth()+1).padStart(2,'0')}-${String(now2.getUTCDate()).padStart(2,'0')}`;
-  const overdue = inbox.filter(r => r.dueDate && r.dueDate.slice(0,10) < todayStr);
-  const today = inbox.filter(r => r.dueDate && r.dueDate.slice(0,10) === todayStr);
-  const s = document.getElementById('statsRow');
-  s.innerHTML = [
-    { label:'Pending', val: inbox.length, color:'#3b5bdb' },
-    { label:'Due Today', val: today.length, color:'#e67e22' },
-    { label:'Overdue', val: overdue.length, color:'#c0392b' },
-  ].map(x => `<div style="background:#fff;border:1px solid #e8eaee;border-radius:10px;padding:14px 20px;min-width:120px;text-align:center"><div style="font-size:22px;font-weight:700;color:${x.color}">${x.val}</div><div style="font-size:11px;color:#888;margin-top:2px">${x.label}</div></div>`).join('');
+function todayStr() {
+  const n = new Date();
+  return `${n.getUTCFullYear()}-${String(n.getUTCMonth()+1).padStart(2,'0')}-${String(n.getUTCDate()).padStart(2,'0')}`;
 }
 
-function switchTab(tab, btn) {
-  CURRENT_TAB = tab;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+function filterTasks(filter) {
+  const today = todayStr();
+  switch(filter) {
+    case 'inbox':    return ALL_TASKS.filter(t => t.assignedToId === me.id && !t.done);
+    case 'assigned': return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && !t.done);
+    case 'all':      return ALL_TASKS.filter(t => !t.done);
+    case 'done':     return ALL_TASKS.filter(t => t.done);
+    case 'high':     return ALL_TASKS.filter(t => t.priority === 'high' && !t.done);
+    case 'medium':   return ALL_TASKS.filter(t => t.priority === 'medium' && !t.done);
+    case 'low':      return ALL_TASKS.filter(t => t.priority === 'low' && !t.done);
+    default:         return ALL_TASKS;
+  }
+}
+
+function updateCounts() {
+  const today = todayStr();
+  document.getElementById('fc-inbox').textContent    = ALL_TASKS.filter(t => t.assignedToId === me.id && !t.done).length;
+  document.getElementById('fc-assigned').textContent = ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && !t.done).length;
+  document.getElementById('fc-all').textContent      = ALL_TASKS.filter(t => !t.done).length;
+  document.getElementById('fc-done').textContent     = ALL_TASKS.filter(t => t.done).length;
+  document.getElementById('fc-high').textContent     = ALL_TASKS.filter(t => t.priority === 'high' && !t.done).length;
+  document.getElementById('fc-medium').textContent   = ALL_TASKS.filter(t => t.priority === 'medium' && !t.done).length;
+  document.getElementById('fc-low').textContent      = ALL_TASKS.filter(t => t.priority === 'low' && !t.done).length;
+}
+
+function renderStats() {
+  const today = todayStr();
+  const pending  = ALL_TASKS.filter(t => t.assignedToId === me.id && !t.done).length;
+  const overdue  = ALL_TASKS.filter(t => t.assignedToId === me.id && !t.done && t.dueDate && t.dueDate.slice(0,10) < today).length;
+  const dueToday = ALL_TASKS.filter(t => t.assignedToId === me.id && !t.done && t.dueDate && t.dueDate.slice(0,10) === today).length;
+  const created  = ALL_TASKS.filter(t => t.createdById === me.id && !t.done).length;
+  document.getElementById('statsRow').innerHTML = [
+    { val: pending,  lbl: 'My Pending',   color: '#3b5bdb' },
+    { val: dueToday, lbl: 'Due Today',     color: '#e67e22' },
+    { val: overdue,  lbl: 'Overdue',       color: '#c0392b' },
+    { val: created,  lbl: 'Created by Me', color: '#27ae60' },
+  ].map(s => `<div class="stat-card"><div class="stat-val" style="color:${s.color}">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`).join('');
+}
+
+function setFilter(filter, el) {
+  CURRENT_FILTER = filter;
+  document.querySelectorAll('.filter-item').forEach(f => f.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('viewTitle').textContent = VIEW_LABELS[filter] || 'Tasks';
   renderList();
 }
 
 function renderList() {
-  const me = getSession();
-  const now = new Date(); const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')}`;
-  let items = [];
-  if (CURRENT_TAB === 'inbox') items = ALL_REMINDERS.filter(r => r.assignedToId === me.id && !r.done);
-  else if (CURRENT_TAB === 'sent') items = ALL_REMINDERS.filter(r => r.createdById === me.id && r.assignedToId !== me.id);
-  else items = ALL_REMINDERS.filter(r => (r.assignedToId === me.id || r.createdById === me.id) && r.done);
+  const today = todayStr();
+  const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+  let items = filterTasks(CURRENT_FILTER);
+  if (q) items = items.filter(t => t.title.toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q));
 
-  const el = document.getElementById('reminderList');
+  const el = document.getElementById('taskList');
   if (!items.length) {
-    el.innerHTML = `<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>No reminders here</div>`;
+    el.innerHTML = `<div class="empty-state"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><p>No tasks here</p></div>`;
     return;
   }
-  el.innerHTML = `<div class="reminders-grid">${items.map(r => cardHTML(r, today, me)).join('')}</div>`;
+  el.innerHTML = items.map(t => taskRowHTML(t, today)).join('');
 }
 
-function cardHTML(r, today, me) {
-  const isOverdue = r.dueDate && r.dueDate.slice(0,10) < today && !r.done;
-  const duePill = r.dueDate ? `<span class="pill-due${isOverdue?' overdue':''}">${formatDate(r.dueDate)}</span>` : '';
-  const prioClass = r.priority || 'medium';
-  const personLabel = r.assignedToId === me.id ? `<span class="pill-person">From: ${r.createdByName||'You'}</span>` : `<span class="pill-person">To: ${r.assignedToName}</span>`;
-  const canDelete = r.createdById === me.id;
-  const deleteBtn = canDelete ? `<button onclick="deleteReminder('${r.id}')" class="btn btn-sm" style="border:1px solid #fde8e8;color:#c0392b;background:#fff;font-size:11px;padding:3px 10px">Delete</button>` : '';
-  const checkHTML = CURRENT_TAB !== 'sent' ? `<div class="reminder-check${r.done?' checked':''}" onclick="toggleDone('${r.id}',${!r.done})" title="${r.done?'Mark pending':'Mark done'}">${r.done?'✓':''}</div>` : '';
-  return `<div class="reminder-card${r.done?' done':''}">
-    <div class="reminder-header">
-      ${checkHTML}
-      <div class="reminder-title${r.done?' done-text':''}">${escHtml(r.title)}</div>
+function taskRowHTML(t, today) {
+  const isOverdue = t.dueDate && t.dueDate.slice(0,10) < today && !t.done;
+  const dueLabel = t.dueDate ? fmtDate(t.dueDate) : '';
+  const canEdit = isCEO || t.createdById === me.id;
+  const isMe = t.assignedToId === me.id;
+  const personPill = t.assignedToId === t.createdById
+    ? `<span class="pill pill-self">Self</span>`
+    : t.assignedToId === me.id
+      ? `<span class="pill pill-person">From: ${esc(t.createdByName||'')}</span>`
+      : `<span class="pill pill-person">To: ${esc(t.assignedToName||'')}</span>`;
+
+  return `<div class="task-row${t.done?' done-row':''}">
+    <div class="task-check${t.done?' checked':''}" onclick="toggleDone('${t.id}',${!t.done})">${t.done?'✓':''}</div>
+    <div class="task-body">
+      <div class="task-title${t.done?' done-text':''}">${esc(t.title)}</div>
+      ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
+      <div class="task-meta">
+        <span class="pill pill-${t.priority}">${cap(t.priority)}</span>
+        ${dueLabel ? `<span class="pill pill-due${isOverdue?' overdue':''}">${dueLabel}</span>` : ''}
+        ${personPill}
+      </div>
     </div>
-    ${r.note ? `<div class="reminder-note">${escHtml(r.note)}</div>` : ''}
-    <div class="reminder-meta">
-      <span class="pill-priority ${prioClass}">${prioClass.charAt(0).toUpperCase()+prioClass.slice(1)}</span>
-      ${duePill}
-      ${r.assignedToId !== r.createdById ? personLabel : ''}
+    <div class="task-actions">
+      ${canEdit ? `<button class="task-btn" onclick="editTask('${t.id}')">Edit</button>` : ''}
+      ${canEdit ? `<button class="task-btn danger" onclick="deleteTask('${t.id}')">Delete</button>` : ''}
     </div>
-    ${deleteBtn ? `<div class="reminder-actions">${deleteBtn}</div>` : ''}
   </div>`;
 }
 
-function escHtml(s) { const d=document.createElement('div');d.textContent=s||'';return d.innerHTML; }
-function formatDate(d) {
+function cap(s) { return s ? s[0].toUpperCase()+s.slice(1) : ''; }
+function esc(s) { const d=document.createElement('div');d.textContent=s||'';return d.innerHTML; }
+function fmtDate(d) {
   if (!d) return '';
   const dt = new Date(d);
-  const day = String(dt.getUTCDate()).padStart(2,'0');
-  const m = String(dt.getUTCMonth()+1).padStart(2,'0');
-  const y = dt.getUTCFullYear();
-  return `${day}.${m}.${y}`;
+  return `${String(dt.getUTCDate()).padStart(2,'0')}.${String(dt.getUTCMonth()+1).padStart(2,'0')}.${dt.getUTCFullYear()}`;
 }
 
 async function toggleDone(id, done) {
   await apiPut(`/api/reminders/${id}/done`, { done });
-  const r = ALL_REMINDERS.find(x => x.id === id);
-  if (r) r.done = done;
-  renderStats();
-  renderList();
-  refreshReminderCount();
+  const t = ALL_TASKS.find(x => x.id === id);
+  if (t) t.done = done;
+  updateCounts(); renderStats(); renderList(); refreshReminderCount();
 }
 
-async function deleteReminder(id) {
-  if (!confirm('Delete this reminder?')) return;
+async function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
   await apiDelete(`/api/reminders/${id}`);
-  ALL_REMINDERS = ALL_REMINDERS.filter(x => x.id !== id);
-  renderStats();
-  renderList();
-  refreshReminderCount();
-  showToast('Reminder deleted');
+  ALL_TASKS = ALL_TASKS.filter(x => x.id !== id);
+  updateCounts(); renderStats(); renderList(); refreshReminderCount();
+  showToast('Task deleted');
 }
 
-// ADD REMINDER
-function openAddReminder() {
-  const me = getSession();
-  document.getElementById('rmTitle').value = '';
-  document.getElementById('rmNote').value = '';
-  document.getElementById('rmDueDate').value = '';
-  document.getElementById('rmPriority').value = 'medium';
-  document.getElementById('rmAssignSearch').value = me.name;
-  document.getElementById('rmAssignId').value = me.id;
-  document.getElementById('addReminderModal').style.display = 'flex';
+// ── Modal ──
+function openTaskModal(task) {
+  document.getElementById('tmId').value = task?.id || '';
+  document.getElementById('tmTitle').value = task?.title || '';
+  document.getElementById('tmNote').value = task?.note || '';
+  document.getElementById('tmDue').value = task?.dueDate ? task.dueDate.slice(0,10) : '';
+  document.getElementById('tmPriority').value = task?.priority || 'medium';
+  document.getElementById('tmAssignSearch').value = task ? (task.assignedToName || '') : me.name;
+  document.getElementById('tmAssignId').value = task ? (task.assignedToId || '') : me.id;
+  document.getElementById('taskModalTitle').textContent = task ? 'Edit Task' : 'New Task';
+  document.getElementById('taskModal').style.display = 'flex';
 }
-function closeAddReminder() { document.getElementById('addReminderModal').style.display = 'none'; }
+function closeTaskModal() { document.getElementById('taskModal').style.display = 'none'; }
 
-function searchAssignUser() {
-  const q = document.getElementById('rmAssignSearch').value.trim().toLowerCase();
-  document.getElementById('rmAssignId').value = '';
-  const dd = document.getElementById('rmAssignDropdown');
+function editTask(id) {
+  const t = ALL_TASKS.find(x => x.id === id);
+  if (t) openTaskModal(t);
+}
+
+function searchAssign() {
+  const q = document.getElementById('tmAssignSearch').value.trim().toLowerCase();
+  document.getElementById('tmAssignId').value = '';
+  const dd = document.getElementById('tmAssignDd');
   if (!q) { dd.style.display='none'; return; }
-  const matches = ALL_USERS.filter(u => u.name && u.name.toLowerCase().includes(q)).slice(0,8);
-  if (!matches.length) { dd.style.display='none'; return; }
-  dd.innerHTML = matches.map(u => `<div class="usd-item" onclick="pickAssignUser('${u.id}','${escHtml(u.name)}')">${escHtml(u.name)} <span style="color:#aaa;font-size:11px">${u.title||''}</span></div>`).join('');
+  const hits = ALL_USERS.filter(u => u.name && u.name.toLowerCase().includes(q)).slice(0,8);
+  if (!hits.length) { dd.style.display='none'; return; }
+  dd.innerHTML = hits.map(u => `<div class="usd-item" onclick="pickAssign('${u.id}','${esc(u.name)}')">${esc(u.name)}<span style="color:var(--text-muted);font-size:11px;margin-left:6px">${u.title||''}</span></div>`).join('');
   dd.style.display = 'block';
 }
-function pickAssignUser(id, name) {
-  document.getElementById('rmAssignId').value = id;
-  document.getElementById('rmAssignSearch').value = name;
-  document.getElementById('rmAssignDropdown').style.display = 'none';
+function pickAssign(id, name) {
+  document.getElementById('tmAssignId').value = id;
+  document.getElementById('tmAssignSearch').value = name;
+  document.getElementById('tmAssignDd').style.display = 'none';
 }
 document.addEventListener('click', e => {
-  if (!e.target.closest('#rmAssignSearch') && !e.target.closest('#rmAssignDropdown'))
-    document.getElementById('rmAssignDropdown').style.display='none';
+  if (!e.target.closest('#tmAssignSearch') && !e.target.closest('#tmAssignDd'))
+    document.getElementById('tmAssignDd').style.display = 'none';
 });
 
-async function saveReminder() {
-  const title = document.getElementById('rmTitle').value.trim();
-  const assignedToId = document.getElementById('rmAssignId').value;
+async function saveTask() {
+  const id = document.getElementById('tmId').value;
+  const title = document.getElementById('tmTitle').value.trim();
+  const assignedToId = document.getElementById('tmAssignId').value;
   if (!title) return showToast('Please enter a title', 'error');
   if (!assignedToId) return showToast('Please select a member to assign to', 'error');
   const body = {
-    id: 'rem_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
     title,
-    note: document.getElementById('rmNote').value.trim() || null,
-    dueDate: document.getElementById('rmDueDate').value || null,
-    priority: document.getElementById('rmPriority').value,
+    note: document.getElementById('tmNote').value.trim() || null,
+    dueDate: document.getElementById('tmDue').value || null,
+    priority: document.getElementById('tmPriority').value,
     assignedToId,
   };
-  await apiPost('/api/reminders', body);
-  closeAddReminder();
-  showToast('Reminder saved');
-  const remData = await apiGet('/api/reminders');
-  ALL_REMINDERS = remData || [];
-  renderStats();
-  renderList();
-  refreshReminderCount();
+  if (id) {
+    await apiPut(`/api/reminders/${id}`, body);
+    showToast('Task updated');
+  } else {
+    await apiPost('/api/reminders', { ...body, id: 'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,6) });
+    showToast('Task created');
+  }
+  closeTaskModal();
+  ALL_TASKS = await apiGet('/api/reminders');
+  updateCounts(); renderStats(); renderList(); refreshReminderCount();
 }
 
 init();
