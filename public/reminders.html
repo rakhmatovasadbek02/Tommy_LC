@@ -91,6 +91,14 @@
     .task-btn:hover { background:var(--bg); color:var(--text); }
     .task-btn.danger:hover { background:#fde8e8; border-color:#fbb; color:#c0392b; }
 
+    /* Countdown timer pill */
+    .task-timer { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:20px; font-size:10px; font-weight:700; }
+    .task-timer.timer-ok     { background:#eef2ff; color:#3b5bdb; }
+    .task-timer.timer-soon   { background:#fff3e0; color:#e67e22; }
+    .task-timer.timer-urgent { background:#fde8e8; color:#c0392b; animation:pulse .9s infinite alternate; }
+    .task-timer.timer-over   { background:#fde8e8; color:#c0392b; }
+    @keyframes pulse { from{opacity:1} to{opacity:.55} }
+
     /* Drag and drop */
     .task-card { cursor:pointer; }
     .task-card[draggable="true"] { cursor:grab; }
@@ -405,13 +413,25 @@ function cardHTML(t) {
   const PRIO_COLORS = { high:'#c0392b', medium:'#e67e22', low:'#27ae60' };
   const prioColor = PRIO_COLORS[t.priority] || '#999';
 
+  // Build ISO deadline for timer
+  let dueIso = '';
+  if (t.dueDate) {
+    const timeStr = t.dueTime ? t.dueTime.slice(0,5) : '23:59';
+    dueIso = t.dueDate.slice(0,10) + 'T' + timeStr + ':00';
+  }
+  const showTimer = dueIso && t.status !== 'completed';
+  const timerHtml = showTimer
+    ? `<span class="task-timer" data-due="${dueIso}">${timerText(dueIso)}</span>`
+    : '';
+
   return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''} onclick="showTaskDetail('${t.id}')">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:${t.note?'5px':'0'}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
       <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
       <span style="font-size:10px;font-weight:700;color:${prioColor};white-space:nowrap;flex-shrink:0;margin-top:2px">${cap(t.priority)}</span>
     </div>
     ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
-    <div class="task-footer" style="margin-top:10px">
+    ${timerHtml ? `<div style="margin-top:7px">${timerHtml}</div>` : ''}
+    <div class="task-footer" style="margin-top:8px">
       <div class="task-footer-left" style="flex:1;min-width:0">
         ${dueLabel ? `<span class="pill pill-due${isOverdueDue?' overdue':''}" style="font-size:10px">📅 ${dueLabel}</span>` : ''}
         ${personLabel ? `<span class="pill pill-person" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(personLabel)}</span>` : ''}
@@ -544,6 +564,37 @@ async function saveTask() {
     updateCounts(); renderStats(); renderList(); refreshReminderCount();
   } catch(e) { showToast(e.message || 'Error saving', 'error'); }
 }
+
+// Countdown timer helpers
+function timerText(isoStr) {
+  const diff = new Date(isoStr) - Date.now();
+  if (diff <= 0) return '⏰ Overdue';
+  const totalMin = Math.floor(diff / 60000);
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const m = totalMin % 60;
+  if (d > 0) return `⏳ ${d}d ${h}h left`;
+  if (h > 0) return `⏳ ${h}h ${m}m left`;
+  return `⚡ ${m}m left`;
+}
+
+function timerClass(isoStr) {
+  const diff = new Date(isoStr) - Date.now();
+  if (diff <= 0) return 'timer-over';
+  const min = diff / 60000;
+  if (min < 60) return 'timer-urgent';
+  if (min < 180) return 'timer-soon';
+  return 'timer-ok';
+}
+
+function tickTimers() {
+  document.querySelectorAll('.task-timer[data-due]').forEach(el => {
+    const iso = el.dataset.due;
+    el.textContent = timerText(iso);
+    el.className = 'task-timer ' + timerClass(iso);
+  });
+}
+setInterval(tickTimers, 30000); // refresh every 30s
 
 // Print section
 const FILE_NUMS = [...Array.from({length:12}, (_,i) => String(i+1)), '1-6', '7-12', 'Final'];
