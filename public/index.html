@@ -177,6 +177,7 @@ onblur="this.style.borderColor='var(--border)'">
 </div>
 </div>
 </div>
+<div class="form-group"><label>Theme *</label><input type="text" id="spTheme" placeholder="e.g. Past Simple, Reading comprehension…"></div>
 </div>
 <div class="modal-footer">
 <button class="btn btn-outline" onclick="closeModal('supportModal')">Cancel</button>
@@ -525,8 +526,11 @@ document.addEventListener('click', e=>{ if(!e.target.closest('#spStudentResults'
 function supBuildTimes(teacher, want){
 const sh = teacher ? supShiftFor(teacher) : null;
 const lo = sh ? spMin(sh.start) : 8*60, hi = sh ? spMin(sh.end) : 21*60+30;
-let times=''; for(let t=lo; t<=hi-30; t+=30){ const hh=String(Math.floor(t/60)).padStart(2,'0'), mm=String(t%60).padStart(2,'0'); times+=`<option>${hh}:${mm}</option>`; }
-const sel=document.getElementById('spTime'); sel.innerHTML=times||'<option disabled>No slots</option>';
+const nowTz = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+const isToday = supportDateISO === nowTz.toISOString().split('T')[0];
+const nowMin = isToday ? nowTz.getHours()*60 + nowTz.getMinutes() : 0;
+let times=''; for(let t=lo; t<=hi-30; t+=30){ if(t <= nowMin && isToday) continue; const hh=String(Math.floor(t/60)).padStart(2,'0'), mm=String(t%60).padStart(2,'0'); times+=`<option>${hh}:${mm}</option>`; }
+const sel=document.getElementById('spTime'); sel.innerHTML=times||'<option disabled>No available slots</option>';
 if (want && [...sel.options].some(o=>o.value===want)) sel.value=want;
 }
 function onSupTeacherChange(){ supBuildTimes(document.getElementById('spTeacher').value); }
@@ -540,9 +544,11 @@ const pre = (prefillTeacher && typeof prefillTeacher==='string') ? prefillTeache
 if (pre) document.getElementById('spTeacher').value = pre;
 supBuildTimes(pre, (prefillTime && typeof prefillTime==='string') ? prefillTime : '09:00');
 document.getElementById('spStudentSearch').value=''; document.getElementById('spStudentId').value=''; document.getElementById('spStudentResults').style.display='none';
+document.getElementById('spTheme').value='';
 openModal('supportModal');
 }
 async function saveSupport() {
+const theme = document.getElementById('spTheme').value.trim();
 const data = {
 id: genId(),
 date: supportDateISO,
@@ -550,9 +556,11 @@ time: document.getElementById('spTime').value,
 duration: _spDur,
 teacher: document.getElementById('spTeacher').value,
 studentId: document.getElementById('spStudentId').value,
+theme,
 };
 if (!data.teacher) { showToast('Select a support teacher.','error'); return; }
 if (!data.studentId) { showToast('Select a student.','error'); return; }
+if (!theme) { showToast('Theme is required.','error'); return; }
 try {
 await apiPost('/api/support', data);
 closeModal('supportModal');

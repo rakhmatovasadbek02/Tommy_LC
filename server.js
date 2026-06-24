@@ -1289,8 +1289,19 @@ app.get('/api/support/:date', async (req, res) => {
 
 app.post('/api/support', async (req, res) => {
   try {
-    const { id, date, time, duration, teacher, studentId } = req.body;
+    const { id, date, time, duration, teacher, studentId, theme } = req.body;
     if (!date || !time || !teacher || !studentId) return res.status(400).json({ error: 'Date, time, teacher and student are required.' });
+    if (!theme || !theme.trim()) return res.status(400).json({ error: 'Theme is required.' });
+    // Block past times
+    const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+    const todayISO = nowTz.toISOString().split('T')[0];
+    if (date < todayISO) return res.status(409).json({ error: 'Cannot book sessions in the past.' });
+    if (date === todayISO) {
+      const [hh, mm] = time.split(':').map(Number);
+      const slotMin = hh * 60 + mm;
+      const nowMin = nowTz.getHours() * 60 + nowTz.getMinutes();
+      if (slotMin <= nowMin) return res.status(409).json({ error: 'This time slot has already passed.' });
+    }
     const dur = Number(duration) === 60 ? 60 : 30;
     const start = toMin(time), end = start + dur;
     // Enforce the teacher's working shift for this day type (odd/even).
@@ -1312,8 +1323,8 @@ app.post('/api/support', async (req, res) => {
     if (overlap.length >= 2) return res.status(409).json({ error: 'Both support slots are already taken at this time.' });
     if (overlap.some(s => s.teacher === teacher)) return res.status(409).json({ error: 'This teacher already has a session at this time.' });
     await pool.query(
-      'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id) VALUES($1,$2,$3,$4,$5,$6)',
-      [id, date, time, dur, teacher, studentId]
+      'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme) VALUES($1,$2,$3,$4,$5,$6,$7)',
+      [id, date, time, dur, teacher, studentId, theme.trim()]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
