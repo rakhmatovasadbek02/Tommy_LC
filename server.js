@@ -1379,7 +1379,10 @@ app.get('/api/support-dashboard', async (req, res) => {
     const userRoles = Array.isArray(me.roles) && me.roles.length ? me.roles : [me.title];
     const isSupport = userRoles.some(r => String(r).trim().toLowerCase() === 'support teacher');
 
-    const [sessR, stuR, grpR, fineR, todayR] = await Promise.all([
+    const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }));
+    const monthStart = `${tzNow.getFullYear()}-${String(tzNow.getMonth()+1).padStart(2,'0')}-01`;
+
+    const [sessR, stuR, grpR, fineR, todayR, monthR, shiftR] = await Promise.all([
       isSupport
         ? pool.query(`SELECT DISTINCT ON (student_id) student_id, date, theme, attended FROM support_sessions WHERE teacher=$1 ORDER BY student_id, date DESC`, [myName])
         : pool.query(`SELECT DISTINCT ON (student_id, teacher) student_id, teacher, date, theme, attended FROM support_sessions ORDER BY student_id, teacher, date DESC`),
@@ -1389,6 +1392,12 @@ app.get('/api/support-dashboard', async (req, res) => {
       isSupport
         ? pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today])
         : pool.query(`SELECT * FROM support_sessions WHERE date=$1 ORDER BY teacher, time`, [today]),
+      isSupport
+        ? pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE teacher=$1 AND date>=$2`, [myName, monthStart])
+        : pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE date>=$1`, [monthStart]),
+      isSupport
+        ? pool.query(`SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE (first_name||' '||last_name)=$1 LIMIT 1`, [myName])
+        : pool.query(`SELECT first_name||' '||last_name AS name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '["Support Teacher"]'`),
     ]);
 
     const stuMap = new Map(stuR.rows.map(s => [s.id, s]));
@@ -1433,7 +1442,83 @@ app.get('/api/support-dashboard', async (req, res) => {
       };
     });
 
-    res.json({ students, todaySessions, totalStudents: students.length, isAdmin: !isSupport });
+    // Helper: minutes → session units (30 min = 1, 60 min = 2)
+    const toUnits = dur => Math.round((parseInt(dur)||30) / 30);
+
+    // Helper: working minutes per day from shift row
+    const shiftMins = (sh, isOdd) => {
+      const s = isOdd ? sh.support_odd_start : sh.support_even_start;
+      const e = isOdd ? sh.support_odd_end   : sh.support_even_end;
+      if (!s || !e) return 0;
+      const [sh1,sm1] = s.split(':').map(Number); const [eh,em] = e.split(':').map(Number);
+      return Math.max(0, (eh*60+em) - (sh1*60+sm1));
+    };
+
+    // Count working days in current month up to today, compute capacity
+    const countWorkingDays = (sh) => {
+      let odd=0, even=0;
+      const y=tzNow.getFullYear(), m=tzNow.getMonth();
+      const days = tzNow.getDate();
+      for (let d=1; d<=days; d++) {
+        const dt = new Date(y, m, d);
+        const dayNum = Math.ceil(d/1);
+        if (d%2===1) odd++; else even++;
+      }
+      return { odd, even };
+    };
+
+    let stats = {};
+    if (isSupport) {
+      const sh = shiftR.rows[0] || {};
+      const { odd, even } = countWorkingDays(sh);
+      const capacityMins = odd * shiftMins(sh, true) + even * shiftMins(sh, false);
+      const capacitySessions = Math.floor(capacityMins / 30);
+
+      const monthSessions = monthR.rows;
+      const taught = monthSessions.reduce((sum, s) => sum + toUnits(s.duration), 0);
+      const absences = monthSessions.filter(s => s.attended === false).length;
+
+      stats = {
+        todayCount: todayR.rows.length,
+        absencesMonth: absences,
+        capacityMonth: capacitySessions,
+        taughtMonth: taught,
+      };
+    } else {
+      // Admin/CEO/Manager view
+      const monthSessions = monthR.rows;
+      const totalLessons = monthSessions.length;
+      const heldLessons = monthSessions.filter(s => s.attended === true).length;
+      const finedStudents = fineR.rows.map(f => {
+        const stu = stuMap.get(f.student_id);
+        return {
+          name: stu ? stu.first_name+' '+stu.last_name : '?',
+          studentId: f.student_id,
+          blockedUntil: f.blocked_until,
+        };
+      });
+
+      // Per-teacher breakdown
+      const teacherMap = new Map();
+      monthSessions.forEach(s => {
+        if (!teacherMap.has(s.teacher)) teacherMap.set(s.teacher, { total:0, held:0 });
+        const t = teacherMap.get(s.teacher);
+        t.total += toUnits(s.duration);
+        if (s.attended === true) t.held += toUnits(s.duration);
+      });
+      const teacherStats = Array.from(teacherMap.entries()).map(([name, v]) => ({ name, ...v }))
+        .sort((a,b) => b.total - a.total);
+
+      stats = {
+        todayCount: todayR.rows.length,
+        totalLessonsMonth: monthSessions.reduce((s,x) => s + toUnits(x.duration), 0),
+        heldLessonsMonth: monthSessions.filter(x=>x.attended===true).reduce((s,x) => s + toUnits(x.duration), 0),
+        finedStudents,
+        teacherStats,
+      };
+    }
+
+    res.json({ students, todaySessions, totalStudents: students.length, isAdmin: !isSupport, stats });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

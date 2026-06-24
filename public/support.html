@@ -10,6 +10,12 @@
     .stat-card-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
     .stat-card-val{font-size:28px;font-weight:900;color:var(--text)}
     .stat-card.red .stat-card-val{color:var(--crimson)}
+    .teacher-stats{background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:28px}
+    .teacher-stats table{width:100%;border-collapse:collapse}
+    .teacher-stats th{padding:10px 16px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);text-align:left;background:var(--surface)}
+    .teacher-stats td{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border)}
+    .teacher-stats tr:last-child td{border-bottom:none}
+    .fined-list{display:flex;flex-direction:column;gap:8px;margin-bottom:28px}
     .section-title{font-size:13px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
     .session-list{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
     .session-card{background:white;border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -44,6 +50,7 @@
   </div>
   <div class="page-content">
     <div class="stat-row" id="statRow"></div>
+    <div id="adminExtra"></div>
     <div class="section-title">Today's Sessions</div>
     <div id="todaySessions" class="session-list"></div>
     <div class="section-title">My Students</div>
@@ -81,12 +88,57 @@
 
   function render() {
     // Stats
-    const fined = data.students.filter(s => s.fined).length;
-    document.getElementById('statRow').innerHTML = `
-      <div class="stat-card"><div class="stat-card-label">Today's Sessions</div><div class="stat-card-val">${data.todaySessions.length}</div></div>
-      <div class="stat-card"><div class="stat-card-label">My Students</div><div class="stat-card-val">${data.totalStudents}</div></div>
-      <div class="stat-card red"><div class="stat-card-label">Fined Students</div><div class="stat-card-val">${fined}</div></div>
-    `;
+    const st = data.stats || {};
+    function statCard(label, val, red) {
+      return `<div class="stat-card${red?' red':''}"><div class="stat-card-label">${label}</div><div class="stat-card-val">${val}</div></div>`;
+    }
+    if (!data.isAdmin) {
+      document.getElementById('statRow').innerHTML =
+        statCard("Today's Lessons", st.todayCount ?? data.todaySessions.length) +
+        statCard('Absences This Month', st.absencesMonth ?? '—', st.absencesMonth > 0) +
+        statCard('Sessions Capacity', st.capacityMonth ?? '—') +
+        statCard('Sessions Taught', st.taughtMonth ?? '—');
+      document.getElementById('adminExtra').innerHTML = '';
+    } else {
+      document.getElementById('statRow').innerHTML =
+        statCard("Today's Lessons", st.todayCount ?? data.todaySessions.length) +
+        statCard('Total This Month', st.totalLessonsMonth ?? '—') +
+        statCard('Held This Month', st.heldLessonsMonth ?? '—') +
+        statCard('Fined Students', (st.finedStudents||[]).length, (st.finedStudents||[]).length > 0);
+
+      // Fined students list
+      const fineHtml = (st.finedStudents||[]).length ? `
+        <div class="section-title">Fined Students</div>
+        <div class="fined-list">${(st.finedStudents||[]).map(f=>`
+          <div class="session-card" style="padding:12px 16px">
+            <div class="session-info" style="flex:1">
+              <div class="session-name">${f.name}</div>
+              <div class="session-meta">Blocked until ${new Date(f.blockedUntil).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+            </div>
+            <span class="fine-badge">Fined</span>
+          </div>`).join('')}</div>` : '';
+
+      // Per-teacher comparison table
+      const teacherHtml = (st.teacherStats||[]).length ? `
+        <div class="section-title">Support Teachers — This Month</div>
+        <div class="teacher-stats"><table>
+          <thead><tr><th>Teacher</th><th>Sessions Assigned</th><th>Sessions Held</th><th>Completion</th></tr></thead>
+          <tbody>${(st.teacherStats||[]).map(t=>{
+            const pct = t.total ? Math.round(t.held/t.total*100) : 0;
+            return `<tr>
+              <td style="font-weight:600">${t.name}</td>
+              <td>${t.total}</td>
+              <td>${t.held}</td>
+              <td><div style="display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:6px;border-radius:3px;background:var(--border)"><div style="width:${pct}%;height:100%;border-radius:3px;background:var(--crimson)"></div></div>
+                <span style="font-size:12px;color:var(--muted);min-width:32px">${pct}%</span>
+              </div></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>` : '';
+
+      document.getElementById('adminExtra').innerHTML = teacherHtml + fineHtml;
+    }
 
     // Today's sessions
     const sl = document.getElementById('todaySessions');
