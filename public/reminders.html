@@ -109,7 +109,7 @@
     .print-toggle:hover,.print-toggle.active { border-color:#3b5bdb;background:#eef2ff;color:#3b5bdb; }
     .print-section { display:none;margin-top:10px;padding:14px;background:#f8f9ff;border:1px solid #c7d2fe;border-radius:10px; }
     .print-section.open { display:block; }
-    .print-grid { display:grid;grid-template-columns:1fr 1fr 80px;gap:10px; }
+    .print-grid { display:grid;grid-template-columns:1fr 90px 90px 80px;gap:10px; }
 
     /* Modal */
     .usd { position:relative; }
@@ -181,13 +181,22 @@
             <div class="form-group" style="margin:0">
               <label style="font-size:11px">Level</label>
               <select id="prLevel" class="form-control" onchange="buildPrintTitle()">
-                <option value="">Select level…</option>
+                <option value="">Select…</option>
               </select>
             </div>
             <div class="form-group" style="margin:0">
-              <label style="font-size:11px">File Test</label>
-              <select id="prFile" class="form-control" onchange="buildPrintTitle()">
-                <option value="">Select file…</option>
+              <label style="font-size:11px">Number</label>
+              <select id="prFileNum" class="form-control" onchange="onPrintNumChange()">
+                <option value="">—</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0" id="prLetterWrap">
+              <label style="font-size:11px">Letter</label>
+              <select id="prFileLetter" class="form-control" onchange="buildPrintTitle()">
+                <option value="">—</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
               </select>
             </div>
             <div class="form-group" style="margin:0">
@@ -422,7 +431,8 @@ function closeTaskModal() {
   document.getElementById('printSection').classList.remove('open');
   document.getElementById('printToggle').classList.remove('active');
   document.getElementById('prLevel').value = '';
-  document.getElementById('prFile').value = '';
+  document.getElementById('prFileNum').value = '';
+  document.getElementById('prFileLetter').value = '';
   document.getElementById('prAmount').value = '';
   document.getElementById('tmTitle').dataset.autofilled = '';
 }
@@ -478,18 +488,25 @@ async function saveTask() {
 }
 
 // Print section
-const FILE_TESTS = [
-  ...Array.from({length:12}, (_,i) => ['A','B','C'].map(l => `${i+1}${l}`)).flat(),
-  '1-6','7-12','Final'
-];
-
+const FILE_NUMS = [...Array.from({length:12}, (_,i) => String(i+1)), '1-6', '7-12', 'Final'];
 const PRINT_LEVELS = ['Beginner', 'Elementary', 'Pre-Intermediate', 'Intermediate'];
 
 function initPrintSection() {
-  const prFile = document.getElementById('prFile');
-  FILE_TESTS.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; prFile.appendChild(o); });
+  const prFileNum = document.getElementById('prFileNum');
+  FILE_NUMS.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; prFileNum.appendChild(o); });
   const prLevel = document.getElementById('prLevel');
   PRINT_LEVELS.forEach(l => { const o = document.createElement('option'); o.value = l; o.textContent = l; prLevel.appendChild(o); });
+}
+
+function onPrintNumChange() {
+  const num = document.getElementById('prFileNum').value;
+  const letterWrap = document.getElementById('prLetterWrap');
+  const letterSel = document.getElementById('prFileLetter');
+  const noLetter = ['1-6', '7-12', 'Final'].includes(num) || !num;
+  letterWrap.style.opacity = noLetter ? '0.35' : '1';
+  letterWrap.style.pointerEvents = noLetter ? 'none' : '';
+  if (noLetter) letterSel.value = '';
+  buildPrintTitle();
 }
 
 function togglePrintSection() {
@@ -499,7 +516,8 @@ function togglePrintSection() {
   btn.classList.toggle('active', open);
   if (!open) {
     document.getElementById('prLevel').value = '';
-    document.getElementById('prFile').value = '';
+    document.getElementById('prFileNum').value = '';
+    document.getElementById('prFileLetter').value = '';
     document.getElementById('prAmount').value = '';
     // Only clear title if it was auto-generated
     if (document.getElementById('tmTitle').dataset.autofilled === 'true') {
@@ -511,13 +529,15 @@ function togglePrintSection() {
 
 function buildPrintTitle() {
   const level  = document.getElementById('prLevel').value;
-  const file   = document.getElementById('prFile').value;
+  const num    = document.getElementById('prFileNum').value;
+  const letter = document.getElementById('prFileLetter').value;
   const amount = document.getElementById('prAmount').value;
-  if (!file && !amount) return;
+  if (!num && !amount) return;
+  const fileStr = num ? (letter ? `${num}${letter}` : num) : '';
   const parts = ['Print'];
-  if (file)   parts.push(`File Test ${file}`);
-  if (level)  parts.push(`for ${level}`);
-  if (amount) parts.push(`× ${amount}`);
+  if (fileStr) parts.push(`File Test ${fileStr}`);
+  if (level)   parts.push(`for ${level}`);
+  if (amount)  parts.push(`× ${amount}`);
   const title = document.getElementById('tmTitle');
   title.value = parts.join(' ');
   title.dataset.autofilled = 'true';
