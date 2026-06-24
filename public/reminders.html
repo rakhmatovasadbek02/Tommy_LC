@@ -104,6 +104,13 @@
     .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
     .empty-state svg { display:block; margin:0 auto 14px; opacity:.25; }
 
+    /* Print section */
+    .print-toggle { display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:5px 12px;border-radius:7px;border:1px dashed var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);transition:all .14s; }
+    .print-toggle:hover,.print-toggle.active { border-color:#3b5bdb;background:#eef2ff;color:#3b5bdb; }
+    .print-section { display:none;margin-top:10px;padding:14px;background:#f8f9ff;border:1px solid #c7d2fe;border-radius:10px; }
+    .print-section.open { display:block; }
+    .print-grid { display:grid;grid-template-columns:1fr 1fr 80px;gap:10px; }
+
     /* Modal */
     .usd { position:relative; }
     .usd-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--white); border:1px solid var(--border); border-radius:8px; max-height:200px; overflow-y:auto; z-index:300; box-shadow:0 4px 12px rgba(0,0,0,.1); display:none; }
@@ -165,7 +172,30 @@
       <input type="hidden" id="tmId">
       <div class="form-group">
         <label>Title *</label>
-        <input type="text" id="tmTitle" class="form-control" placeholder="What needs to be done?">
+        <input type="text" id="tmTitle" class="form-control" placeholder="What needs to be done?" oninput="this.dataset.autofilled=''">
+        <button type="button" class="print-toggle" id="printToggle" onclick="togglePrintSection()">
+          🖨️ Print
+        </button>
+        <div class="print-section" id="printSection">
+          <div class="print-grid">
+            <div class="form-group" style="margin:0">
+              <label style="font-size:11px">Level</label>
+              <select id="prLevel" class="form-control" onchange="buildPrintTitle()">
+                <option value="">Select level…</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:11px">File Test</label>
+              <select id="prFile" class="form-control" onchange="buildPrintTitle()">
+                <option value="">Select file…</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:11px">Amount</label>
+              <input type="number" id="prAmount" class="form-control" min="1" placeholder="30" oninput="buildPrintTitle()">
+            </div>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>Assign To *</label>
@@ -231,6 +261,7 @@ async function init() {
     apiGet('/api/reminders'),
     apiGet('/api/members').catch(() => []),
   ]);
+  initPrintSection();
   ALL_TASKS = tasks || [];
   ALL_USERS = users || [];
   updateCounts();
@@ -386,7 +417,15 @@ function openTaskModal(task) {
   document.getElementById('taskModalTitle').textContent = task ? 'Edit Task' : 'New Task';
   document.getElementById('taskModal').classList.add('open');
 }
-function closeTaskModal() { document.getElementById('taskModal').classList.remove('open'); }
+function closeTaskModal() {
+  document.getElementById('taskModal').classList.remove('open');
+  document.getElementById('printSection').classList.remove('open');
+  document.getElementById('printToggle').classList.remove('active');
+  document.getElementById('prLevel').value = '';
+  document.getElementById('prFile').value = '';
+  document.getElementById('prAmount').value = '';
+  document.getElementById('tmTitle').dataset.autofilled = '';
+}
 
 function editTask(id) { const t = ALL_TASKS.find(x => x.id === id); if (t) openTaskModal(t); }
 
@@ -436,6 +475,55 @@ async function saveTask() {
     ALL_TASKS = await apiGet('/api/reminders');
     updateCounts(); renderStats(); renderList(); refreshReminderCount();
   } catch(e) { showToast(e.message || 'Error saving', 'error'); }
+}
+
+// Print section
+const FILE_TESTS = [
+  ...Array.from({length:12}, (_,i) => ['A','B','C'].map(l => `${i+1}${l}`)).flat(),
+  '1-6','7-12','Final'
+];
+
+async function initPrintSection() {
+  // Populate file test options
+  const prFile = document.getElementById('prFile');
+  FILE_TESTS.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; prFile.appendChild(o); });
+  // Populate levels from API
+  const prLevel = document.getElementById('prLevel');
+  try {
+    const lvls = await apiGet('/api/levels');
+    (lvls || []).forEach(l => { const o = document.createElement('option'); o.value = l.level||l; o.textContent = l.level||l; prLevel.appendChild(o); });
+  } catch(e) {}
+}
+
+function togglePrintSection() {
+  const sec = document.getElementById('printSection');
+  const btn = document.getElementById('printToggle');
+  const open = sec.classList.toggle('open');
+  btn.classList.toggle('active', open);
+  if (!open) {
+    document.getElementById('prLevel').value = '';
+    document.getElementById('prFile').value = '';
+    document.getElementById('prAmount').value = '';
+    // Only clear title if it was auto-generated
+    if (document.getElementById('tmTitle').dataset.autofilled === 'true') {
+      document.getElementById('tmTitle').value = '';
+      document.getElementById('tmTitle').dataset.autofilled = '';
+    }
+  }
+}
+
+function buildPrintTitle() {
+  const level  = document.getElementById('prLevel').value;
+  const file   = document.getElementById('prFile').value;
+  const amount = document.getElementById('prAmount').value;
+  if (!file && !amount) return;
+  const parts = ['Print'];
+  if (file)   parts.push(`File Test ${file}`);
+  if (level)  parts.push(`for ${level}`);
+  if (amount) parts.push(`× ${amount}`);
+  const title = document.getElementById('tmTitle');
+  title.value = parts.join(' ');
+  title.dataset.autofilled = 'true';
 }
 
 // Status order index for forward-only enforcement
