@@ -92,9 +92,34 @@
     .task-btn.danger:hover { background:#fde8e8; border-color:#fbb; color:#c0392b; }
 
     /* Drag and drop */
+    .task-card { cursor:pointer; }
     .task-card[draggable="true"] { cursor:grab; }
     .task-card[draggable="true"]:active { cursor:grabbing; }
     .task-card.dragging { opacity:.3; transform:scale(.98); }
+
+    /* Task detail panel */
+    .detail-overlay { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,.35); align-items:center; justify-content:center; }
+    .detail-overlay.open { display:flex; }
+    .detail-panel { background:#fff; border-radius:16px; width:460px; max-width:95vw; max-height:90vh; overflow-y:auto; box-shadow:0 16px 48px rgba(0,0,0,.18); animation:modalIn .18s ease; }
+    .detail-header { padding:20px 22px 0; display:flex; align-items:flex-start; gap:12px; }
+    .detail-status-bar { width:4px; border-radius:4px; flex-shrink:0; margin-top:4px; align-self:stretch; min-height:20px; }
+    .detail-title { font-size:17px; font-weight:800; color:var(--text); line-height:1.35; flex:1; }
+    .detail-close { width:30px; height:30px; border:none; background:var(--bg); border-radius:8px; cursor:pointer; font-size:18px; color:var(--text-muted); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .12s; }
+    .detail-close:hover { background:var(--border); }
+    .detail-body { padding:16px 22px 22px; display:flex; flex-direction:column; gap:14px; }
+    .detail-row { display:flex; align-items:flex-start; gap:12px; }
+    .detail-lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted); min-width:90px; padding-top:2px; flex-shrink:0; }
+    .detail-val { font-size:13px; color:var(--text); font-weight:500; line-height:1.5; }
+    .detail-note { background:var(--bg); border-radius:8px; padding:10px 12px; font-size:13px; color:var(--text); line-height:1.6; margin-top:2px; }
+    .detail-footer { padding:14px 22px 20px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+    .detail-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:20px; font-size:12px; font-weight:700; }
+    .detail-badge.pending    { background:#eef2ff; color:#3b5bdb; }
+    .detail-badge.in_process { background:#fff3e0; color:#e67e22; }
+    .detail-badge.completed  { background:#e8f5e9; color:#27ae60; }
+    .detail-badge.overdue    { background:#fde8e8; color:#c0392b; }
+    .detail-badge.high   { background:#fde8e8; color:#c0392b; }
+    .detail-badge.medium { background:#fef3cd; color:#b7791f; }
+    .detail-badge.low    { background:#e8f5e9; color:#27ae60; }
     .kanban-col.drag-over { background:#f0f4ff; border-color:#a5b4fc; }
     .kanban-col.drag-over .kanban-col-header { background:#eef2ff; }
     .kanban-col.drag-blocked { background:#fff8f8; border-color:#fca5a5; }
@@ -247,6 +272,19 @@
   </div>
 </div>
 
+<!-- Task Detail Panel -->
+<div id="detailOverlay" class="detail-overlay" onclick="closeDetail(event)">
+  <div class="detail-panel" onclick="event.stopPropagation()">
+    <div class="detail-header">
+      <div class="detail-status-bar" id="detailBar"></div>
+      <div class="detail-title" id="detailTitle"></div>
+      <button class="detail-close" onclick="closeDetailPanel()">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-footer" id="detailFooter"></div>
+  </div>
+</div>
+
 <script src="shared.js"></script>
 <script>
 requireAuth();
@@ -362,7 +400,7 @@ function cardHTML(t) {
   const PRIO_COLORS = { high:'#c0392b', medium:'#e67e22', low:'#27ae60' };
   const prioColor = PRIO_COLORS[t.priority] || '#999';
 
-  return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''}>
+  return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''} onclick="showTaskDetail('${t.id}')">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:${t.note?'5px':'0'}">
       <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
       <span style="font-size:10px;font-weight:700;color:${prioColor};white-space:nowrap;flex-shrink:0;margin-top:2px">${cap(t.priority)}</span>
@@ -374,8 +412,8 @@ function cardHTML(t) {
         ${personLabel ? `<span class="pill pill-person" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(personLabel)}</span>` : ''}
       </div>
       <div class="task-footer-right">
-        ${canEdit   ? `<button class="task-btn" onclick="editTask('${t.id}')">Edit</button>` : ''}
-        ${canDelete ? `<button class="task-btn danger" onclick="deleteTask('${t.id}')">Del</button>` : ''}
+        ${canEdit   ? `<button class="task-btn" onclick="event.stopPropagation();editTask('${t.id}')">Edit</button>` : ''}
+        ${canDelete ? `<button class="task-btn danger" onclick="event.stopPropagation();deleteTask('${t.id}')">Del</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -537,6 +575,52 @@ function buildPrintTitle() {
   title.value = parts.join(' ');
   title.dataset.autofilled = 'true';
 }
+
+// Task detail panel
+const STATUS_BAR_COLOR = { pending:'#3b5bdb', in_process:'#e67e22', completed:'#27ae60', overdue:'#c0392b' };
+
+function showTaskDetail(id) {
+  const t = ALL_TASKS.find(x => x.id === id);
+  if (!t) return;
+
+  document.getElementById('detailTitle').textContent = t.title;
+  document.getElementById('detailBar').style.background = STATUS_BAR_COLOR[t.status] || '#ccc';
+
+  const isSelf = t.assignedToId === t.createdById;
+  const dueStr = t.dueDate
+    ? fmtDate(t.dueDate) + (t.dueTime ? ' at ' + t.dueTime.slice(0,5) : '')
+    : (t.dueTime ? t.dueTime.slice(0,5) : '—');
+
+  const rows = [
+    { lbl:'Status',    val:`<span class="detail-badge ${t.status}">${STATUS_LABEL[t.status]}</span>` },
+    { lbl:'Priority',  val:`<span class="detail-badge ${t.priority}">${cap(t.priority)}</span>` },
+    { lbl:'Assigned to', val: esc(t.assignedToName || '—') },
+    { lbl:'Created by',  val: esc(t.createdByName  || '—') + (isSelf ? ' <span style="color:var(--text-muted);font-size:11px">(self)</span>' : '') },
+    { lbl:'Due',         val: dueStr },
+    { lbl:'Created',     val: fmtDate(t.createdAt) },
+  ];
+
+  document.getElementById('detailBody').innerHTML =
+    rows.map(r => `<div class="detail-row">
+      <span class="detail-lbl">${r.lbl}</span>
+      <span class="detail-val">${r.val}</span>
+    </div>`).join('') +
+    (t.note ? `<div><div class="detail-lbl" style="margin-bottom:6px">Note</div><div class="detail-note">${esc(t.note)}</div></div>` : '');
+
+  const canEdit   = isCEO || (t.createdById === me.id && t.status !== 'overdue');
+  const canDelete = isCEO || (t.createdById === me.id && t.status !== 'overdue');
+  document.getElementById('detailFooter').innerHTML =
+    (canEdit   ? `<button class="btn btn-secondary btn-sm" onclick="closeDetailPanel();editTask('${t.id}')">Edit</button>` : '') +
+    (canDelete ? `<button class="btn btn-sm" style="background:#fde8e8;color:#c0392b;border:1px solid #fca5a5" onclick="closeDetailPanel();deleteTask('${t.id}')">Delete</button>` : '');
+
+  if (!canEdit && !canDelete) document.getElementById('detailFooter').style.display = 'none';
+  else document.getElementById('detailFooter').style.display = '';
+
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetailPanel() { document.getElementById('detailOverlay').classList.remove('open'); }
+function closeDetail(e) { if (e.target === document.getElementById('detailOverlay')) closeDetailPanel(); }
 
 // Status order index for forward-only enforcement
 const STATUS_IDX = { pending:0, in_process:1, completed:2, overdue:3 };
