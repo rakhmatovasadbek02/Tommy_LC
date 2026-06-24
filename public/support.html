@@ -87,23 +87,24 @@
 
     <div class="section-title">Today's Sessions</div>
     <div id="todaySessions" class="session-list"></div>
-    <div class="section-title">My Students</div>
-    <div class="student-table">
-      <table>
-        <thead id="studentHead">
-          <tr>
-            <th>Student</th>
-            <th>Group</th>
-            <th>Level</th>
-            <th>Current Unit</th>
-            <th>Main Teacher</th>
-            <th>Support Theme</th>
-            <th>Last Session</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="studentBody"></tbody>
-      </table>
+    <div id="historySection" style="display:none">
+      <div class="section-title">Sessions History</div>
+      <div class="student-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Support Teacher</th>
+              <th>Student</th>
+              <th>Duration</th>
+              <th>Theme</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -240,32 +241,26 @@
       }).join('');
     }
 
-    // Students table
-    const tb = document.getElementById('studentBody');
-    if (data.isAdmin) {
-      document.getElementById('studentHead').innerHTML = '<tr><th>Student</th><th>Support Teacher</th><th>Group</th><th>Level</th><th>Current Unit</th><th>Main Teacher</th><th>Support Theme</th><th>Last Session</th><th>Status</th></tr>';
-    }
-    const cols = data.isAdmin ? 9 : 8;
-    if (!data.students.length) {
-      tb.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--muted);padding:24px">No students assigned yet.</td></tr>`;
-    } else {
-      tb.innerHTML = data.students.map(s => {
-        const fineHtml = s.fined
-          ? `<span class="fine-badge">Fined · until ${new Date(s.blockedUntil).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>`
-          : '<span style="color:var(--muted);font-size:12px">—</span>';
-        const lastDate = s.lastDate ? new Date(s.lastDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
+    // History (admin only)
+    if (data.isAdmin && data.history && data.history.length) {
+      document.getElementById('historySection').style.display = '';
+      document.getElementById('historyBody').innerHTML = data.history.map(s => {
+        const badge = s.attended === true ? `<span class="attended-badge present">Present</span>`
+          : s.attended === false ? `<span class="attended-badge absent">Absent</span>`
+          : `<span style="color:var(--muted);font-size:12px">—</span>`;
+        const d = new Date(s.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
         return `<tr>
-          <td style="font-weight:600">${s.name}</td>
-          ${data.isAdmin ? `<td style="color:var(--muted)">${s.teacher||'—'}</td>` : ''}
-          <td>${s.groupName}</td>
-          <td style="color:var(--muted)">${s.level||'—'}</td>
-          <td style="color:var(--muted)">${s.currentUnit||'—'}</td>
-          <td>${s.mainTeacher}</td>
-          <td style="color:var(--muted)">${s.lastTheme || '—'}</td>
-          <td style="color:var(--muted)">${lastDate}</td>
-          <td>${fineHtml}</td>
+          <td style="color:var(--muted)">${d}</td>
+          <td style="font-weight:600">${s.time}</td>
+          <td>${s.teacher}</td>
+          <td style="font-weight:600">${s.studentName}</td>
+          <td style="color:var(--muted)">${s.duration} min</td>
+          <td style="color:var(--muted)">${s.theme||'—'}</td>
+          <td>${badge}</td>
         </tr>`;
       }).join('');
+    } else {
+      document.getElementById('historySection').style.display = 'none';
     }
   }
 

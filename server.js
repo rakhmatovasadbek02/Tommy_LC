@@ -1386,12 +1386,8 @@ app.get('/api/support-dashboard', async (req, res) => {
     const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }));
     const monthStart = `${tzNow.getFullYear()}-${String(tzNow.getMonth()+1).padStart(2,'0')}-01`;
 
-    const [sessR, stuR, grpR, fineR, todayR, monthR, shiftR] = await Promise.all([
-      isSupport
-        ? pool.query(`SELECT DISTINCT ON (student_id) student_id, date, theme, attended FROM support_sessions WHERE teacher=$1 ORDER BY student_id, date DESC`, [myName])
-        : pool.query(`SELECT DISTINCT ON (student_id, teacher) student_id, teacher, date, theme, attended FROM support_sessions ORDER BY student_id, teacher, date DESC`),
+    const [stuR, fineR, todayR, monthR, shiftR, historyR] = await Promise.all([
       pool.query('SELECT id, first_name, last_name FROM students WHERE archived IS NOT TRUE'),
-      pool.query('SELECT id, name, teacher, level, current_unit, student_ids FROM groups'),
       pool.query('SELECT student_id, blocked_until FROM support_fines WHERE blocked_until > NOW()'),
       isSupport
         ? pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today])
@@ -1402,37 +1398,13 @@ app.get('/api/support-dashboard', async (req, res) => {
       isSupport
         ? pool.query(`SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE (first_name||' '||last_name)=$1 LIMIT 1`, [myName])
         : pool.query(`SELECT first_name||' '||last_name AS name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '["Support Teacher"]'`),
+      !isSupport
+        ? pool.query(`SELECT * FROM support_sessions ORDER BY date DESC, time DESC LIMIT 200`)
+        : Promise.resolve({ rows: [] }),
     ]);
 
     const stuMap = new Map(stuR.rows.map(s => [s.id, s]));
     const fineMap = new Map(fineR.rows.map(f => [f.student_id, f.blocked_until]));
-
-    // Find each student's group and main teacher
-    const studentGroupMap = new Map();
-    grpR.rows.forEach(g => {
-      (g.student_ids||[]).forEach(sid => {
-        if (!studentGroupMap.has(sid)) studentGroupMap.set(sid, { groupName: g.name, teacher: g.teacher, level: g.level, currentUnit: g.current_unit });
-      });
-    });
-
-    const students = sessR.rows.map(s => {
-      const stu = stuMap.get(s.student_id);
-      if (!stu) return null;
-      const ginfo = studentGroupMap.get(s.student_id) || {};
-      return {
-        id: s.student_id,
-        name: stu.first_name + ' ' + stu.last_name,
-        teacher: s.teacher || null,
-        groupName: ginfo.groupName || '—',
-        level: ginfo.level || '—',
-        currentUnit: ginfo.currentUnit || '—',
-        mainTeacher: ginfo.teacher || '—',
-        lastTheme: s.theme || null,
-        lastDate: s.date,
-        fined: !!fineMap.get(s.student_id),
-        blockedUntil: fineMap.get(s.student_id) || null,
-      };
-    }).filter(Boolean);
 
     const todaySessions = todayR.rows.map(s => {
       const stu = stuMap.get(s.student_id);
@@ -1441,6 +1413,17 @@ app.get('/api/support-dashboard', async (req, res) => {
         studentId: s.student_id,
         studentName: stu ? stu.first_name + ' ' + stu.last_name : '?',
         teacher: s.teacher,
+        attended: s.attended,
+        theme: s.theme,
+      };
+    });
+
+    const history = historyR.rows.map(s => {
+      const stu = stuMap.get(s.student_id);
+      return {
+        id: s.id, date: s.date, time: s.time, duration: s.duration,
+        teacher: s.teacher,
+        studentName: stu ? stu.first_name + ' ' + stu.last_name : '?',
         attended: s.attended,
         theme: s.theme,
       };
@@ -1522,7 +1505,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       };
     }
 
-    res.json({ students, todaySessions, totalStudents: students.length, isAdmin: !isSupport, stats });
+    res.json({ todaySessions, history, isAdmin: !isSupport, stats });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
