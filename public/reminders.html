@@ -243,6 +243,8 @@
         <label>Assign To *</label>
         <select id="tmAssignId" class="form-control">
           <option value="">Select member…</option>
+          <option value="administration">🏢 Administration (Admin · Head Admin · Manager)</option>
+          <option disabled>──────────────</option>
         </select>
       </div>
       <div class="form-row">
@@ -304,6 +306,7 @@ renderSidebar('reminders');
 const me = getSession();
 const myRoles = (me.roles || [me.title || '']).map(r => String(r).trim().toLowerCase());
 const isCEO = myRoles.includes('ceo');
+const isAdminRole = myRoles.some(r => ['admin','head admin','manager'].includes(r));
 
 let ALL_TASKS = [];
 let ALL_USERS = [];
@@ -335,8 +338,8 @@ async function init() {
   renderList();
 }
 
-function myTasks()       { return ALL_TASKS.filter(t => t.assignedToId === me.id); }
-function assignedByMe()  { return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id); }
+function myTasks()       { return ALL_TASKS.filter(t => t.assignedToId === me.id || (isAdminRole && t.assignedToId === 'administration')); }
+function assignedByMe()  { return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && t.assignedToId !== 'administration'); }
 
 function updateCounts() {
   document.getElementById('fc-inbox').textContent    = myTasks().filter(t => t.status !== 'completed').length;
@@ -399,7 +402,7 @@ function renderList() {
 }
 
 function cardHTML(t) {
-  const isAssignee = t.assignedToId === me.id;
+  const isAssignee = t.assignedToId === me.id || (t.assignedToId === 'administration' && isAdminRole);
   const canEdit   = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const canDelete = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const dueLabel  = t.dueDate
@@ -407,8 +410,11 @@ function cardHTML(t) {
     : (t.dueTime ? t.dueTime.slice(0,5) : '');
   const isOverdueDue = t.status === 'overdue';
 
+  const isAdminTaskCard = t.assignedToId === 'administration';
   const isSelf = t.assignedToId === t.createdById;
-  const personLabel = isSelf ? null
+  const personLabel = isAdminTaskCard
+    ? (CURRENT_FILTER === 'inbox' ? `From: ${t.createdByName||''}` : '🏢 Administration')
+    : isSelf ? null
     : CURRENT_FILTER === 'inbox'
       ? `From: ${t.createdByName||''}`
       : `To: ${t.assignedToName||''}`;

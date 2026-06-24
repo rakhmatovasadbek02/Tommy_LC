@@ -1784,18 +1784,22 @@ app.get('/api/reminders', async (req, res) => {
         AND (due_date::text || ' ' || COALESCE(due_time::text,'23:59:00'))::timestamp
             < NOW() AT TIME ZONE 'Asia/Tashkent'
     `).catch(()=>{});
+    const myRolesGet = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
+    const isAdminRole = myRolesGet.some(r => ['admin','head admin','manager'].includes(r));
     const { rows } = await pool.query(
       `SELECT r.*,
         cu.first_name||' '||cu.last_name AS created_by_name,
-        au.first_name||' '||au.last_name AS assigned_to_name
+        CASE WHEN r.assigned_to_id='administration' THEN 'Administration'
+             ELSE au.first_name||' '||au.last_name END AS assigned_to_name
        FROM reminders r
        LEFT JOIN users cu ON cu.id = r.created_by_id
        LEFT JOIN users au ON au.id = r.assigned_to_id
        WHERE r.assigned_to_id=$1 OR r.created_by_id=$1
+          OR (r.assigned_to_id='administration' AND $2)
        ORDER BY
          CASE r.status WHEN 'overdue' THEN 0 WHEN 'pending' THEN 1 WHEN 'in_process' THEN 2 ELSE 3 END,
          r.due_date ASC NULLS LAST, r.created_at DESC`,
-      [me.id]);
+      [me.id, isAdminRole]);
     res.json(rows.map(r => ({
       id: r.id, title: r.title, note: r.note,
       dueDate: r.due_date, dueTime: r.due_time, priority: r.priority,
@@ -1808,9 +1812,13 @@ app.get('/api/reminders', async (req, res) => {
 
 app.get('/api/reminders/count', async (req, res) => {
   try {
+    const cRoles = (req.user.roles||[req.user.title||'']).map(r=>String(r).trim().toLowerCase());
+    const cIsAdmin = cRoles.some(r=>['admin','head admin','manager'].includes(r));
     const { rows } = await pool.query(
-      `SELECT COUNT(*)::int AS n FROM reminders WHERE assigned_to_id=$1 AND status NOT IN ('completed')`,
-      [req.user.id]
+      `SELECT COUNT(*)::int AS n FROM reminders
+       WHERE (assigned_to_id=$1 OR (assigned_to_id='administration' AND $2))
+         AND status NOT IN ('completed')`,
+      [req.user.id, cIsAdmin]
     );
     res.json({ count: rows[0].n });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1827,7 +1835,14 @@ app.post('/api/reminders', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending')`,
       [id, title, note||null, dueDate||null, dueTime||null, priority||'medium', me.id, finalAssignee]
     );
-    if (finalAssignee !== me.id) {
+    if (finalAssignee === 'administration') {
+      const { rows: admins } = await pool.query(
+        `SELECT id FROM users WHERE (title IN ('Admin','Head Admin','Manager') OR roles @> '["Admin"]'::jsonb OR roles @> '["Head Admin"]'::jsonb OR roles @> '["Manager"]'::jsonb) AND id<>$1`,
+        [me.id]
+      ).catch(()=>({rows:[]}));
+      for (const u of admins) await createNotif(u.id, 'task_assigned', 'New task for Administration',
+        `"${title}" assigned by ${me.first_name} ${me.last_name}`, 'reminders.html');
+    } else if (finalAssignee !== me.id) {
       await createNotif(finalAssignee, 'task_assigned', 'New task assigned to you',
         `"${title}" assigned by ${me.first_name} ${me.last_name}`, 'reminders.html');
     }
@@ -1848,10 +1863,21 @@ app.put('/api/reminders/:id/status', async (req, res) => {
     const { rows } = await pool.query(`SELECT status, assigned_to_id FROM reminders WHERE id=$1`, [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Not found.' });
     const task = rows[0];
+    const statusRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
+    const isAdminUser = statusRoles.some(r=>['admin','head admin','manager'].includes(r));
+    const isAdminTask = task.assigned_to_id === 'administration';
     if (task.status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks are locked.' });
-    if (task.assigned_to_id !== me.id && !isCEO) return res.status(403).json({ error: 'Only assignee can update status.' });
+    if (!isAdminTask && task.assigned_to_id !== me.id && !isCEO)
+      return res.status(403).json({ error: 'Only assignee can update status.' });
+    if (isAdminTask && !isAdminUser && !isCEO)
+      return res.status(403).json({ error: 'Only Admin/Head Admin/Manager can update this task.' });
     const { rows: tr } = await pool.query(`SELECT title, created_by_id FROM reminders WHERE id=$1`, [req.params.id]);
-    await pool.query(`UPDATE reminders SET status=$1 WHERE id=$2`, [status, req.params.id]);
+    // Claim administration task when moving to in_process
+    if (isAdminTask && status === 'in_process') {
+      await pool.query(`UPDATE reminders SET status=$1, assigned_to_id=$2 WHERE id=$3`, [status, me.id, req.params.id]);
+    } else {
+      await pool.query(`UPDATE reminders SET status=$1 WHERE id=$2`, [status, req.params.id]);
+    }
     if (tr.length && tr[0].created_by_id !== me.id) {
       const statusLabel = { in_process:'In Process', completed:'Completed' }[status] || status;
       await createNotif(tr[0].created_by_id, 'task_status', 'Task status updated',
