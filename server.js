@@ -163,9 +163,18 @@ async function initDB() {
       created_by_id TEXT NOT NULL,
       assigned_to_id TEXT NOT NULL,
       done          BOOLEAN DEFAULT FALSE,
+      status        TEXT DEFAULT 'pending',
       created_at    TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE reminders ADD COLUMN IF NOT EXISTS due_time TIME;
+    ALTER TABLE reminders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+    -- Migrate existing done=true rows to completed
+    UPDATE reminders SET status='completed' WHERE done=TRUE AND (status IS NULL OR status='pending');
+    -- Auto-mark overdue: past due date+time and not completed
+    UPDATE reminders SET status='overdue'
+      WHERE status IN ('pending','in_process')
+        AND due_date IS NOT NULL
+        AND (due_date + COALESCE(due_time, '23:59:59'::time)) < NOW() AT TIME ZONE 'Asia/Tashkent';
 
     CREATE TABLE IF NOT EXISTS groups (
       id           TEXT PRIMARY KEY,
@@ -1700,34 +1709,44 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 /* REMINDERS */
+function autoMarkOverdue(rows) {
+  const now = new Date();
+  return rows.map(r => {
+    if (['pending','in_process'].includes(r.status) && r.due_date) {
+      const timeStr = r.due_time ? r.due_time.slice(0,5) : '23:59';
+      const due = new Date(`${r.due_date.toISOString().slice(0,10)}T${timeStr}:00+05:00`);
+      if (due < now) r.status = 'overdue';
+    }
+    return r;
+  });
+}
+
 app.get('/api/reminders', async (req, res) => {
   try {
     const me = req.user;
-    const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
-    const isSupervisor = myRoles.some(r=>['ceo','manager'].includes(r));
-    const { rows } = isSupervisor
-      ? await pool.query(
-          `SELECT r.*,
-            cu.first_name||' '||cu.last_name AS created_by_name,
-            au.first_name||' '||au.last_name AS assigned_to_name
-           FROM reminders r
-           LEFT JOIN users cu ON cu.id = r.created_by_id
-           LEFT JOIN users au ON au.id = r.assigned_to_id
-           ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC`)
-      : await pool.query(
-          `SELECT r.*,
-            cu.first_name||' '||cu.last_name AS created_by_name,
-            au.first_name||' '||au.last_name AS assigned_to_name
-           FROM reminders r
-           LEFT JOIN users cu ON cu.id = r.created_by_id
-           LEFT JOIN users au ON au.id = r.assigned_to_id
-           WHERE r.assigned_to_id=$1 OR r.created_by_id=$1
-           ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC`,
-          [me.id]);
+    // Auto-mark overdue in DB first
+    await pool.query(`
+      UPDATE reminders SET status='overdue'
+      WHERE status IN ('pending','in_process') AND due_date IS NOT NULL
+        AND (due_date::text || ' ' || COALESCE(due_time::text,'23:59:00'))::timestamp
+            < NOW() AT TIME ZONE 'Asia/Tashkent'
+    `).catch(()=>{});
+    const { rows } = await pool.query(
+      `SELECT r.*,
+        cu.first_name||' '||cu.last_name AS created_by_name,
+        au.first_name||' '||au.last_name AS assigned_to_name
+       FROM reminders r
+       LEFT JOIN users cu ON cu.id = r.created_by_id
+       LEFT JOIN users au ON au.id = r.assigned_to_id
+       WHERE r.assigned_to_id=$1 OR r.created_by_id=$1
+       ORDER BY
+         CASE r.status WHEN 'overdue' THEN 0 WHEN 'pending' THEN 1 WHEN 'in_process' THEN 2 ELSE 3 END,
+         r.due_date ASC NULLS LAST, r.created_at DESC`,
+      [me.id]);
     res.json(rows.map(r => ({
       id: r.id, title: r.title, note: r.note,
       dueDate: r.due_date, dueTime: r.due_time, priority: r.priority,
-      done: r.done, createdAt: r.created_at,
+      status: r.status || 'pending', createdAt: r.created_at,
       createdById: r.created_by_id, createdByName: r.created_by_name,
       assignedToId: r.assigned_to_id, assignedToName: r.assigned_to_name,
     })));
@@ -1737,7 +1756,7 @@ app.get('/api/reminders', async (req, res) => {
 app.get('/api/reminders/count', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT COUNT(*)::int AS n FROM reminders WHERE assigned_to_id=$1 AND done=FALSE`,
+      `SELECT COUNT(*)::int AS n FROM reminders WHERE assigned_to_id=$1 AND status NOT IN ('completed')`,
       [req.user.id]
     );
     res.json({ count: rows[0].n });
@@ -1750,20 +1769,30 @@ app.post('/api/reminders', async (req, res) => {
     const { id, title, note, dueDate, dueTime, priority, assignedToId } = req.body;
     if (!title) return res.status(400).json({ error: 'Title required.' });
     await pool.query(
-      `INSERT INTO reminders(id,title,note,due_date,due_time,priority,created_by_id,assigned_to_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      `INSERT INTO reminders(id,title,note,due_date,due_time,priority,created_by_id,assigned_to_id,status)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending')`,
       [id, title, note||null, dueDate||null, dueTime||null, priority||'medium', me.id, assignedToId||me.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/reminders/:id/done', async (req, res) => {
+// Advance status: only assignee can do this; overdue locked except CEO
+app.put('/api/reminders/:id/status', async (req, res) => {
   try {
     const me = req.user;
-    await pool.query(
-      `UPDATE reminders SET done=$1 WHERE id=$2 AND (assigned_to_id=$3 OR created_by_id=$3)`,
-      [req.body.done !== false, req.params.id, me.id]
-    );
+    const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
+    const isCEO = myRoles.includes('ceo');
+    const { status } = req.body;
+    const allowed = ['pending','in_process','completed'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status.' });
+    // Check current status
+    const { rows } = await pool.query(`SELECT status, assigned_to_id FROM reminders WHERE id=$1`, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found.' });
+    const task = rows[0];
+    if (task.status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks are locked.' });
+    if (task.assigned_to_id !== me.id && !isCEO) return res.status(403).json({ error: 'Only assignee can update status.' });
+    await pool.query(`UPDATE reminders SET status=$1 WHERE id=$2`, [status, req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1774,12 +1803,15 @@ app.put('/api/reminders/:id', async (req, res) => {
     const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
     const isCEO = myRoles.includes('ceo');
     const { title, note, dueDate, dueTime, priority, assignedToId } = req.body;
-    const { rowCount } = await pool.query(
-      `UPDATE reminders SET title=$1,note=$2,due_date=$3,due_time=$4,priority=$5,assigned_to_id=$6
-       WHERE id=$7 AND (created_by_id=$8 ${isCEO ? 'OR TRUE' : ''})`,
-      [title, note||null, dueDate||null, dueTime||null, priority||'medium', assignedToId, req.params.id, me.id]
+    // Check if overdue
+    const { rows } = await pool.query(`SELECT status, created_by_id FROM reminders WHERE id=$1`, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found.' });
+    if (rows[0].status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks cannot be edited.' });
+    if (rows[0].created_by_id !== me.id && !isCEO) return res.status(403).json({ error: 'Not allowed.' });
+    await pool.query(
+      `UPDATE reminders SET title=$1,note=$2,due_date=$3,due_time=$4,priority=$5,assigned_to_id=$6 WHERE id=$7`,
+      [title, note||null, dueDate||null, dueTime||null, priority||'medium', assignedToId, req.params.id]
     );
-    if (!rowCount) return res.status(403).json({ error: 'Not allowed.' });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1789,10 +1821,11 @@ app.delete('/api/reminders/:id', async (req, res) => {
     const me = req.user;
     const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
     const isCEO = myRoles.includes('ceo');
-    await pool.query(
-      `DELETE FROM reminders WHERE id=$1 AND (created_by_id=$2 ${isCEO ? 'OR TRUE' : ''})`,
-      [req.params.id, me.id]
-    );
+    const { rows } = await pool.query(`SELECT status, created_by_id FROM reminders WHERE id=$1`, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found.' });
+    if (rows[0].status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks can only be deleted by CEO.' });
+    if (rows[0].created_by_id !== me.id && !isCEO) return res.status(403).json({ error: 'Not allowed.' });
+    await pool.query(`DELETE FROM reminders WHERE id=$1`, [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
