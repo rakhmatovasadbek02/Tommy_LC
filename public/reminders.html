@@ -241,24 +241,29 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Due Date</label>
+          <label>Due Date *</label>
           <input type="date" id="tmDue" class="form-control">
         </div>
         <div class="form-group">
-          <label>Due Time</label>
-          <input type="time" id="tmTime" class="form-control">
+          <label>Due Time *</label>
+          <div style="display:flex;gap:6px">
+            <select id="tmHour" class="form-control" style="flex:1">
+              <option value="">HH</option>
+            </select>
+            <select id="tmMinute" class="form-control" style="flex:1">
+              <option value="">MM</option>
+            </select>
+          </div>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Priority</label>
-          <select id="tmPriority" class="form-control">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-        <div></div>
+      <div class="form-group">
+        <label>Priority *</label>
+        <select id="tmPriority" class="form-control">
+          <option value="">Select priority…</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Note <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
@@ -446,14 +451,24 @@ async function deleteTask(id) {
   } catch(e) { showToast(e.message || 'Cannot delete', 'error'); }
 }
 
+// Populate hour/minute selects once
+(function(){
+  const h = document.getElementById('tmHour');
+  const m = document.getElementById('tmMinute');
+  for (let i=0;i<24;i++) { const o=document.createElement('option'); o.value=String(i).padStart(2,'0'); o.textContent=String(i).padStart(2,'0'); h.appendChild(o); }
+  for (let i=0;i<60;i+=5) { const o=document.createElement('option'); o.value=String(i).padStart(2,'0'); o.textContent=String(i).padStart(2,'0'); m.appendChild(o); }
+})();
+
 // Modal
 function openTaskModal(task) {
   document.getElementById('tmId').value = task?.id || '';
   document.getElementById('tmTitle').value = task?.title || '';
   document.getElementById('tmNote').value = task?.note || '';
   document.getElementById('tmDue').value = task?.dueDate ? task.dueDate.slice(0,10) : '';
-  document.getElementById('tmTime').value = task?.dueTime ? task.dueTime.slice(0,5) : '';
-  document.getElementById('tmPriority').value = task?.priority || 'medium';
+  const timeParts = task?.dueTime ? task.dueTime.slice(0,5).split(':') : ['',''];
+  document.getElementById('tmHour').value = timeParts[0] || '';
+  document.getElementById('tmMinute').value = timeParts[1] ? String(Math.round(parseInt(timeParts[1])/5)*5).padStart(2,'0') : '';
+  document.getElementById('tmPriority').value = task?.priority || '';
   document.getElementById('tmAssignSearch').value = task ? (task.assignedToName || '') : me.name;
   document.getElementById('tmAssignId').value = task ? (task.assignedToId || '') : me.id;
   document.getElementById('taskModalTitle').textContent = task ? 'Edit Task' : 'New Task';
@@ -493,17 +508,27 @@ document.addEventListener('click', e => {
 });
 
 async function saveTask() {
-  const id = document.getElementById('tmId').value;
-  const title = document.getElementById('tmTitle').value.trim();
+  const id           = document.getElementById('tmId').value;
+  const title        = document.getElementById('tmTitle').value.trim();
   const assignedToId = document.getElementById('tmAssignId').value;
-  if (!title) return showToast('Please enter a title', 'error');
+  const dueDate      = document.getElementById('tmDue').value;
+  const hour         = document.getElementById('tmHour').value;
+  const minute       = document.getElementById('tmMinute').value;
+  const priority     = document.getElementById('tmPriority').value;
+  const dueTime      = (hour && minute) ? `${hour}:${minute}` : '';
+
+  if (!title)        return showToast('Please enter a title', 'error');
   if (!assignedToId) return showToast('Please select a member', 'error');
+  if (!dueDate)      return showToast('Please set a due date', 'error');
+  if (!dueTime)      return showToast('Please set a due time', 'error');
+  if (!priority)     return showToast('Please select a priority', 'error');
+
   const body = {
     title,
     note: document.getElementById('tmNote').value.trim() || null,
-    dueDate: document.getElementById('tmDue').value || null,
-    dueTime: document.getElementById('tmTime').value || null,
-    priority: document.getElementById('tmPriority').value,
+    dueDate,
+    dueTime,
+    priority,
     assignedToId,
   };
   try {
