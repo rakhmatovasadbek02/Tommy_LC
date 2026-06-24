@@ -189,6 +189,8 @@ onblur="this.style.borderColor='var(--border)'">
 <script src="shared.js"></script>
 <script>
 requireAuth('dashboard');
+// Pure support teachers (no teacher role) belong on support.html
+if (isSupportTeacher() && !isTeacher()) { window.location.replace('support.html'); }
 renderSidebar('dashboard');
 const session = getSession();
 const role = getRole();
