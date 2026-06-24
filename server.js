@@ -158,12 +158,14 @@ async function initDB() {
       title         TEXT NOT NULL,
       note          TEXT,
       due_date      DATE,
+      due_time      TIME,
       priority      TEXT DEFAULT 'medium',
       created_by_id TEXT NOT NULL,
       assigned_to_id TEXT NOT NULL,
       done          BOOLEAN DEFAULT FALSE,
       created_at    TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE reminders ADD COLUMN IF NOT EXISTS due_time TIME;
 
     CREATE TABLE IF NOT EXISTS groups (
       id           TEXT PRIMARY KEY,
@@ -1724,7 +1726,7 @@ app.get('/api/reminders', async (req, res) => {
           [me.id]);
     res.json(rows.map(r => ({
       id: r.id, title: r.title, note: r.note,
-      dueDate: r.due_date, priority: r.priority,
+      dueDate: r.due_date, dueTime: r.due_time, priority: r.priority,
       done: r.done, createdAt: r.created_at,
       createdById: r.created_by_id, createdByName: r.created_by_name,
       assignedToId: r.assigned_to_id, assignedToName: r.assigned_to_name,
@@ -1745,11 +1747,11 @@ app.get('/api/reminders/count', async (req, res) => {
 app.post('/api/reminders', async (req, res) => {
   try {
     const me = req.user;
-    const { id, title, note, dueDate, priority, assignedToId } = req.body;
+    const { id, title, note, dueDate, dueTime, priority, assignedToId } = req.body;
     if (!title) return res.status(400).json({ error: 'Title required.' });
     await pool.query(
-      `INSERT INTO reminders(id,title,note,due_date,priority,created_by_id,assigned_to_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-      [id, title, note||null, dueDate||null, priority||'medium', me.id, assignedToId||me.id]
+      `INSERT INTO reminders(id,title,note,due_date,due_time,priority,created_by_id,assigned_to_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [id, title, note||null, dueDate||null, dueTime||null, priority||'medium', me.id, assignedToId||me.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1771,11 +1773,11 @@ app.put('/api/reminders/:id', async (req, res) => {
     const me = req.user;
     const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
     const isCEO = myRoles.includes('ceo');
-    const { title, note, dueDate, priority, assignedToId } = req.body;
+    const { title, note, dueDate, dueTime, priority, assignedToId } = req.body;
     const { rowCount } = await pool.query(
-      `UPDATE reminders SET title=$1,note=$2,due_date=$3,priority=$4,assigned_to_id=$5
-       WHERE id=$6 AND (created_by_id=$7 ${isCEO ? 'OR TRUE' : ''})`,
-      [title, note||null, dueDate||null, priority||'medium', assignedToId, req.params.id, me.id]
+      `UPDATE reminders SET title=$1,note=$2,due_date=$3,due_time=$4,priority=$5,assigned_to_id=$6
+       WHERE id=$7 AND (created_by_id=$8 ${isCEO ? 'OR TRUE' : ''})`,
+      [title, note||null, dueDate||null, dueTime||null, priority||'medium', assignedToId, req.params.id, me.id]
     );
     if (!rowCount) return res.status(403).json({ error: 'Not allowed.' });
     res.json({ ok: true });

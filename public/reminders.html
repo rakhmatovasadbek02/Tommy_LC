@@ -173,6 +173,12 @@
           <input type="date" id="tmDue" class="form-control">
         </div>
         <div class="form-group">
+          <label>Due Time</label>
+          <input type="time" id="tmTime" class="form-control">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label>Priority</label>
           <select id="tmPriority" class="form-control">
             <option value="low">Low</option>
@@ -180,6 +186,7 @@
             <option value="high">High</option>
           </select>
         </div>
+        <div></div>
       </div>
       <div class="form-group">
         <label>Note <span style="font-weight:400;color:var(--text-muted)">(optional)</span></label>
@@ -292,7 +299,7 @@ function renderList() {
 
 function taskRowHTML(t, today) {
   const isOverdue = t.dueDate && t.dueDate.slice(0,10) < today && !t.done;
-  const dueLabel = t.dueDate ? fmtDate(t.dueDate) : '';
+  const dueLabel = t.dueDate ? fmtDate(t.dueDate) + (t.dueTime ? ' ' + t.dueTime.slice(0,5) : '') : '';
   const canEdit = isCEO || t.createdById === me.id;
   const isMe = t.assignedToId === me.id;
   const personPill = t.assignedToId === t.createdById
@@ -348,6 +355,7 @@ function openTaskModal(task) {
   document.getElementById('tmTitle').value = task?.title || '';
   document.getElementById('tmNote').value = task?.note || '';
   document.getElementById('tmDue').value = task?.dueDate ? task.dueDate.slice(0,10) : '';
+  document.getElementById('tmTime').value = task?.dueTime ? task.dueTime.slice(0,5) : '';
   document.getElementById('tmPriority').value = task?.priority || 'medium';
   document.getElementById('tmAssignSearch').value = task ? (task.assignedToName || '') : me.name;
   document.getElementById('tmAssignId').value = task ? (task.assignedToId || '') : me.id;
@@ -391,6 +399,7 @@ async function saveTask() {
     title,
     note: document.getElementById('tmNote').value.trim() || null,
     dueDate: document.getElementById('tmDue').value || null,
+    dueTime: document.getElementById('tmTime').value || null,
     priority: document.getElementById('tmPriority').value,
     assignedToId,
   };
