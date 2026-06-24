@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tasks — TommyLC CRM</title>
+  <title>To Do List — TommyLC CRM</title>
   <link rel="stylesheet" href="shared.css">
   <style>
     html, body { height:100%; overflow:hidden; }
@@ -78,6 +78,13 @@
     .task-btn:hover { background:var(--bg); color:var(--text); }
     .task-btn.danger:hover { background:#fde8e8; border-color:#fbb; color:#c0392b; }
 
+    /* Drag and drop */
+    .task-card[draggable="true"] { cursor:grab; }
+    .task-card[draggable="true"]:active { cursor:grabbing; }
+    .task-card.dragging { opacity:.35; box-shadow:0 4px 16px rgba(0,0,0,.15); }
+    .kanban-col.drag-over { background:rgba(99,102,241,.08); outline:2px dashed rgba(99,102,241,.4); outline-offset:-2px; }
+    .kanban-col.drag-blocked { background:rgba(192,57,43,.06); outline:2px dashed rgba(192,57,43,.3); outline-offset:-2px; cursor:not-allowed; }
+
     .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
     .empty-state svg { display:block; margin:0 auto 14px; opacity:.25; }
 
@@ -97,7 +104,7 @@
   <aside class="sidebar"></aside>
   <div class="main">
     <div class="topbar">
-      <div class="page-title">Tasks</div>
+      <div class="page-title">To Do List</div>
       <div class="topbar-right">
         <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ New Task</button>
       </div>
@@ -253,14 +260,15 @@ function renderList() {
   const COL_COLORS = { pending:'#3b5bdb', in_process:'#e67e22', completed:'#27ae60', overdue:'#c0392b' };
   el.innerHTML = `<div class="kanban">${STATUS_ORDER.map(s => {
     const tasks = items.filter(t => t.status === s);
-    return `<div class="kanban-col col-${s}">
+    return `<div class="kanban-col col-${s}" data-col="${s}">
       <div class="kanban-col-header">
         <span class="kanban-col-title">${STATUS_LABEL[s]}</span>
         <span class="kanban-col-count" style="color:${COL_COLORS[s]}">${tasks.length}</span>
       </div>
-      ${tasks.length ? tasks.map(t => cardHTML(t)).join('') : `<div style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:12px">No tasks</div>`}
+      ${tasks.length ? tasks.map(t => cardHTML(t)).join('') : `<div class="col-empty" style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:12px">No tasks</div>`}
     </div>`;
   }).join('')}</div>`;
+  initDrag();
 }
 
 function cardHTML(t) {
@@ -282,7 +290,10 @@ function cardHTML(t) {
     progressBtn = `<button class="progress-btn ${cls}" onclick="advanceStatus('${t.id}','${STATUS_NEXT[t.status]}')">${label}</button>`;
   }
 
-  return `<div class="task-card status-${t.status}">
+  // Draggable: only assignee on non-overdue, non-completed tasks
+  const canDrag = isAssignee && t.status !== 'overdue' && t.status !== 'completed';
+
+  return `<div class="task-card status-${t.status}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''}>
     <div class="task-top">
       <div class="task-body">
         <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
@@ -392,6 +403,58 @@ async function saveTask() {
     ALL_TASKS = await apiGet('/api/reminders');
     updateCounts(); renderStats(); renderList(); refreshReminderCount();
   } catch(e) { showToast(e.message || 'Error saving', 'error'); }
+}
+
+// Status order index for forward-only enforcement
+const STATUS_IDX = { pending:0, in_process:1, completed:2, overdue:3 };
+
+function initDrag() {
+  let dragId = null;
+  let dragStatus = null;
+
+  document.querySelectorAll('.task-card[draggable="true"]').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragId = card.dataset.id;
+      dragStatus = card.dataset.status;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over','drag-blocked'));
+    });
+  });
+
+  document.querySelectorAll('.kanban-col').forEach(col => {
+    const colStatus = col.dataset.col;
+
+    col.addEventListener('dragover', e => {
+      if (!dragId) return;
+      e.preventDefault();
+      const forward = STATUS_IDX[colStatus] > STATUS_IDX[dragStatus];
+      const same = colStatus === dragStatus;
+      const blocked = colStatus === 'overdue' || (!forward && !same);
+      col.classList.toggle('drag-over', !blocked && !same);
+      col.classList.toggle('drag-blocked', blocked);
+      e.dataTransfer.dropEffect = blocked ? 'none' : 'move';
+    });
+
+    col.addEventListener('dragleave', e => {
+      if (!e.relatedTarget || !col.contains(e.relatedTarget)) {
+        col.classList.remove('drag-over','drag-blocked');
+      }
+    });
+
+    col.addEventListener('drop', async e => {
+      e.preventDefault();
+      col.classList.remove('drag-over','drag-blocked');
+      if (!dragId) return;
+      const forward = STATUS_IDX[colStatus] > STATUS_IDX[dragStatus];
+      if (!forward || colStatus === 'overdue') return;
+      await advanceStatus(dragId, colStatus);
+      dragId = null; dragStatus = null;
+    });
+  });
 }
 
 init();

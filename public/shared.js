@@ -287,7 +287,7 @@ function renderSidebar(activePage) {
  ]},
  { label: 'Settings', items: [
     { feature:'archived',   href:'archived.html',   iconKey:'archived',   label:'Archived'   },
-    { feature:'reminders',  href:'reminders.html',  iconKey:'reminders',  label:'Reminders'  },
+    { feature:'reminders',  href:'reminders.html',  iconKey:'reminders',  label:'To Do List'  },
  ]},
  ];
 
@@ -367,7 +367,7 @@ function injectReminderBell() {
  const btn = document.createElement('a');
  btn.id = 'reminderBell';
  btn.href = 'reminders.html';
- btn.title = 'Reminders';
+ btn.title = 'To Do List';
  btn.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--bg,#f5f5f5);color:var(--text-muted,#666);text-decoration:none;transition:background 0.14s;flex-shrink:0;';
  btn.onmouseover = () => btn.style.background = 'var(--border,#e8eaee)';
  btn.onmouseout = () => btn.style.background = 'var(--bg,#f5f5f5)';
