@@ -103,7 +103,6 @@
           </div>
           <div class="session-actions">
             ${attended === null || attended === undefined ? `
-              <input class="theme-input" id="th_${s.id}" placeholder="Theme (optional)">
               <button class="attend-btn present" onclick="markAttend('${s.id}',true)">✓ Present</button>
               <button class="attend-btn absent" onclick="markAttend('${s.id}',false)">✗ Absent</button>
             ` : `
