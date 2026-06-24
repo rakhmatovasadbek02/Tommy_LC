@@ -49,7 +49,7 @@
     <div class="section-title">My Students</div>
     <div class="student-table">
       <table>
-        <thead>
+        <thead id="studentHead">
           <tr>
             <th>Student</th>
             <th>Group</th>
@@ -97,7 +97,7 @@
           <div class="session-time">${s.time}</div>
           <div class="session-info">
             <div class="session-name">${s.studentName}</div>
-            <div class="session-meta">${s.duration} min</div>
+            <div class="session-meta">${s.duration} min${data.isAdmin ? ` · ${s.teacher}` : ''}</div>
           </div>
           <div class="session-actions">
             ${attended === null || attended === undefined ? `
@@ -115,8 +115,11 @@
 
     // Students table
     const tb = document.getElementById('studentBody');
+    if (data.isAdmin) {
+      document.getElementById('studentHead').innerHTML = '<tr><th>Student</th><th>Support Teacher</th><th>Group</th><th>Main Teacher</th><th>Last Theme</th><th>Last Session</th><th>Status</th></tr>';
+    }
     if (!data.students.length) {
-      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No students assigned yet.</td></tr>';
+      tb.innerHTML = `<tr><td colspan="${data.isAdmin?7:6}" style="text-align:center;color:var(--muted);padding:24px">No students assigned yet.</td></tr>`;
     } else {
       tb.innerHTML = data.students.map(s => {
         const fineHtml = s.fined
@@ -125,6 +128,7 @@
         const lastDate = s.lastDate ? new Date(s.lastDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
         return `<tr>
           <td style="font-weight:600">${s.name}</td>
+          ${data.isAdmin ? `<td style="color:var(--muted)">${s.teacher||'—'}</td>` : ''}
           <td>${s.groupName}</td>
           <td>${s.mainTeacher}</td>
           <td style="color:var(--muted)">${s.lastTheme || '—'}</td>

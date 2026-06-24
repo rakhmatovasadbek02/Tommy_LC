@@ -1376,12 +1376,19 @@ app.get('/api/support-dashboard', async (req, res) => {
     const myName = me.first_name + ' ' + me.last_name;
     const today = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' })).toISOString().split('T')[0];
 
+    const userRoles = Array.isArray(me.roles) && me.roles.length ? me.roles : [me.title];
+    const isSupport = userRoles.some(r => String(r).trim().toLowerCase() === 'support teacher');
+
     const [sessR, stuR, grpR, fineR, todayR] = await Promise.all([
-      pool.query(`SELECT DISTINCT ON (student_id) student_id, date, theme, attended FROM support_sessions WHERE teacher=$1 ORDER BY student_id, date DESC`, [myName]),
+      isSupport
+        ? pool.query(`SELECT DISTINCT ON (student_id) student_id, date, theme, attended FROM support_sessions WHERE teacher=$1 ORDER BY student_id, date DESC`, [myName])
+        : pool.query(`SELECT DISTINCT ON (student_id, teacher) student_id, teacher, date, theme, attended FROM support_sessions ORDER BY student_id, teacher, date DESC`),
       pool.query('SELECT id, first_name, last_name FROM students WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, student_ids FROM groups'),
       pool.query('SELECT student_id, blocked_until FROM support_fines WHERE blocked_until > NOW()'),
-      pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today]),
+      isSupport
+        ? pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today])
+        : pool.query(`SELECT * FROM support_sessions WHERE date=$1 ORDER BY teacher, time`, [today]),
     ]);
 
     const stuMap = new Map(stuR.rows.map(s => [s.id, s]));
@@ -1402,6 +1409,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       return {
         id: s.student_id,
         name: stu.first_name + ' ' + stu.last_name,
+        teacher: s.teacher || null,
         groupName: ginfo.groupName || '—',
         mainTeacher: ginfo.teacher || '—',
         lastTheme: s.theme || null,
@@ -1417,12 +1425,13 @@ app.get('/api/support-dashboard', async (req, res) => {
         id: s.id, time: s.time, duration: s.duration,
         studentId: s.student_id,
         studentName: stu ? stu.first_name + ' ' + stu.last_name : '?',
+        teacher: s.teacher,
         attended: s.attended,
         theme: s.theme,
       };
     });
 
-    res.json({ students, todaySessions, totalStudents: students.length });
+    res.json({ students, todaySessions, totalStudents: students.length, isAdmin: !isSupport });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
