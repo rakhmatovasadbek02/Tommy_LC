@@ -388,8 +388,14 @@ function injectFooter() {
 }
 
 function injectLangSwitcher() {
- const tr = document.querySelector('.topbar-right');
- if (!tr || document.getElementById('langDd')) return;
+ if (document.getElementById('langDd')) return;
+ let tr = document.querySelector('.topbar-right');
+ if (!tr) {
+   tr = document.createElement('div');
+   tr.className = 'topbar-right';
+   document.querySelector('.topbar')?.appendChild(tr);
+ }
+ if (!tr) return;
  const cur = LANGS[getLang()] || LANGS.en;
  const dd = document.createElement('div');
  dd.className = 'lang-dd'; dd.id = 'langDd';
