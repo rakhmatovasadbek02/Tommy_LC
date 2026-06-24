@@ -28,10 +28,19 @@
     .stat-val { font-size:22px; font-weight:800; }
     .stat-lbl { font-size:11px; color:var(--text-muted); margin-top:2px; }
 
+    /* Kanban columns */
+    .kanban { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; align-items:start; }
+    .kanban-col { background:var(--bg); border-radius:12px; padding:12px; min-height:120px; }
+    .kanban-col-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .kanban-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; }
+    .kanban-col-count { font-size:11px; font-weight:700; background:var(--white); border-radius:20px; padding:1px 8px; }
+    .col-pending .kanban-col-title { color:#3b5bdb; }
+    .col-in_process .kanban-col-title { color:#e67e22; }
+    .col-completed .kanban-col-title { color:#27ae60; }
+    .col-overdue .kanban-col-title { color:#c0392b; }
     /* Task cards */
-    .section-title { font-size:13px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.6px; margin:18px 0 8px; }
-    .section-title:first-child { margin-top:0; }
-    .task-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:8px; transition:box-shadow .12s; }
+    .task-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; transition:box-shadow .12s; }
+    .task-card:last-child { margin-bottom:0; }
     .task-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.07); }
     .task-card.status-overdue { border-left:3px solid #c0392b; }
     .task-card.status-completed { opacity:.55; }
@@ -189,7 +198,7 @@ let ALL_TASKS = [];
 let ALL_USERS = [];
 let CURRENT_FILTER = 'inbox';
 
-const STATUS_ORDER = ['overdue','pending','in_process','completed'];
+const STATUS_ORDER = ['pending','in_process','completed','overdue'];
 const STATUS_LABEL = { pending:'Pending', in_process:'In Process', completed:'Completed', overdue:'Overdue' };
 const STATUS_NEXT  = { pending:'in_process', in_process:'completed' };
 const STATUS_BTN   = { pending:['btn-start','Mark In Process'], in_process:['btn-done','Mark Completed'] };
@@ -241,14 +250,17 @@ function renderList() {
   const groups = STATUS_ORDER.map(s => ({ status: s, tasks: items.filter(t => t.status === s) })).filter(g => g.tasks.length);
 
   const el = document.getElementById('taskList');
-  if (!items.length) {
-    el.innerHTML = `<div class="empty-state"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No tasks here</p></div>`;
-    return;
-  }
-  el.innerHTML = groups.map(g => `
-    <div class="section-title">${STATUS_LABEL[g.status]}</div>
-    ${g.tasks.map(t => cardHTML(t)).join('')}
-  `).join('');
+  const COL_COLORS = { pending:'#3b5bdb', in_process:'#e67e22', completed:'#27ae60', overdue:'#c0392b' };
+  el.innerHTML = `<div class="kanban">${STATUS_ORDER.map(s => {
+    const tasks = items.filter(t => t.status === s);
+    return `<div class="kanban-col col-${s}">
+      <div class="kanban-col-header">
+        <span class="kanban-col-title">${STATUS_LABEL[s]}</span>
+        <span class="kanban-col-count" style="color:${COL_COLORS[s]}">${tasks.length}</span>
+      </div>
+      ${tasks.length ? tasks.map(t => cardHTML(t)).join('') : `<div style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:12px">No tasks</div>`}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function cardHTML(t) {
@@ -276,7 +288,6 @@ function cardHTML(t) {
         <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
         ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
         <div class="task-meta">
-          <span class="status-badge badge-${t.status}">${STATUS_LABEL[t.status]}</span>
           <span class="pill pill-${t.priority}">${cap(t.priority)}</span>
           ${dueLabel ? `<span class="pill pill-due${isOverdueDue?' overdue':''}">${dueLabel}</span>` : ''}
           ${personPill}
