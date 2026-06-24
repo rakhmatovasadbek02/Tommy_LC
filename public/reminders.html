@@ -54,10 +54,13 @@
     /* Task cards */
     .task-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 13px; transition:box-shadow .15s, transform .1s; position:relative; }
     .task-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.09); transform:translateY(-1px); }
-    .task-card.status-pending  { border-top:2px solid #3b5bdb; }
-    .task-card.status-in_process { border-top:2px solid #e67e22; }
-    .task-card.status-completed { border-top:2px solid #27ae60; opacity:.6; }
-    .task-card.status-overdue  { border-top:2px solid #c0392b; background:#fff8f8; }
+    /* Priority-based card colors */
+    .task-card.pri-high    { background:#fff5f5; border-color:#fca5a5; border-left:3px solid #c0392b; }
+    .task-card.pri-medium  { background:#fffbf0; border-color:#fcd34d; border-left:3px solid #e67e22; }
+    .task-card.pri-low     { background:#f0fdf4; border-color:#86efac; border-left:3px solid #27ae60; }
+    /* Overdue overrides card color */
+    .task-card.status-overdue { background:#fff0f0 !important; border-color:#fca5a5 !important; border-left:3px solid #c0392b !important; }
+    .task-card.status-completed { opacity:.6; filter:grayscale(.3); }
     .task-top { display:flex; align-items:flex-start; gap:8px; }
     .task-body { flex:1; min-width:0; }
     .task-title { font-size:13px; font-weight:600; color:var(--text); line-height:1.45; }
@@ -280,8 +283,10 @@ function renderList() {
 
   const el = document.getElementById('taskList');
   const COL_COLORS = { pending:'#3b5bdb', in_process:'#e67e22', completed:'#27ae60', overdue:'#c0392b' };
+  const PRIO_ORDER = { high: 0, medium: 1, low: 2 };
   el.innerHTML = `<div class="kanban">${STATUS_ORDER.map(s => {
-    const tasks = items.filter(t => t.status === s);
+    let tasks = items.filter(t => t.status === s);
+    if (s === 'pending') tasks = [...tasks].sort((a,b) => (PRIO_ORDER[a.priority]??1) - (PRIO_ORDER[b.priority]??1));
     return `<div class="kanban-col col-${s}" data-col="${s}">
       <div class="kanban-col-header">
         <span class="col-dot"></span>
@@ -300,7 +305,9 @@ function cardHTML(t) {
   const isAssignee = t.assignedToId === me.id;
   const canEdit = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const canDelete = isCEO || (t.createdById === me.id && t.status !== 'overdue');
-  const dueLabel = t.dueDate ? fmtDate(t.dueDate) + (t.dueTime ? ' ' + t.dueTime.slice(0,5) : '') : '';
+  const dueLabel = t.dueDate
+    ? fmtDate(t.dueDate) + (t.dueTime ? ' ' + t.dueTime.slice(0,5) : '')
+    : (t.dueTime ? t.dueTime.slice(0,5) : '');
   const isOverdueDue = t.dueDate && t.status === 'overdue';
   const personPill = t.assignedToId === t.createdById
     ? `<span class="pill" style="background:#f0f0f0;color:#666">Self</span>`
@@ -319,7 +326,7 @@ function cardHTML(t) {
   const canDrag = isAssignee && t.status !== 'overdue' && t.status !== 'completed';
 
   const hasFooter = progressBtn || canEdit || canDelete || dueLabel || personPill;
-  return `<div class="task-card status-${t.status}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''}>
+  return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''}>
     <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
     ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
     <div class="task-meta">
