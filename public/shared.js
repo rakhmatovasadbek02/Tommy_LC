@@ -169,7 +169,9 @@ function setSession(data) {
 }
 function getRole() { const s = getSession(); return s ? (s.title || s.role) : null; }
 function getPermissions() { const s = getSession(); return (s && Array.isArray(s.permissions)) ? s.permissions : []; }
+const UNIVERSAL_FEATURES = ['reminders'];
 function can(feature) {
+ if (UNIVERSAL_FEATURES.includes(feature) && getSession()) return true;
  const perms = getPermissions();
  const key = PERM_ALIAS[feature] || feature;
  return perms.includes(key);
