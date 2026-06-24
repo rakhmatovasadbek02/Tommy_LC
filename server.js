@@ -1398,7 +1398,7 @@ app.get('/api/support-dashboard', async (req, res) => {
     const studentGroupMap = new Map();
     grpR.rows.forEach(g => {
       (g.student_ids||[]).forEach(sid => {
-        if (!studentGroupMap.has(sid)) studentGroupMap.set(sid, { groupName: g.name, teacher: g.teacher });
+        if (!studentGroupMap.has(sid)) studentGroupMap.set(sid, { groupName: g.name, teacher: g.teacher, level: g.level, currentUnit: g.current_unit });
       });
     });
 
@@ -1411,6 +1411,8 @@ app.get('/api/support-dashboard', async (req, res) => {
         name: stu.first_name + ' ' + stu.last_name,
         teacher: s.teacher || null,
         groupName: ginfo.groupName || '—',
+        level: ginfo.level || '—',
+        currentUnit: ginfo.currentUnit || '—',
         mainTeacher: ginfo.teacher || '—',
         lastTheme: s.theme || null,
         lastDate: s.date,

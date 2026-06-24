@@ -53,8 +53,10 @@
           <tr>
             <th>Student</th>
             <th>Group</th>
+            <th>Level</th>
+            <th>Current Unit</th>
             <th>Main Teacher</th>
-            <th>Last Theme</th>
+            <th>Last Support Theme</th>
             <th>Last Session</th>
             <th>Status</th>
           </tr>
@@ -116,10 +118,11 @@
     // Students table
     const tb = document.getElementById('studentBody');
     if (data.isAdmin) {
-      document.getElementById('studentHead').innerHTML = '<tr><th>Student</th><th>Support Teacher</th><th>Group</th><th>Main Teacher</th><th>Last Theme</th><th>Last Session</th><th>Status</th></tr>';
+      document.getElementById('studentHead').innerHTML = '<tr><th>Student</th><th>Support Teacher</th><th>Group</th><th>Level</th><th>Current Unit</th><th>Main Teacher</th><th>Last Support Theme</th><th>Last Session</th><th>Status</th></tr>';
     }
+    const cols = data.isAdmin ? 9 : 8;
     if (!data.students.length) {
-      tb.innerHTML = `<tr><td colspan="${data.isAdmin?7:6}" style="text-align:center;color:var(--muted);padding:24px">No students assigned yet.</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--muted);padding:24px">No students assigned yet.</td></tr>`;
     } else {
       tb.innerHTML = data.students.map(s => {
         const fineHtml = s.fined
@@ -130,6 +133,8 @@
           <td style="font-weight:600">${s.name}</td>
           ${data.isAdmin ? `<td style="color:var(--muted)">${s.teacher||'—'}</td>` : ''}
           <td>${s.groupName}</td>
+          <td style="color:var(--muted)">${s.level||'—'}</td>
+          <td style="color:var(--muted)">${s.currentUnit||'—'}</td>
           <td>${s.mainTeacher}</td>
           <td style="color:var(--muted)">${s.lastTheme || '—'}</td>
           <td style="color:var(--muted)">${lastDate}</td>
