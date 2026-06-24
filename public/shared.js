@@ -346,10 +346,10 @@ function renderSidebar(activePage) {
  document.body.appendChild(overlay);
  }
 
+ injectReminderBell();
  injectLangSwitcher();
  injectFooter();
  checkAccessDeniedMessage();
- injectReminderBell();
 }
 
 function injectReminderBell() {
