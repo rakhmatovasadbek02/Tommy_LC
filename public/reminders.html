@@ -483,16 +483,13 @@ const FILE_TESTS = [
   '1-6','7-12','Final'
 ];
 
-async function initPrintSection() {
-  // Populate file test options
+const PRINT_LEVELS = ['Beginner', 'Elementary', 'Pre-Intermediate', 'Intermediate'];
+
+function initPrintSection() {
   const prFile = document.getElementById('prFile');
   FILE_TESTS.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; prFile.appendChild(o); });
-  // Populate levels from API
   const prLevel = document.getElementById('prLevel');
-  try {
-    const lvls = await apiGet('/api/levels');
-    (lvls || []).forEach(l => { const o = document.createElement('option'); o.value = l.level||l; o.textContent = l.level||l; prLevel.appendChild(o); });
-  } catch(e) {}
+  PRINT_LEVELS.forEach(l => { const o = document.createElement('option'); o.value = l; o.textContent = l; prLevel.appendChild(o); });
 }
 
 function togglePrintSection() {
