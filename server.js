@@ -1384,7 +1384,7 @@ app.get('/api/support-dashboard', async (req, res) => {
         ? pool.query(`SELECT DISTINCT ON (student_id) student_id, date, theme, attended FROM support_sessions WHERE teacher=$1 ORDER BY student_id, date DESC`, [myName])
         : pool.query(`SELECT DISTINCT ON (student_id, teacher) student_id, teacher, date, theme, attended FROM support_sessions ORDER BY student_id, teacher, date DESC`),
       pool.query('SELECT id, first_name, last_name FROM students WHERE archived IS NOT TRUE'),
-      pool.query('SELECT id, name, teacher, student_ids FROM groups'),
+      pool.query('SELECT id, name, teacher, level, current_unit, student_ids FROM groups'),
       pool.query('SELECT student_id, blocked_until FROM support_fines WHERE blocked_until > NOW()'),
       isSupport
         ? pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today])

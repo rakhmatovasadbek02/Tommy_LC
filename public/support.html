@@ -56,7 +56,7 @@
             <th>Level</th>
             <th>Current Unit</th>
             <th>Main Teacher</th>
-            <th>Last Support Theme</th>
+            <th>Support Theme</th>
             <th>Last Session</th>
             <th>Status</th>
           </tr>
@@ -117,7 +117,7 @@
     // Students table
     const tb = document.getElementById('studentBody');
     if (data.isAdmin) {
-      document.getElementById('studentHead').innerHTML = '<tr><th>Student</th><th>Support Teacher</th><th>Group</th><th>Level</th><th>Current Unit</th><th>Main Teacher</th><th>Last Support Theme</th><th>Last Session</th><th>Status</th></tr>';
+      document.getElementById('studentHead').innerHTML = '<tr><th>Student</th><th>Support Teacher</th><th>Group</th><th>Level</th><th>Current Unit</th><th>Main Teacher</th><th>Support Theme</th><th>Last Session</th><th>Status</th></tr>';
     }
     const cols = data.isAdmin ? 9 : 8;
     if (!data.students.length) {
