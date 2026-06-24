@@ -356,7 +356,7 @@ function renderSidebar(activePage) {
 }
 
 function injectReminderBell() {
- if (document.getElementById('reminderBell')) return;
+ if (document.getElementById('notifBtn')) return;
  let tr = document.querySelector('.topbar-right');
  if (!tr) {
    tr = document.createElement('div');
@@ -365,13 +365,13 @@ function injectReminderBell() {
  }
  if (!tr) return;
  const btn = document.createElement('a');
- btn.id = 'reminderBell';
+ btn.id = 'notifBtn';
  btn.href = 'reminders.html';
- btn.title = 'To Do List';
- btn.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--bg,#f5f5f5);color:var(--text-muted,#666);text-decoration:none;transition:background 0.14s;flex-shrink:0;';
+ btn.title = 'Notifications';
+ btn.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 12px;height:34px;border-radius:8px;background:var(--bg,#f5f5f5);color:var(--text,#222);text-decoration:none;font-size:12px;font-weight:600;font-family:inherit;transition:background 0.14s;flex-shrink:0;border:1px solid var(--border,#e0e0e0);';
  btn.onmouseover = () => btn.style.background = 'var(--border,#e8eaee)';
  btn.onmouseout = () => btn.style.background = 'var(--bg,#f5f5f5)';
- btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="reminderCount" style="display:none;position:absolute;top:3px;right:3px;background:#e74c3c;color:#fff;font-size:9px;font-weight:700;border-radius:50%;min-width:14px;height:14px;line-height:14px;text-align:center;padding:0 2px;"></span>`;
+ btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>Notifications</span><span id="reminderCount" style="display:none;background:#e74c3c;color:#fff;font-size:10px;font-weight:700;border-radius:20px;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px;"></span>`;
  tr.appendChild(btn);
  refreshReminderCount();
 }
@@ -380,7 +380,7 @@ function refreshReminderCount() {
  apiGet('/api/reminders/count').then(d => {
    const badge = document.getElementById('reminderCount');
    if (!badge) return;
-   if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.style.display = 'block'; }
+   if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.style.display = 'inline-block'; }
    else badge.style.display = 'none';
  }).catch(() => {});
 }
