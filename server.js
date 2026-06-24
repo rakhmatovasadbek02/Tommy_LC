@@ -176,6 +176,17 @@ async function initDB() {
         AND due_date IS NOT NULL
         AND (due_date + COALESCE(due_time, '23:59:59'::time)) < NOW() AT TIME ZONE 'Asia/Tashkent';
 
+    CREATE TABLE IF NOT EXISTS notifications (
+      id          TEXT PRIMARY KEY,
+      recipient_id TEXT NOT NULL,
+      type        TEXT NOT NULL,
+      title       TEXT NOT NULL,
+      body        TEXT,
+      link        TEXT,
+      read        BOOLEAN DEFAULT FALSE,
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS groups (
       id           TEXT PRIMARY KEY,
       name         TEXT NOT NULL,
@@ -441,6 +452,23 @@ async function initDB() {
   console.log('Database ready');
 }
 
+// Notification helpers
+async function createNotif(recipientId, type, title, body, link) {
+  const id = 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  await pool.query(
+    `INSERT INTO notifications(id,recipient_id,type,title,body,link) VALUES($1,$2,$3,$4,$5,$6)`,
+    [id, recipientId, type, title, body||null, link||null]
+  ).catch(()=>{});
+}
+
+async function notifyRole(perm, type, title, body, link, excludeId) {
+  const { rows } = await pool.query(
+    `SELECT id FROM users WHERE permissions @> $1::jsonb${excludeId ? ' AND id<>$2' : ''}`,
+    excludeId ? [JSON.stringify([perm]), excludeId] : [JSON.stringify([perm])]
+  ).catch(()=>({rows:[]}));
+  for (const u of rows) await createNotif(u.id, type, title, body, link);
+}
+
 /* ══════════════════════════════════════
    AUTH MIDDLEWARE — gate every /api route
 ══════════════════════════════════════ */
@@ -697,6 +725,9 @@ app.post('/api/students', async (req, res) => {
       'INSERT INTO students(id,first_name,last_name,phone,phone_parent,level,status,exam,exam_date,notes,school,grade,address) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
       [id, firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null]
     );
+    const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
+    await notifyRole('students', 'new_student', 'New student enrolled',
+      `${firstName} ${lastName} was added by ${actor}`, 'students.html', req.user?.id);
     res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -870,8 +901,12 @@ app.post('/api/students/:id/payment', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6,$7,'Paid',$8,$9,$10)`,
       [id, number, req.params.id, groupId||null, month, desc||'Payment', num, paymentType||'Cash', notes||null, creator||null]
     );
-    const balRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
+    const balRes = await pool.query('SELECT balance,first_name,last_name FROM students WHERE id=$1', [req.params.id]);
     const newBalance = Number(balRes.rows[0]?.balance || 0);
+    const stuName = balRes.rows[0] ? balRes.rows[0].first_name+' '+balRes.rows[0].last_name : 'Student';
+    const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
+    await notifyRole('finance', 'payment', 'Payment received',
+      `${stuName} paid ${num.toLocaleString()} UZS — recorded by ${actor}`, 'finance.html', req.user?.id);
     res.json({ ok: true, newBalance });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1567,6 +1602,9 @@ app.post('/api/leads', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Registration')`,
       [id, firstName, lastName, phoneStudent||null, phoneFather||null, phoneMother||null, phoneOther||null, currentLevel||null, testResult||null, notes||null]
     );
+    const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
+    await notifyRole('leads', 'new_lead', 'New lead registered',
+      `${firstName} ${lastName} registered by ${actor}`, 'leads.html', req.user?.id);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1768,11 +1806,16 @@ app.post('/api/reminders', async (req, res) => {
     const me = req.user;
     const { id, title, note, dueDate, dueTime, priority, assignedToId } = req.body;
     if (!title) return res.status(400).json({ error: 'Title required.' });
+    const finalAssignee = assignedToId || me.id;
     await pool.query(
       `INSERT INTO reminders(id,title,note,due_date,due_time,priority,created_by_id,assigned_to_id,status)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending')`,
-      [id, title, note||null, dueDate||null, dueTime||null, priority||'medium', me.id, assignedToId||me.id]
+      [id, title, note||null, dueDate||null, dueTime||null, priority||'medium', me.id, finalAssignee]
     );
+    if (finalAssignee !== me.id) {
+      await createNotif(finalAssignee, 'task_assigned', 'New task assigned to you',
+        `"${title}" assigned by ${me.first_name} ${me.last_name}`, 'reminders.html');
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1792,7 +1835,13 @@ app.put('/api/reminders/:id/status', async (req, res) => {
     const task = rows[0];
     if (task.status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks are locked.' });
     if (task.assigned_to_id !== me.id && !isCEO) return res.status(403).json({ error: 'Only assignee can update status.' });
+    const { rows: tr } = await pool.query(`SELECT title, created_by_id FROM reminders WHERE id=$1`, [req.params.id]);
     await pool.query(`UPDATE reminders SET status=$1 WHERE id=$2`, [status, req.params.id]);
+    if (tr.length && tr[0].created_by_id !== me.id) {
+      const statusLabel = { in_process:'In Process', completed:'Completed' }[status] || status;
+      await createNotif(tr[0].created_by_id, 'task_status', 'Task status updated',
+        `"${tr[0].title}" marked as ${statusLabel} by ${me.first_name} ${me.last_name}`, 'reminders.html');
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1826,6 +1875,44 @@ app.delete('/api/reminders/:id', async (req, res) => {
     if (rows[0].status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks can only be deleted by CEO.' });
     if (rows[0].created_by_id !== me.id && !isCEO) return res.status(403).json({ error: 'Not allowed.' });
     await pool.query(`DELETE FROM reminders WHERE id=$1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* NOTIFICATIONS */
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM notifications WHERE recipient_id=$1 ORDER BY created_at DESC LIMIT 50`,
+      [req.user.id]
+    );
+    res.json(rows.map(n => ({
+      id: n.id, type: n.type, title: n.title, body: n.body,
+      link: n.link, read: n.read, createdAt: n.created_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/notifications/count', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM notifications WHERE recipient_id=$1 AND read=FALSE`,
+      [req.user.id]
+    );
+    res.json({ count: rows[0].n });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/notifications/read-all', async (req, res) => {
+  try {
+    await pool.query(`UPDATE notifications SET read=TRUE WHERE recipient_id=$1`, [req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    await pool.query(`UPDATE notifications SET read=TRUE WHERE id=$1 AND recipient_id=$2`, [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

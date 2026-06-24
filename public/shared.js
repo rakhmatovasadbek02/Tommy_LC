@@ -358,32 +358,137 @@ function renderSidebar(activePage) {
 function injectReminderBell() {
  if (document.getElementById('notifBtn')) return;
  let tr = document.querySelector('.topbar-right');
- if (!tr) {
-   tr = document.createElement('div');
-   tr.className = 'topbar-right';
-   document.querySelector('.topbar')?.appendChild(tr);
- }
+ if (!tr) { tr = document.createElement('div'); tr.className = 'topbar-right'; document.querySelector('.topbar')?.appendChild(tr); }
  if (!tr) return;
- const btn = document.createElement('a');
- btn.id = 'notifBtn';
- btn.href = 'reminders.html';
- btn.title = 'Notifications';
- btn.style.cssText = 'position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 12px;height:34px;border-radius:8px;background:var(--bg,#f5f5f5);color:var(--text,#222);text-decoration:none;font-size:12px;font-weight:600;font-family:inherit;transition:background 0.14s;flex-shrink:0;border:1px solid var(--border,#e0e0e0);';
- btn.onmouseover = () => btn.style.background = 'var(--border,#e8eaee)';
- btn.onmouseout = () => btn.style.background = 'var(--bg,#f5f5f5)';
- btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>Notifications</span><span id="reminderCount" style="display:none;background:#e74c3c;color:#fff;font-size:10px;font-weight:700;border-radius:20px;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px;"></span>`;
- tr.appendChild(btn);
- refreshReminderCount();
+
+ // Inject panel styles once
+ if (!document.getElementById('notifStyles')) {
+  const s = document.createElement('style');
+  s.id = 'notifStyles';
+  s.textContent = `
+   #notifWrap { position:relative; flex-shrink:0; }
+   #notifBtn { display:inline-flex;align-items:center;gap:6px;padding:0 12px;height:34px;border-radius:8px;background:var(--bg,#f5f5f5);color:var(--text,#222);font-size:12px;font-weight:600;font-family:inherit;border:1px solid var(--border,#e0e0e0);cursor:pointer;transition:background .14s;position:relative; }
+   #notifBtn:hover { background:var(--border,#e8eaee); }
+   #notifBadge { display:none;background:#e74c3c;color:#fff;font-size:10px;font-weight:700;border-radius:20px;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px; }
+   #notifPanel { display:none;position:absolute;top:calc(100% + 8px);right:0;width:340px;background:#fff;border:1px solid var(--border,#e0e0e0);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:1000;overflow:hidden; }
+   #notifPanel.open { display:block; }
+   .notif-panel-head { display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border,#e8eaee); }
+   .notif-panel-head span { font-size:14px;font-weight:700;color:var(--text,#222); }
+   .notif-mark-all { font-size:11px;color:#3b5bdb;cursor:pointer;background:none;border:none;font-weight:600;padding:0; }
+   .notif-mark-all:hover { text-decoration:underline; }
+   .notif-list { max-height:380px;overflow-y:auto; }
+   .notif-empty { text-align:center;padding:32px 16px;color:#999;font-size:13px; }
+   .notif-item { display:flex;gap:12px;padding:12px 16px;cursor:pointer;transition:background .1s;border-bottom:1px solid var(--border,#f0f0f0); }
+   .notif-item:last-child { border-bottom:none; }
+   .notif-item:hover { background:#f8f9fa; }
+   .notif-item.unread { background:#f0f4ff; }
+   .notif-item.unread:hover { background:#e8eeff; }
+   .notif-icon { width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0; }
+   .notif-icon.task_assigned { background:#e8f5e9; }
+   .notif-icon.task_status  { background:#fff3e0; }
+   .notif-icon.new_student  { background:#e8eeff; }
+   .notif-icon.new_lead     { background:#f5f0ff; }
+   .notif-icon.payment      { background:#e8f5e9; }
+   .notif-text { flex:1;min-width:0; }
+   .notif-title { font-size:13px;font-weight:600;color:var(--text,#222);line-height:1.3; }
+   .notif-body  { font-size:12px;color:#666;margin-top:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+   .notif-time  { font-size:10px;color:#aaa;margin-top:4px; }
+   .notif-dot   { width:7px;height:7px;border-radius:50%;background:#3b5bdb;flex-shrink:0;margin-top:5px; }
+   .notif-footer { padding:10px 16px;border-top:1px solid var(--border,#e8eaee);text-align:center; }
+   .notif-footer a { font-size:12px;color:#3b5bdb;font-weight:600;text-decoration:none; }
+   .notif-footer a:hover { text-decoration:underline; }
+  `;
+  document.head.appendChild(s);
+ }
+
+ const wrap = document.createElement('div');
+ wrap.id = 'notifWrap';
+ wrap.innerHTML = `
+  <button id="notifBtn" onclick="toggleNotifPanel(event)">
+   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+   <span>Notifications</span>
+   <span id="notifBadge"></span>
+  </button>
+  <div id="notifPanel">
+   <div class="notif-panel-head">
+    <span>Notifications</span>
+    <button class="notif-mark-all" onclick="markAllNotifsRead()">Mark all as read</button>
+   </div>
+   <div class="notif-list" id="notifList"><div class="notif-empty">Loading…</div></div>
+   <div class="notif-footer"><a href="reminders.html">View To Do List →</a></div>
+  </div>`;
+ tr.appendChild(wrap);
+
+ document.addEventListener('click', e => {
+  if (!e.target.closest('#notifWrap')) document.getElementById('notifPanel')?.classList.remove('open');
+ });
+ refreshNotifCount();
 }
 
-function refreshReminderCount() {
- apiGet('/api/reminders/count').then(d => {
-   const badge = document.getElementById('reminderCount');
-   if (!badge) return;
-   if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.style.display = 'inline-block'; }
-   else badge.style.display = 'none';
+const NOTIF_ICONS = { task_assigned:'📋', task_status:'🔄', new_student:'👤', new_lead:'🎯', payment:'💰' };
+
+function toggleNotifPanel(e) {
+ e.stopPropagation();
+ const panel = document.getElementById('notifPanel');
+ if (!panel) return;
+ const opening = !panel.classList.contains('open');
+ panel.classList.toggle('open');
+ if (opening) loadNotifPanel();
+}
+
+function loadNotifPanel() {
+ const list = document.getElementById('notifList');
+ if (!list) return;
+ apiGet('/api/notifications').then(items => {
+  if (!items.length) { list.innerHTML = '<div class="notif-empty">No notifications yet</div>'; return; }
+  list.innerHTML = items.map(n => {
+   const icon = NOTIF_ICONS[n.type] || '🔔';
+   const age = notifAge(n.createdAt);
+   return `<div class="notif-item${n.read ? '' : ' unread'}" onclick="openNotif('${n.id}','${n.link||''}')">
+    <div class="notif-icon ${n.type}">${icon}</div>
+    <div class="notif-text">
+     <div class="notif-title">${n.title}</div>
+     ${n.body ? `<div class="notif-body">${n.body}</div>` : ''}
+     <div class="notif-time">${age}</div>
+    </div>
+    ${n.read ? '' : '<div class="notif-dot"></div>'}
+   </div>`;
+  }).join('');
+  refreshNotifCount();
+ }).catch(() => { if (list) list.innerHTML = '<div class="notif-empty">Could not load</div>'; });
+}
+
+function notifAge(ts) {
+ const d = Math.floor((Date.now() - new Date(ts)) / 1000);
+ if (d < 60) return 'Just now';
+ if (d < 3600) return Math.floor(d/60) + 'm ago';
+ if (d < 86400) return Math.floor(d/3600) + 'h ago';
+ return Math.floor(d/86400) + 'd ago';
+}
+
+function openNotif(id, link) {
+ apiPut(`/api/notifications/${id}/read`, {}).catch(()=>{});
+ if (link) window.location.href = link;
+ else document.getElementById('notifPanel')?.classList.remove('open');
+}
+
+function markAllNotifsRead() {
+ apiPut('/api/notifications/read-all', {}).then(() => {
+  loadNotifPanel();
+  refreshNotifCount();
+ }).catch(()=>{});
+}
+
+function refreshNotifCount() {
+ apiGet('/api/notifications/count').then(d => {
+  const badge = document.getElementById('notifBadge');
+  if (!badge) return;
+  if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.style.display = 'inline-block'; }
+  else badge.style.display = 'none';
  }).catch(() => {});
 }
+
+function refreshReminderCount() { refreshNotifCount(); }
 
 function injectFooter() {
  const main = document.querySelector('.main');
