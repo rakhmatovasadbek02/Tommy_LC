@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reminders — TommyLC CRM</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .reminders-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    @media(max-width:768px){ .reminders-grid{grid-template-columns:1fr;} }
+    .reminder-card { background:#fff; border:1px solid #e8eaee; border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:8px; transition:box-shadow 0.14s; }
+    .reminder-card:hover { box-shadow:0 2px 12px rgba(0,0,0,0.08); }
+    .reminder-card.done { opacity:0.5; }
+    .reminder-header { display:flex; align-items:flex-start; gap:10px; }
+    .reminder-check { width:18px; height:18px; border-radius:5px; border:2px solid #ccc; cursor:pointer; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; transition:all 0.14s; }
+    .reminder-check.checked { background:#27ae60; border-color:#27ae60; color:#fff; }
+    .reminder-title { font-size:14px; font-weight:600; color:#1a202c; line-height:1.4; flex:1; }
+    .reminder-title.done-text { text-decoration:line-through; color:#999; }
+    .reminder-meta { display:flex; flex-wrap:wrap; gap:6px; font-size:11px; align-items:center; }
+    .pill-priority { padding:2px 8px; border-radius:20px; font-weight:600; font-size:11px; }
+    .pill-priority.high { background:#fde8e8; color:#c0392b; }
+    .pill-priority.medium { background:#fef3cd; color:#b7791f; }
+    .pill-priority.low { background:#e8f5e9; color:#27ae60; }
+    .pill-due { padding:2px 8px; border-radius:20px; background:#f0f4ff; color:#3b5bdb; font-weight:500; }
+    .pill-due.overdue { background:#fde8e8; color:#c0392b; }
+    .pill-person { padding:2px 8px; border-radius:20px; background:#f5f0ff; color:#6f42c1; font-weight:500; }
+    .reminder-note { font-size:12px; color:#667; line-height:1.5; }
+    .reminder-actions { display:flex; gap:8px; margin-top:2px; }
+    .tab-bar { display:flex; gap:0; border-bottom:2px solid #e8eaee; margin-bottom:20px; }
+    .tab-btn { padding:9px 18px; font-size:13px; font-weight:500; color:#667; cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.14s; }
+    .tab-btn.active { color:#c0392b; border-bottom-color:#c0392b; }
+    .empty-state { text-align:center; padding:48px 20px; color:#aaa; font-size:14px; }
+    .empty-state svg { display:block; margin:0 auto 12px; opacity:0.3; }
+    #addReminderModal .modal-box { max-width:480px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media(max-width:480px){ .form-row{grid-template-columns:1fr;} }
+    .user-search-dropdown { position:absolute; background:#fff; border:1px solid #e0e0e0; border-radius:8px; max-height:200px; overflow-y:auto; z-index:200; width:100%; box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+    .user-search-dropdown .usd-item { padding:9px 14px; cursor:pointer; font-size:13px; }
+    .user-search-dropdown .usd-item:hover { background:#f5f5f5; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">Reminders</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddReminder()" style="margin-left:auto">+ Add Reminder</button>
+    </div>
+    <div class="content" style="padding:24px">
+      <div id="statsRow" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;"></div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('inbox',this)">Inbox</button>
+        <button class="tab-btn" onclick="switchTab('sent',this)">Sent</button>
+        <button class="tab-btn" onclick="switchTab('done',this)">Completed</button>
+      </div>
+
+      <div id="reminderList"></div>
+    </div>
+  </div>
+</div>
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- Add Reminder Modal -->
+<div id="addReminderModal" class="modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header"><span class="modal-title">New Reminder</span><button class="modal-close" onclick="closeAddReminder()">×</button></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div class="form-group">
+        <label>Title *</label>
+        <input type="text" id="rmTitle" class="form-control" placeholder="e.g. Call parent about attendance">
+      </div>
+      <div class="form-group">
+        <label>Assign To *</label>
+        <div style="position:relative">
+          <input type="text" id="rmAssignSearch" class="form-control" placeholder="Search member..." autocomplete="off" oninput="searchAssignUser()">
+          <div id="rmAssignDropdown" class="user-search-dropdown" style="display:none"></div>
+          <input type="hidden" id="rmAssignId">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Due Date</label>
+          <input type="date" id="rmDueDate" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="rmPriority" class="form-control">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Note <span style="color:#aaa;font-weight:400">(optional)</span></label>
+        <textarea id="rmNote" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddReminder()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveReminder()">Save Reminder</button>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+requireAuth();
+renderSidebar('reminders');
+
+let ALL_REMINDERS = [];
+let CURRENT_TAB = 'inbox';
+let ALL_USERS = [];
+
+async function init() {
+  const [remData, usersData] = await Promise.all([
+    apiGet('/api/reminders'),
+    apiGet('/api/users'),
+  ]);
+  ALL_REMINDERS = remData || [];
+  ALL_USERS = usersData || [];
+  renderStats();
+  renderList();
+}
+
+function renderStats() {
+  const me = getSession();
+  const inbox = ALL_REMINDERS.filter(r => r.assignedToId === me.id && !r.done);
+  const now2 = new Date(); const todayStr = `${now2.getUTCFullYear()}-${String(now2.getUTCMonth()+1).padStart(2,'0')}-${String(now2.getUTCDate()).padStart(2,'0')}`;
+  const overdue = inbox.filter(r => r.dueDate && r.dueDate.slice(0,10) < todayStr);
+  const today = inbox.filter(r => r.dueDate && r.dueDate.slice(0,10) === todayStr);
+  const s = document.getElementById('statsRow');
+  s.innerHTML = [
+    { label:'Pending', val: inbox.length, color:'#3b5bdb' },
+    { label:'Due Today', val: today.length, color:'#e67e22' },
+    { label:'Overdue', val: overdue.length, color:'#c0392b' },
+  ].map(x => `<div style="background:#fff;border:1px solid #e8eaee;border-radius:10px;padding:14px 20px;min-width:120px;text-align:center"><div style="font-size:22px;font-weight:700;color:${x.color}">${x.val}</div><div style="font-size:11px;color:#888;margin-top:2px">${x.label}</div></div>`).join('');
+}
+
+function switchTab(tab, btn) {
+  CURRENT_TAB = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+}
+
+function renderList() {
+  const me = getSession();
+  const now = new Date(); const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')}`;
+  let items = [];
+  if (CURRENT_TAB === 'inbox') items = ALL_REMINDERS.filter(r => r.assignedToId === me.id && !r.done);
+  else if (CURRENT_TAB === 'sent') items = ALL_REMINDERS.filter(r => r.createdById === me.id && r.assignedToId !== me.id);
+  else items = ALL_REMINDERS.filter(r => (r.assignedToId === me.id || r.createdById === me.id) && r.done);
+
+  const el = document.getElementById('reminderList');
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>No reminders here</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="reminders-grid">${items.map(r => cardHTML(r, today, me)).join('')}</div>`;
+}
+
+function cardHTML(r, today, me) {
+  const isOverdue = r.dueDate && r.dueDate.slice(0,10) < today && !r.done;
+  const duePill = r.dueDate ? `<span class="pill-due${isOverdue?' overdue':''}">${formatDate(r.dueDate)}</span>` : '';
+  const prioClass = r.priority || 'medium';
+  const personLabel = r.assignedToId === me.id ? `<span class="pill-person">From: ${r.createdByName||'You'}</span>` : `<span class="pill-person">To: ${r.assignedToName}</span>`;
+  const canDelete = r.createdById === me.id;
+  const deleteBtn = canDelete ? `<button onclick="deleteReminder('${r.id}')" class="btn btn-sm" style="border:1px solid #fde8e8;color:#c0392b;background:#fff;font-size:11px;padding:3px 10px">Delete</button>` : '';
+  const checkHTML = CURRENT_TAB !== 'sent' ? `<div class="reminder-check${r.done?' checked':''}" onclick="toggleDone('${r.id}',${!r.done})" title="${r.done?'Mark pending':'Mark done'}">${r.done?'✓':''}</div>` : '';
+  return `<div class="reminder-card${r.done?' done':''}">
+    <div class="reminder-header">
+      ${checkHTML}
+      <div class="reminder-title${r.done?' done-text':''}">${escHtml(r.title)}</div>
+    </div>
+    ${r.note ? `<div class="reminder-note">${escHtml(r.note)}</div>` : ''}
+    <div class="reminder-meta">
+      <span class="pill-priority ${prioClass}">${prioClass.charAt(0).toUpperCase()+prioClass.slice(1)}</span>
+      ${duePill}
+      ${r.assignedToId !== r.createdById ? personLabel : ''}
+    </div>
+    ${deleteBtn ? `<div class="reminder-actions">${deleteBtn}</div>` : ''}
+  </div>`;
+}
+
+function escHtml(s) { const d=document.createElement('div');d.textContent=s||'';return d.innerHTML; }
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  const day = String(dt.getUTCDate()).padStart(2,'0');
+  const m = String(dt.getUTCMonth()+1).padStart(2,'0');
+  const y = dt.getUTCFullYear();
+  return `${day}.${m}.${y}`;
+}
+
+async function toggleDone(id, done) {
+  await apiPut(`/api/reminders/${id}/done`, { done });
+  const r = ALL_REMINDERS.find(x => x.id === id);
+  if (r) r.done = done;
+  renderStats();
+  renderList();
+  refreshReminderCount();
+}
+
+async function deleteReminder(id) {
+  if (!confirm('Delete this reminder?')) return;
+  await apiDelete(`/api/reminders/${id}`);
+  ALL_REMINDERS = ALL_REMINDERS.filter(x => x.id !== id);
+  renderStats();
+  renderList();
+  refreshReminderCount();
+  showToast('Reminder deleted');
+}
+
+// ADD REMINDER
+function openAddReminder() {
+  const me = getSession();
+  document.getElementById('rmTitle').value = '';
+  document.getElementById('rmNote').value = '';
+  document.getElementById('rmDueDate').value = '';
+  document.getElementById('rmPriority').value = 'medium';
+  document.getElementById('rmAssignSearch').value = me.name;
+  document.getElementById('rmAssignId').value = me.id;
+  document.getElementById('addReminderModal').style.display = 'flex';
+}
+function closeAddReminder() { document.getElementById('addReminderModal').style.display = 'none'; }
+
+function searchAssignUser() {
+  const q = document.getElementById('rmAssignSearch').value.trim().toLowerCase();
+  document.getElementById('rmAssignId').value = '';
+  const dd = document.getElementById('rmAssignDropdown');
+  if (!q) { dd.style.display='none'; return; }
+  const matches = ALL_USERS.filter(u => u.name && u.name.toLowerCase().includes(q)).slice(0,8);
+  if (!matches.length) { dd.style.display='none'; return; }
+  dd.innerHTML = matches.map(u => `<div class="usd-item" onclick="pickAssignUser('${u.id}','${escHtml(u.name)}')">${escHtml(u.name)} <span style="color:#aaa;font-size:11px">${u.title||''}</span></div>`).join('');
+  dd.style.display = 'block';
+}
+function pickAssignUser(id, name) {
+  document.getElementById('rmAssignId').value = id;
+  document.getElementById('rmAssignSearch').value = name;
+  document.getElementById('rmAssignDropdown').style.display = 'none';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#rmAssignSearch') && !e.target.closest('#rmAssignDropdown'))
+    document.getElementById('rmAssignDropdown').style.display='none';
+});
+
+async function saveReminder() {
+  const title = document.getElementById('rmTitle').value.trim();
+  const assignedToId = document.getElementById('rmAssignId').value;
+  if (!title) return showToast('Please enter a title', 'error');
+  if (!assignedToId) return showToast('Please select a member to assign to', 'error');
+  const body = {
+    id: 'rem_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    title,
+    note: document.getElementById('rmNote').value.trim() || null,
+    dueDate: document.getElementById('rmDueDate').value || null,
+    priority: document.getElementById('rmPriority').value,
+    assignedToId,
+  };
+  await apiPost('/api/reminders', body);
+  closeAddReminder();
+  showToast('Reminder saved');
+  const remData = await apiGet('/api/reminders');
+  ALL_REMINDERS = remData || [];
+  renderStats();
+  renderList();
+  refreshReminderCount();
+}
+
+init();
+</script>
+</body>
+</html>

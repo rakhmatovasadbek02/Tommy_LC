@@ -24,11 +24,11 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
   'CEO':        [...PAGE_PERMISSIONS],
-  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','archived','finance_view_only'],
-  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived'],
-  'Admin':      ['dashboard','leads','students','groups','teachers'],
-  'Teacher':    ['dashboard','students','groups'],
-  'Support Teacher': ['dashboard','support'],
+  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','archived','finance_view_only','reminders'],
+  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders'],
+  'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
+  'Teacher':    ['dashboard','students','groups','reminders'],
+  'Support Teacher': ['dashboard','support','reminders'],
 };
 function isSupportTitle(t) { return String(t||'').trim().toLowerCase() === 'support teacher'; }
 const ROLES = Object.keys(ROLE_PERMS);
@@ -153,11 +153,16 @@ async function initDB() {
       created_at  TIMESTAMPTZ DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS classrooms (
-      id          TEXT PRIMARY KEY,
-      name        TEXT NOT NULL UNIQUE,
-      capacity    INTEGER,
-      created_at  TIMESTAMPTZ DEFAULT NOW()
+    CREATE TABLE IF NOT EXISTS reminders (
+      id            TEXT PRIMARY KEY,
+      title         TEXT NOT NULL,
+      note          TEXT,
+      due_date      DATE,
+      priority      TEXT DEFAULT 'medium',
+      created_by_id TEXT NOT NULL,
+      assigned_to_id TEXT NOT NULL,
+      done          BOOLEAN DEFAULT FALSE,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS groups (
@@ -414,6 +419,12 @@ async function initDB() {
     );
     console.log('Seeded default CEO: phone=90 000 00 01  password=admin123');
   }
+
+  // Grant 'reminders' to all existing users who don't have it yet
+  await pool.query(`
+    UPDATE users SET permissions = permissions || '["reminders"]'::jsonb
+    WHERE NOT (permissions @> '["reminders"]'::jsonb)
+  `).catch(() => {});
 
   await loadAppSecret();
   console.log('Database ready');
@@ -1683,6 +1694,77 @@ app.get('/api/dashboard', async (req, res) => {
         enrolledCount: (g.student_ids || []).filter(id => stuById.has(id)).length
       }))
     });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* REMINDERS */
+app.get('/api/reminders', async (req, res) => {
+  try {
+    const me = req.user;
+    const { rows } = await pool.query(
+      `SELECT r.*,
+        cu.first_name||' '||cu.last_name AS created_by_name,
+        au.first_name||' '||au.last_name AS assigned_to_name
+       FROM reminders r
+       LEFT JOIN users cu ON cu.id = r.created_by_id
+       LEFT JOIN users au ON au.id = r.assigned_to_id
+       WHERE r.assigned_to_id=$1 OR r.created_by_id=$1
+       ORDER BY r.done ASC, r.due_date ASC NULLS LAST, r.created_at DESC`,
+      [me.id]
+    );
+    res.json(rows.map(r => ({
+      id: r.id, title: r.title, note: r.note,
+      dueDate: r.due_date, priority: r.priority,
+      done: r.done, createdAt: r.created_at,
+      createdById: r.created_by_id, createdByName: r.created_by_name,
+      assignedToId: r.assigned_to_id, assignedToName: r.assigned_to_name,
+      mine: r.assigned_to_id === me.id,
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/reminders/count', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM reminders WHERE assigned_to_id=$1 AND done=FALSE`,
+      [req.user.id]
+    );
+    res.json({ count: rows[0].n });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/reminders', async (req, res) => {
+  try {
+    const me = req.user;
+    const { id, title, note, dueDate, priority, assignedToId } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title required.' });
+    await pool.query(
+      `INSERT INTO reminders(id,title,note,due_date,priority,created_by_id,assigned_to_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [id, title, note||null, dueDate||null, priority||'medium', me.id, assignedToId||me.id]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/reminders/:id/done', async (req, res) => {
+  try {
+    const me = req.user;
+    await pool.query(
+      `UPDATE reminders SET done=$1 WHERE id=$2 AND (assigned_to_id=$3 OR created_by_id=$3)`,
+      [req.body.done !== false, req.params.id, me.id]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/reminders/:id', async (req, res) => {
+  try {
+    const me = req.user;
+    await pool.query(
+      `DELETE FROM reminders WHERE id=$1 AND created_by_id=$2`,
+      [req.params.id, me.id]
+    );
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

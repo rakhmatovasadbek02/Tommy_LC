@@ -146,7 +146,7 @@ function initials(name) {
 }
 
 // Page permissions (page = see + manage), plus the finance view-only modifier.
-const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived'];
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived','reminders'];
 const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Sidebar/page feature keys that differ from permission keys.
 const PERM_ALIAS = { payments:'finance', settings:'staff' };
@@ -261,6 +261,7 @@ const IC = {
  arrowLeft: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
  refresh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
  logout: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
+ reminders: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
 };
 
 function renderSidebar(activePage) {
@@ -283,6 +284,7 @@ function renderSidebar(activePage) {
  ]},
  { label: 'Settings', items: [
     { feature:'archived',   href:'archived.html',   iconKey:'archived',   label:'Archived'   },
+    { feature:'reminders',  href:'reminders.html',  iconKey:'reminders',  label:'Reminders'  },
  ]},
  ];
 
@@ -347,6 +349,31 @@ function renderSidebar(activePage) {
  injectLangSwitcher();
  injectFooter();
  checkAccessDeniedMessage();
+ injectReminderBell();
+}
+
+function injectReminderBell() {
+ const topbar = document.querySelector('.topbar');
+ if (!topbar || document.getElementById('reminderBell')) return;
+ const btn = document.createElement('a');
+ btn.id = 'reminderBell';
+ btn.href = 'reminders.html';
+ btn.title = 'Reminders';
+ btn.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.7);text-decoration:none;transition:background 0.14s;margin-left:auto;flex-shrink:0;';
+ btn.onmouseover = () => btn.style.background = 'rgba(255,255,255,0.14)';
+ btn.onmouseout = () => btn.style.background = 'rgba(255,255,255,0.07)';
+ btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="reminderCount" style="display:none;position:absolute;top:4px;right:4px;background:#e74c3c;color:#fff;font-size:9px;font-weight:700;border-radius:50%;min-width:14px;height:14px;line-height:14px;text-align:center;padding:0 2px;"></span>`;
+ topbar.appendChild(btn);
+ refreshReminderCount();
+}
+
+function refreshReminderCount() {
+ apiGet('/api/reminders/count').then(d => {
+   const badge = document.getElementById('reminderCount');
+   if (!badge) return;
+   if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.style.display = 'block'; }
+   else badge.style.display = 'none';
+ }).catch(() => {});
 }
 
 function injectFooter() {
