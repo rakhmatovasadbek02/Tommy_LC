@@ -23,67 +23,80 @@
     .filter-item.active .filter-count { background:rgba(192,57,43,.12); color:var(--primary); }
 
     /* Stats */
-    .stats-row { display:flex; gap:10px; margin-bottom:22px; }
-    .stat-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:12px 16px; flex:1; text-align:center; }
-    .stat-val { font-size:22px; font-weight:800; }
-    .stat-lbl { font-size:11px; color:var(--text-muted); margin-top:2px; }
+    .stats-row { display:flex; gap:12px; margin-bottom:20px; }
+    .stat-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 18px; flex:1; display:flex; align-items:center; gap:14px; }
+    .stat-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:17px; }
+    .stat-text {}
+    .stat-val { font-size:20px; font-weight:800; line-height:1; }
+    .stat-lbl { font-size:11px; color:var(--text-muted); margin-top:3px; font-weight:500; }
 
-    /* Kanban columns */
-    .kanban { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; align-items:start; }
-    .kanban-col { background:var(--bg); border-radius:12px; padding:12px; min-height:120px; }
-    .kanban-col-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-    .kanban-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; }
-    .kanban-col-count { font-size:11px; font-weight:700; background:var(--white); border-radius:20px; padding:1px 8px; }
-    .col-pending .kanban-col-title { color:#3b5bdb; }
+    /* Kanban board */
+    .kanban { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:start; }
+    .kanban-col { border-radius:14px; overflow:hidden; border:1px solid var(--border); background:var(--white); display:flex; flex-direction:column; }
+    .kanban-col-header { display:flex; align-items:center; gap:10px; padding:13px 14px 12px; border-bottom:1px solid var(--border); }
+    .col-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .col-pending   .col-dot { background:#3b5bdb; }
+    .col-in_process .col-dot { background:#e67e22; }
+    .col-completed .col-dot { background:#27ae60; }
+    .col-overdue   .col-dot { background:#c0392b; }
+    .kanban-col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; flex:1; }
+    .col-pending   .kanban-col-title { color:#3b5bdb; }
     .col-in_process .kanban-col-title { color:#e67e22; }
     .col-completed .kanban-col-title { color:#27ae60; }
-    .col-overdue .kanban-col-title { color:#c0392b; }
+    .col-overdue   .kanban-col-title { color:#c0392b; }
+    .kanban-col-count { font-size:11px; font-weight:700; border-radius:20px; padding:2px 9px; min-width:22px; text-align:center; }
+    .col-pending   .kanban-col-count { background:#eef2ff; color:#3b5bdb; }
+    .col-in_process .kanban-col-count { background:#fff3e0; color:#e67e22; }
+    .col-completed .kanban-col-count { background:#e8f5e9; color:#27ae60; }
+    .col-overdue   .kanban-col-count { background:#fde8e8; color:#c0392b; }
+    .kanban-col-body { padding:10px; display:flex; flex-direction:column; gap:8px; min-height:80px; }
+
     /* Task cards */
-    .task-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; transition:box-shadow .12s; }
-    .task-card:last-child { margin-bottom:0; }
-    .task-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.07); }
-    .task-card.status-overdue { border-left:3px solid #c0392b; }
-    .task-card.status-completed { opacity:.55; }
-    .task-top { display:flex; align-items:flex-start; gap:10px; }
+    .task-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 13px; transition:box-shadow .15s, transform .1s; position:relative; }
+    .task-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.09); transform:translateY(-1px); }
+    .task-card.status-pending  { border-top:2px solid #3b5bdb; }
+    .task-card.status-in_process { border-top:2px solid #e67e22; }
+    .task-card.status-completed { border-top:2px solid #27ae60; opacity:.6; }
+    .task-card.status-overdue  { border-top:2px solid #c0392b; background:#fff8f8; }
+    .task-top { display:flex; align-items:flex-start; gap:8px; }
     .task-body { flex:1; min-width:0; }
-    .task-title { font-size:14px; font-weight:600; color:var(--text); line-height:1.4; }
+    .task-title { font-size:13px; font-weight:600; color:var(--text); line-height:1.45; }
     .task-title.done-text { text-decoration:line-through; color:var(--text-muted); }
-    .task-note { font-size:12px; color:var(--text-muted); margin-top:3px; line-height:1.5; }
-    .task-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; align-items:center; }
-    .pill { padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
-    .pill-high { background:#fde8e8; color:#c0392b; }
+    .task-note { font-size:11.5px; color:var(--text-muted); margin-top:4px; line-height:1.5; }
+    .task-meta { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; align-items:center; }
+    .pill { padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:600; }
+    .pill-high   { background:#fde8e8; color:#c0392b; }
     .pill-medium { background:#fef3cd; color:#b7791f; }
-    .pill-low { background:#e8f5e9; color:#27ae60; }
-    .pill-due { background:#f0f4ff; color:#3b5bdb; }
+    .pill-low    { background:#e8f5e9; color:#27ae60; }
+    .pill-due    { background:#f0f4ff; color:#3b5bdb; }
     .pill-due.overdue { background:#fde8e8; color:#c0392b; }
     .pill-person { background:#f5f0ff; color:#6f42c1; }
+    .task-footer { display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-top:9px; border-top:1px solid var(--border); gap:6px; }
+    .task-footer-left { display:flex; gap:5px; flex-wrap:wrap; }
+    .task-footer-right { display:flex; gap:5px; flex-shrink:0; }
 
-    /* Status badge */
-    .status-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; flex-shrink:0; }
-    .badge-pending { background:#f0f4ff; color:#3b5bdb; }
-    .badge-in_process { background:#fff3e0; color:#e67e22; }
-    .badge-completed { background:#e8f5e9; color:#27ae60; }
-    .badge-overdue { background:#fde8e8; color:#c0392b; }
-
-    /* Progress buttons (assignee only) */
-    .progress-btn { border:none; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; transition:all .12s; }
+    /* Progress button */
+    .progress-btn { border:none; border-radius:6px; padding:4px 11px; font-size:11px; font-weight:700; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:4px; }
     .btn-start { background:#fff3e0; color:#e67e22; }
     .btn-start:hover { background:#e67e22; color:#fff; }
-    .btn-done { background:#e8f5e9; color:#27ae60; }
-    .btn-done:hover { background:#27ae60; color:#fff; }
+    .btn-done  { background:#e8f5e9; color:#27ae60; }
+    .btn-done:hover  { background:#27ae60; color:#fff; }
 
     /* Edit/Delete */
-    .task-actions { display:flex; gap:6px; flex-shrink:0; }
-    .task-btn { border:1px solid var(--border); background:var(--white); color:var(--text-muted); border-radius:6px; padding:4px 9px; font-size:11px; cursor:pointer; transition:all .12s; }
+    .task-actions { display:flex; gap:5px; }
+    .task-btn { border:1px solid var(--border); background:var(--white); color:var(--text-muted); border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer; transition:all .12s; }
     .task-btn:hover { background:var(--bg); color:var(--text); }
     .task-btn.danger:hover { background:#fde8e8; border-color:#fbb; color:#c0392b; }
 
     /* Drag and drop */
     .task-card[draggable="true"] { cursor:grab; }
     .task-card[draggable="true"]:active { cursor:grabbing; }
-    .task-card.dragging { opacity:.35; box-shadow:0 4px 16px rgba(0,0,0,.15); }
-    .kanban-col.drag-over { background:rgba(99,102,241,.08); outline:2px dashed rgba(99,102,241,.4); outline-offset:-2px; }
-    .kanban-col.drag-blocked { background:rgba(192,57,43,.06); outline:2px dashed rgba(192,57,43,.3); outline-offset:-2px; cursor:not-allowed; }
+    .task-card.dragging { opacity:.3; transform:scale(.98); }
+    .kanban-col.drag-over { background:#f0f4ff; border-color:#a5b4fc; }
+    .kanban-col.drag-over .kanban-col-header { background:#eef2ff; }
+    .kanban-col.drag-blocked { background:#fff8f8; border-color:#fca5a5; }
+
+    .col-empty { text-align:center; padding:24px 12px; color:var(--text-muted); font-size:12px; opacity:.6; }
 
     .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
     .empty-state svg { display:block; margin:0 auto 14px; opacity:.25; }
@@ -233,13 +246,19 @@ function updateCounts() {
 function renderStats() {
   const inbox = myTasks();
   const stats = [
-    { val: inbox.filter(t=>t.status==='pending').length,    lbl:'Pending',    color:'#3b5bdb' },
-    { val: inbox.filter(t=>t.status==='in_process').length, lbl:'In Process', color:'#e67e22' },
-    { val: inbox.filter(t=>t.status==='completed').length,  lbl:'Completed',  color:'#27ae60' },
-    { val: inbox.filter(t=>t.status==='overdue').length,    lbl:'Overdue',    color:'#c0392b' },
+    { val: inbox.filter(t=>t.status==='pending').length,    lbl:'Pending',    color:'#3b5bdb', bg:'#eef2ff', icon:'⏳' },
+    { val: inbox.filter(t=>t.status==='in_process').length, lbl:'In Process', color:'#e67e22', bg:'#fff3e0', icon:'🔄' },
+    { val: inbox.filter(t=>t.status==='completed').length,  lbl:'Completed',  color:'#27ae60', bg:'#e8f5e9', icon:'✅' },
+    { val: inbox.filter(t=>t.status==='overdue').length,    lbl:'Overdue',    color:'#c0392b', bg:'#fde8e8', icon:'🚨' },
   ];
   document.getElementById('statsRow').innerHTML = stats.map(s =>
-    `<div class="stat-card"><div class="stat-val" style="color:${s.color}">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`
+    `<div class="stat-card">
+      <div class="stat-icon" style="background:${s.bg}">${s.icon}</div>
+      <div class="stat-text">
+        <div class="stat-val" style="color:${s.color}">${s.val}</div>
+        <div class="stat-lbl">${s.lbl}</div>
+      </div>
+    </div>`
   ).join('');
 }
 
@@ -265,10 +284,13 @@ function renderList() {
     const tasks = items.filter(t => t.status === s);
     return `<div class="kanban-col col-${s}" data-col="${s}">
       <div class="kanban-col-header">
+        <span class="col-dot"></span>
         <span class="kanban-col-title">${STATUS_LABEL[s]}</span>
-        <span class="kanban-col-count" style="color:${COL_COLORS[s]}">${tasks.length}</span>
+        <span class="kanban-col-count">${tasks.length}</span>
       </div>
-      ${tasks.length ? tasks.map(t => cardHTML(t)).join('') : `<div class="col-empty" style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:12px">No tasks</div>`}
+      <div class="kanban-col-body">
+        ${tasks.length ? tasks.map(t => cardHTML(t)).join('') : `<div class="col-empty">No tasks here</div>`}
+      </div>
     </div>`;
   }).join('')}</div>`;
   initDrag();
@@ -296,23 +318,24 @@ function cardHTML(t) {
   // Draggable: only assignee on non-overdue, non-completed tasks
   const canDrag = isAssignee && t.status !== 'overdue' && t.status !== 'completed';
 
+  const hasFooter = progressBtn || canEdit || canDelete || dueLabel || personPill;
   return `<div class="task-card status-${t.status}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''}>
-    <div class="task-top">
-      <div class="task-body">
-        <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
-        ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
-        <div class="task-meta">
-          <span class="pill pill-${t.priority}">${cap(t.priority)}</span>
-          ${dueLabel ? `<span class="pill pill-due${isOverdueDue?' overdue':''}">${dueLabel}</span>` : ''}
-          ${personPill}
-        </div>
+    <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
+    ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
+    <div class="task-meta">
+      <span class="pill pill-${t.priority}">${cap(t.priority)}</span>
+    </div>
+    ${hasFooter ? `<div class="task-footer">
+      <div class="task-footer-left">
+        ${dueLabel ? `<span class="pill pill-due${isOverdueDue?' overdue':''}" style="font-size:10px">📅 ${dueLabel}</span>` : ''}
+        ${personPill}
       </div>
-      <div class="task-actions">
+      <div class="task-footer-right">
         ${progressBtn}
         ${canEdit ? `<button class="task-btn" onclick="editTask('${t.id}')">Edit</button>` : ''}
-        ${canDelete ? `<button class="task-btn danger" onclick="deleteTask('${t.id}')">Delete</button>` : ''}
+        ${canDelete ? `<button class="task-btn danger" onclick="deleteTask('${t.id}')">Del</button>` : ''}
       </div>
-    </div>
+    </div>` : ''}
   </div>`;
 }
 
