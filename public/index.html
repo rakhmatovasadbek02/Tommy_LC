@@ -487,7 +487,10 @@ const covered = tSessions.some(p=>s>p.st && s<p.en);
 if (covered) return `<div style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;pointer-events:none;"></div>`;
 const inShift = s >= shStart && s < shEnd;
 if (!inShift) return `<div title="Off shift" style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;background:repeating-linear-gradient(45deg,#ffc5c5,#ffc5c5 6px,#ffd9d9 6px,#ffd9d9 12px);"></div>`;
-const clickable = CAN_SUPPORT && !starting.length;
+const nowTz2 = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+const isToday2 = supportDateISO === nowTz2.toISOString().split('T')[0];
+const isPast = isToday2 && s <= nowTz2.getHours()*60 + nowTz2.getMinutes();
+const clickable = CAN_SUPPORT && !starting.length && !isPast;
 return `<div ${clickable?`onclick="openSupport(&quot;${tEsc}&quot;,'${minToTime(s)}')" class="sup-cell"`:''} style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;position:relative;${clickable?'cursor:pointer;':''}">
 ${starting.map(p=>{
 const span = slots.filter(s2=>s2>=p.st && s2<p.en).length;
