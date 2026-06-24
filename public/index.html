@@ -424,10 +424,16 @@ document.querySelectorAll('.timetable-wrap')[0].style.display = 'none';
 document.getElementById('supportHeader').style.marginTop = '0';
 document.querySelector('.welcome-banner p').textContent = 'Your support timetable';
 }
+// Hide support timetable entirely for users who are not admin and not a support teacher
+const canSeeSupport = isAdministration() || isSupportTeacher();
+if (!canSeeSupport) {
+  document.getElementById('supportHeader').style.display = 'none';
+  document.getElementById('supportGrid').style.display = 'none';
+}
 supportDateISO = isoLocal(new Date());
 renderSupportDateLabel();
 if (!can('groups')) document.getElementById('addSupportBtn').style.display = 'none';
-loadSupport();
+if (canSeeSupport) loadSupport();
 }
 
 /* ── Support timetable ── */
