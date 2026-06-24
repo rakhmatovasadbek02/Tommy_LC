@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reminders — TommyLC CRM</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="shared.css">
   <style>
     .reminders-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
     @media(max-width:768px){ .reminders-grid{grid-template-columns:1fr;} }
@@ -43,8 +43,10 @@
   <aside class="sidebar"></aside>
   <div class="main">
     <div class="topbar">
-      <div class="topbar-title">Reminders</div>
-      <button class="btn btn-primary btn-sm" onclick="openAddReminder()" style="margin-left:auto">+ Add Reminder</button>
+      <div class="page-title">Reminders</div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="openAddReminder()">+ Add Reminder</button>
+      </div>
     </div>
     <div class="content" style="padding:24px">
       <div id="statsRow" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;"></div>
