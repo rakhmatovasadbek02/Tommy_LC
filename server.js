@@ -2167,25 +2167,3 @@ async function runMonthlyCharge() {
   return { processed, skipped, errors, month: monthStr };
 }
 
-app.post('/api/admin/run-monthly-charge', async (req, res) => {
-  try {
-    const result = await runMonthlyCharge();
-    res.json(result);
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/admin/monthly-charge-status', async (req, res) => {
-  try {
-    const { rows } = await pool.query(`SELECT value FROM app_config WHERE key='monthly_charge_last_run'`);
-    const lastRun = rows[0] ? JSON.parse(rows[0].value) : null;
-    // Also return pending (Auto) invoice totals per month
-    const { rows: charges } = await pool.query(
-      `SELECT month, COUNT(*)::int AS count, SUM(total)::numeric AS total
-       FROM invoices WHERE payment_type='Auto' AND status='Pending'
-       GROUP BY month ORDER BY month DESC LIMIT 12`
-    );
-    res.json({ lastRun, charges });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
