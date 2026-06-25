@@ -332,6 +332,10 @@ async function initDB() {
     `CREATE TABLE IF NOT EXISTS archive_reasons (id SERIAL PRIMARY KEY, label TEXT NOT NULL UNIQUE, is_blacklist BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS pre_archive_status TEXT`,
+    `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
+    `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
+    `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -776,17 +780,33 @@ app.delete('/api/students/:id', async (req, res) => {
 
 app.get('/api/students/archived', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT * FROM students WHERE archived=TRUE ORDER BY archived_at DESC`
-    );
-    res.json(rows.map(s => ({
-      id: s.id, firstName: s.first_name, lastName: s.last_name,
-      phone: s.phone, level: s.level,
-      archiveReason: s.archive_reason,
-      archiveComment: s.archive_comment,
-      archivedAt: s.archived_at,
-      preArchiveStatus: s.pre_archive_status
-    })));
+    const [{ rows: students }, { rows: leads }] = await Promise.all([
+      pool.query(`SELECT * FROM students WHERE archived=TRUE ORDER BY archived_at DESC`),
+      pool.query(`SELECT * FROM leads WHERE archived=TRUE ORDER BY archived_at DESC`)
+    ]);
+    const result = [
+      ...students.map(s => ({
+        id: s.id, firstName: s.first_name, lastName: s.last_name,
+        phone: s.phone, level: s.level,
+        archiveReason: s.archive_reason,
+        archiveComment: s.archive_comment,
+        archivedAt: s.archived_at,
+        preArchiveStatus: s.pre_archive_status,
+        sourceType: 'student'
+      })),
+      ...leads.map(l => ({
+        id: l.id, firstName: l.first_name, lastName: l.last_name,
+        phone: l.phone_student || l.phone_father || l.phone_mother || l.phone_other,
+        level: l.current_level,
+        archiveReason: l.archive_reason,
+        archiveComment: l.archive_comment,
+        archivedAt: l.archived_at,
+        preArchiveStatus: null,
+        sourceType: 'lead'
+      }))
+    ];
+    result.sort((a,b) => new Date(b.archivedAt||0) - new Date(a.archivedAt||0));
+    res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1838,7 +1858,11 @@ app.post('/api/leads/:id/convert', async (req, res) => {
 
 app.delete('/api/leads/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM leads WHERE id=$1', [req.params.id]);
+    const { reason, comment } = req.body || {};
+    await pool.query(
+      `UPDATE leads SET archived=TRUE, archive_reason=$1, archive_comment=$2, archived_at=NOW() WHERE id=$3`,
+      [reason||null, comment||null, req.params.id]
+    );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

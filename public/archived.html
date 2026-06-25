@@ -198,11 +198,6 @@
     }).join('');
   }
 
-  function isWasActive(s) {
-    // pre_archive_status saved since this feature; for older records null = assume active if they had Active status history
-    return s.preArchiveStatus === 'Active' || (!s.preArchiveStatus && s.archiveReason && s.archiveReason !== 'Blacklist');
-  }
-
   function filterList() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const fr = document.getElementById('filterReason').value;
@@ -212,8 +207,9 @@
       if (fr && s.archiveReason !== fr) return false;
       return true;
     });
-    const active   = list.filter(s => s.preArchiveStatus === 'Active'   || (!s.preArchiveStatus));
-    const inactive = list.filter(s => s.preArchiveStatus && s.preArchiveStatus !== 'Active');
+    // Leads and students who were never Active → Leads/Never Active column
+    const active   = list.filter(s => s.sourceType !== 'lead' && s.preArchiveStatus === 'Active');
+    const inactive = list.filter(s => s.sourceType === 'lead' || s.preArchiveStatus !== 'Active');
     document.getElementById('activeCount').textContent  = active.length;
     document.getElementById('inactiveCount').textContent = inactive.length;
     renderSection('activeWrap',   active);

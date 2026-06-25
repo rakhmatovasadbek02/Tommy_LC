@@ -1113,6 +1113,75 @@ function checkLeadBlacklist() {
 }
 
 load();
+
+/* ── Lead archive modal ── */
+let _archiveLeadId = null;
+
+async function deleteLead(id) {
+  const l = leads.find(l => l.id === id);
+  if (!l) return;
+  _archiveLeadId = id;
+  document.getElementById('leadArchiveName').textContent = l.firstName + ' ' + l.lastName;
+
+  // Populate reasons
+  let reasons = [];
+  try { reasons = await apiGet('/api/archive-reasons'); } catch(e) {}
+  const sel = document.getElementById('leadArchiveReason');
+  sel.innerHTML = '<option value="">Select reason…</option>'
+    + '<option value="Blacklist" data-blacklist="true">⛔ Blacklist</option>'
+    + reasons.map(r => `<option value="${r.label}">${r.label}</option>`).join('');
+  document.getElementById('leadArchiveCommentGroup').style.display = 'none';
+  document.getElementById('leadArchiveComment').value = '';
+
+  openModal('leadArchiveModal');
+}
+
+function onLeadArchiveReasonChange() {
+  const sel = document.getElementById('leadArchiveReason');
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('leadArchiveCommentGroup').style.display =
+    opt?.dataset?.blacklist === 'true' ? 'block' : 'none';
+}
+
+async function confirmLeadArchive() {
+  const reason  = document.getElementById('leadArchiveReason').value;
+  const comment = document.getElementById('leadArchiveComment').value.trim();
+  if (!reason) return showToast('Select a reason.', 'error');
+  if (reason === 'Blacklist' && !comment) return showToast('Comment required for blacklist.', 'error');
+  try {
+    const l = leads.find(l => l.id === _archiveLeadId);
+    await apiDelete('/api/leads/' + _archiveLeadId, { reason, comment });
+    logActivity(`Archived lead: ${l?.firstName} ${l?.lastName} (${reason})`, 'red');
+    closeModal('leadArchiveModal');
+    await load();
+    showToast('Lead archived.');
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
 </script>
+
+<!-- Lead archive modal -->
+<div class="modal-overlay" id="leadArchiveModal">
+  <div class="modal" style="width:min(420px,94vw)">
+    <div class="modal-header">
+      <div class="modal-title">Archive Lead</div>
+      <button class="modal-close" onclick="closeModal('leadArchiveModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;font-size:14px;color:var(--text)">Archive <strong id="leadArchiveName"></strong>?</p>
+      <div class="form-group">
+        <label class="form-label">Reason</label>
+        <select id="leadArchiveReason" onchange="onLeadArchiveReasonChange()"></select>
+      </div>
+      <div class="form-group" id="leadArchiveCommentGroup" style="display:none">
+        <label class="form-label">Comment <span style="color:#dc2626">*</span></label>
+        <textarea id="leadArchiveComment" rows="3" placeholder="Required for blacklist…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('leadArchiveModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmLeadArchive()">Archive</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
