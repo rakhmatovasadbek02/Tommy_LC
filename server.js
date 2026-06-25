@@ -1739,7 +1739,7 @@ app.post('/api/attendance/:groupId/:date', async (req, res) => {
 /* LEADS */
 app.get('/api/leads', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
+    const { rows } = await pool.query('SELECT * FROM leads WHERE archived IS NOT TRUE ORDER BY created_at DESC');
     res.json(rows.map(l => ({
       id: l.id, firstName: l.first_name, lastName: l.last_name,
       phoneStudent: l.phone_student, phoneFather: l.phone_father,
