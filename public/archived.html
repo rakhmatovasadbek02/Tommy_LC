@@ -304,7 +304,6 @@
   }
 
   async function restoreStudent(id, name, sourceType) {
-    const label = sourceType === 'lead' ? 'lead' : 'student';
     if (!confirm(`Restore ${name}?`)) return;
     try {
       const endpoint = sourceType === 'lead'
@@ -312,9 +311,7 @@
         : `/api/students/${id}/restore`;
       await apiPut(endpoint, {});
       showToast(name + ' restored.');
-      _all = _all.filter(s => s.id !== id);
-      filterList();
-      renderBlacklist();
+      await load();
     } catch(e) { showToast('Error restoring.', 'error'); }
   }
 
