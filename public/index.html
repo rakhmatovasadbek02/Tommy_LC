@@ -350,8 +350,9 @@ if (end > rangeEnd) rangeEnd = Math.ceil(end / 60) * 60;
 const slots = [];
 for (let m = rangeStart; m < rangeEnd; m += 30) slots.push(m);
 const COL_W = 60, ROOM_W = 130;
-let html = `<div style="display:flex;position:sticky;top:0;z-index:5;">
-<div style="width:${ROOM_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);">Classroom</div>
+const totalW = ROOM_W + slots.length * COL_W;
+let html = `<div style="display:flex;min-width:${totalW}px;position:sticky;top:0;z-index:5;">
+<div style="width:${ROOM_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);position:sticky;left:0;z-index:6;">Classroom</div>
 ${slots.map(s => {
 const isHour = s % 60 === 0;
 return `<div style="width:${COL_W}px;flex-shrink:0;background:var(--crimson);padding:10px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.12);overflow:hidden;">
@@ -364,8 +365,8 @@ const unassignedGroups = visibleClasses.filter(c => !roomNames.includes(c.room))
 const allRooms = [...rooms, ...(unassignedGroups.length ? [{ name:'Unassigned', id:'_unassigned' }] : [])];
 allRooms.forEach(room => {
 const roomClasses = visibleClasses.filter(c => c.room === room.name);
-html += `<div style="display:flex;">
-<div style="width:${ROOM_W}px;flex-shrink:0;padding:14px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;flex-direction:column;justify-content:center;">
+html += `<div style="display:flex;min-width:${totalW}px;">
+<div style="width:${ROOM_W}px;flex-shrink:0;padding:14px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;flex-direction:column;justify-content:center;position:sticky;left:0;z-index:4;">
 <div style="font-weight:700;font-size:14px;color:var(--crimson)">${room.name}</div>
 </div>
 ${slots.map(s => {
@@ -409,7 +410,7 @@ ${enrolled?`<span style="font-size:9px;color:${textCol};opacity:0.85;white-space
 }).join('')}
 </div>`;
 });
-grid.innerHTML = `<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
+grid.innerHTML = html;
 }
 async function showAbsentModal() {
   openModal('absentModal');
@@ -530,8 +531,9 @@ placed.forEach(s => { if (s.st < rangeStart) rangeStart = Math.floor(s.st/60)*60
 const slots = []; for (let m=rangeStart; m<rangeEnd; m+=30) slots.push(m);
 const COL_W=60, LANE_W=150;
 const minToTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
-let html = `<div style="display:flex;position:sticky;top:0;z-index:5;">
-<div style="width:${LANE_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);">Support</div>
+const totalW2 = LANE_W + slots.length * COL_W;
+let html = `<div style="display:flex;min-width:${totalW2}px;position:sticky;top:0;z-index:5;">
+<div style="width:${LANE_W}px;flex-shrink:0;background:var(--crimson);padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.65);border-right:1px solid rgba(255,255,255,0.15);position:sticky;left:0;z-index:6;">Support</div>
 ${slots.map(s=>{const isHour=s%60===0;return `<div style="width:${COL_W}px;flex-shrink:0;background:var(--crimson);padding:10px 4px;text-align:center;border-right:1px solid rgba(255,255,255,0.12);"><div style="font-size:${isHour?12:10}px;font-weight:${isHour?700:400};color:${isHour?'#fff':'rgba(255,255,255,0.55)'};white-space:nowrap;">${minToTime(s)}</div></div>`;}).join('')}
 </div>`;
 teachers.forEach(teacher => {
@@ -540,10 +542,9 @@ const tCol = supportTeacherColor(teacher);
 const tEsc = teacher.replace(/"/g,'&quot;');
 const shift = supShiftFor(teacher);
 const shStart = shift ? spMin(shift.start) : -1, shEnd = shift ? spMin(shift.end) : -1;
-html += `<div style="display:flex;">
-<div style="width:${LANE_W}px;flex-shrink:0;padding:12px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;align-items:center;gap:9px;">
-<div class="avatar" style="width:28px;height:28px;font-size:11px;background:${tCol}">${initials(teacher)}</div>
-<div style="min-width:0"><div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.2">${teacher}</div><div style="font-size:10px;color:var(--muted)">${shift?shift.start+'–'+shift.end:'off'}</div></div>
+html += `<div style="display:flex;min-width:${totalW2}px;">
+<div style="width:${LANE_W}px;flex-shrink:0;padding:12px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;align-items:center;gap:9px;position:sticky;left:0;z-index:4;">
+<div style="font-weight:700;font-size:13px;color:var(--text)">${teacher}</div>
 </div>
 ${slots.map(s=>{
 const starting = tSessions.filter(p=>p.st===s);
@@ -571,7 +572,7 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
 }).join('')}
 </div>`;
 });
-grid.innerHTML = `<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
+grid.innerHTML = html;
 }
 function setDur(min, btn){ _spDur = min; document.querySelectorAll('#spDurSeg button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
 function spSearchStudents(q){
