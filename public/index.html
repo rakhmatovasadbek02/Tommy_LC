@@ -194,6 +194,17 @@ onblur="this.style.borderColor='var(--border)'">
 </div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- Absent Today Modal -->
+<div class="modal-overlay" id="absentModal">
+  <div class="modal" style="width:min(520px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">Absent Today</div>
+      <button class="modal-close" onclick="closeModal('absentModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="absentList" style="max-height:420px;overflow-y:auto"></div>
+  </div>
+</div>
 <script src="shared.js"></script>
 <script>
 requireAuth('dashboard');
@@ -221,7 +232,7 @@ const STAT_DEFS = [
 { id:'statPaid', label:'Paid', icon:'', color:'green', perm:'finance', calc:()=>S().paidCount, sub:'invoices settled', link:'finance.html' },
 { id:'statLead', label:'Leads', icon:'', color:'purple', perm:'leads', calc:()=>S().leads, sub:'in pipeline', link:'leads.html' },
 { id:'statTrial', label:'Trial', icon:'', color:'amber', perm:'leads', calc:()=>S().trial, sub:'on trial period', link:'leads.html' },
-{ id:'statAbsent', label:'Absent Today', icon:'', color:'red', perm:'students', calc:()=>S().absentToday, sub:'not in class today', link:'students.html' },
+{ id:'statAbsent', label:'Absent Today', icon:'', color:'red', perm:'students', calc:()=>S().absentToday, sub:'not in class today', link:null, onclick:'showAbsentModal()' },
 ];
 function S(){ return window._stats || {activeStudents:0,debtors:0,paidCount:0,leads:0,trial:0,absentToday:0}; }
 function renderStats() {
@@ -229,7 +240,7 @@ const row = document.getElementById('statRow');
 row.innerHTML = STAT_DEFS
 .filter(s => can(s.perm))
 .map(s => `
-<div class="stat-box ${s.color}" ${s.link?`onclick="location.href='${s.link}'" style="cursor:pointer"`:''}">
+<div class="stat-box ${s.color}" ${s.link?`onclick="location.href='${s.link}'" style="cursor:pointer"`:s.onclick?`onclick="${s.onclick}" style="cursor:pointer"`:''}">
 <span class="stat-box-icon">${s.icon}</span>
 <div class="stat-box-label">${s.label}</div>
 <div class="stat-box-value" id="${s.id}">—</div>
@@ -400,6 +411,44 @@ ${enrolled?`<span style="font-size:9px;color:${textCol};opacity:0.85;white-space
 });
 grid.innerHTML = `<div style="overflow-x:auto;min-width:100%;">${html}</div>`;
 }
+async function showAbsentModal() {
+  openModal('absentModal');
+  const el = document.getElementById('absentList');
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">Loading…</div>';
+  try {
+    const today = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'})).toISOString().split('T')[0];
+    const [attRows, allStudents, allGroups] = await Promise.all([
+      apiGet('/api/attendance/day/'+today),
+      window._students || apiGet('/api/students'),
+      window._groups   || [],
+    ]);
+    window._students = window._students || allStudents;
+    const absentIds = attRows.filter(r => r.status === 'absent').map(r => r.student_id);
+    const groupByStudentId = {};
+    (window._groups||[]).forEach(g => (g.studentIds||[]).forEach(sid => { groupByStudentId[sid] = g.name; }));
+    const absent = (window._students||[]).filter(s => absentIds.includes(s.id));
+    if (!absent.length) {
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">No absences recorded today.</div>';
+      return;
+    }
+    el.innerHTML = absent.map(s => {
+      const name = s.firstName+' '+s.lastName;
+      const col = avatarColor(name);
+      const grp = groupByStudentId[s.id] || '—';
+      return `<div onclick="window.location.href='student-profile.html?id=${s.id}'" style="display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:8px;transition:background .1s" onmouseover="this.style.background='var(--crimson-soft)'" onmouseout="this.style.background=''">
+        <div style="width:36px;height:36px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0">${initials(name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${name}</div>
+          <div style="font-size:12px;color:var(--muted)">${grp}${s.phone?' · +998 '+s.phone:''}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:#c0392b;background:#fde8e8;padding:3px 9px;border-radius:20px">Absent</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div style="padding:24px;color:var(--muted)">Failed to load.</div>';
+  }
+}
+
 async function init() {
 try {
 const d = await apiGet('/api/dashboard');

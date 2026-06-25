@@ -323,6 +323,8 @@ async function initDB() {
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
     `CREATE INDEX IF NOT EXISTS idx_comments_student ON student_comments(student_id)`,
     `CREATE INDEX IF NOT EXISTS idx_calls_student ON student_calls(student_id)`,
+    `CREATE TABLE IF NOT EXISTS lead_calls (id SERIAL PRIMARY KEY, lead_id TEXT NOT NULL, note TEXT NOT NULL, actor TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
+    `CREATE INDEX IF NOT EXISTS idx_lead_calls ON lead_calls(lead_id)`,
     `CREATE INDEX IF NOT EXISTS idx_attendance_grp_date ON attendance(group_id, date)`,
     `CREATE INDEX IF NOT EXISTS idx_groups_student_ids ON groups USING gin (student_ids)`,
   ];
@@ -1712,6 +1714,27 @@ app.post('/api/leads/:id/convert', async (req, res) => {
 app.delete('/api/leads/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM leads WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* LEAD CALLS */
+app.get('/api/leads/:id/calls', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM lead_calls WHERE lead_id=$1 ORDER BY created_at DESC', [req.params.id]);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/leads/:id/calls', async (req, res) => {
+  try {
+    const { note, actor } = req.body;
+    await pool.query('INSERT INTO lead_calls(lead_id,note,actor) VALUES($1,$2,$3)', [req.params.id, note, actor||null]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/leads/calls/:callId', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM lead_calls WHERE id=$1', [req.params.callId]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

@@ -504,6 +504,17 @@
       <button class="modal-close" onclick="closeModal('detailModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body" id="detailBody"></div>
+    <div style="padding:0 20px 14px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--crimson);margin-bottom:10px">Call Log</div>
+      <div id="leadCallsList" style="max-height:180px;overflow-y:auto;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="leadCallInput" placeholder="Log a call — what was discussed…"
+          style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:'Inter',sans-serif"
+          onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter')addLeadCall()">
+        <button class="btn btn-primary btn-sm" onclick="addLeadCall()">Log</button>
+      </div>
+    </div>
     <div class="modal-footer" id="detailFooter"></div>
   </div>
 </div>
@@ -953,8 +964,43 @@ async function deleteLead(id) {
   showToast('Deleted.', 'error');
 }
 
+let _detailLeadId = null;
+
+function renderLeadCalls(calls) {
+  const el = document.getElementById('leadCallsList');
+  if (!calls.length) { el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:4px 0">No calls logged yet.</div>'; return; }
+  el.innerHTML = calls.map(c => `
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:28px;height:28px;border-radius:50%;background:#0e7490;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">📞</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:var(--muted)">${c.actor||'Unknown'} · ${new Date(c.created_at).toLocaleString('en-GB',{timeZone:'Asia/Tashkent',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+        <div style="font-size:13px;font-weight:500;margin-top:2px">${c.note}</div>
+      </div>
+      <button onclick="deleteLeadCall(${c.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1" title="Delete">×</button>
+    </div>`).join('');
+}
+
+async function addLeadCall() {
+  const input = document.getElementById('leadCallInput');
+  const note = input.value.trim();
+  if (!note || !_detailLeadId) return;
+  const session = getSession();
+  await apiPost('/api/leads/'+_detailLeadId+'/calls', { note, actor: session?.name||'Unknown' });
+  input.value = '';
+  const calls = await apiGet('/api/leads/'+_detailLeadId+'/calls');
+  renderLeadCalls(calls);
+}
+
+async function deleteLeadCall(id) {
+  if (!confirm('Delete this call log?')) return;
+  await apiDelete('/api/leads/calls/'+id);
+  const calls = await apiGet('/api/leads/'+_detailLeadId+'/calls');
+  renderLeadCalls(calls);
+}
+
 function showDetail(id) {
   const l = leads.find(l => l.id === id); if (!l) return;
+  _detailLeadId = id;
   const group = groups.find(g => g.id === l.groupId);
   document.getElementById('detailName').textContent = l.firstName+' '+l.lastName;
   document.getElementById('detailBody').innerHTML = `
@@ -981,6 +1027,8 @@ function showDetail(id) {
     <button class="btn btn-outline" onclick="closeModal('detailModal')">Close</button>
   `;
   openModal('detailModal');
+  document.getElementById('leadCallInput').value = '';
+  apiGet('/api/leads/'+id+'/calls').then(renderLeadCalls).catch(()=>renderLeadCalls([]));
 }
 
 function editLead(id) {
