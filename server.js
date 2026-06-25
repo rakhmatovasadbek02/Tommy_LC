@@ -891,11 +891,9 @@ app.get('/api/students/blacklist-check', async (req, res) => {
 
 app.put('/api/students/:id/restore', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT pre_archive_status FROM students WHERE id=$1', [req.params.id]);
-    const status = rows[0]?.pre_archive_status || 'Inactive';
     await pool.query(
-      `UPDATE students SET archived=FALSE, archive_reason=NULL, archive_comment=NULL, archived_at=NULL, pre_archive_status=NULL, status=$1 WHERE id=$2`,
-      [status, req.params.id]
+      `UPDATE students SET archived=FALSE, archive_reason=NULL, archive_comment=NULL, archived_at=NULL, pre_archive_status=NULL, status='Inactive' WHERE id=$1`,
+      [req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
