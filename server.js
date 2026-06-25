@@ -818,9 +818,8 @@ app.delete('/api/archive-reasons/:id', async (req, res) => {
 app.get('/api/students/blacklist-check', async (req, res) => {
   try {
     const { name, phone } = req.query;
-    const { rows: reasons } = await pool.query('SELECT label FROM archive_reasons WHERE is_blacklist=TRUE');
-    const blacklistLabels = reasons.map(r => r.label);
-    if (!blacklistLabels.length) return res.json([]);
+    // 'Blacklist' is a fixed built-in reason — always included regardless of the archive_reasons table
+    const blacklistLabels = ['Blacklist'];
 
     const conditions = [];
     const params = [blacklistLabels];
