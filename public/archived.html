@@ -5,8 +5,10 @@
   <title>Archived Students — TommyLC CRM</title>
   <link rel="stylesheet" href="shared.css">
   <style>
-    .arch-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+    .arch-layout{display:grid;grid-template-columns:1fr 280px;gap:20px;align-items:start}
     @media(max-width:900px){.arch-layout{grid-template-columns:1fr}}
+    .arch-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+    .arch-section-title span{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700;color:var(--muted)}
 
     /* Left — main table */
     .arch-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -103,7 +105,7 @@
   <div class="page-content">
     <div class="arch-layout">
 
-      <!-- Left: archived students (non-blacklist) -->
+      <!-- Left: two sections -->
       <div>
         <div class="toolbar" style="margin-bottom:16px">
           <div class="search-bar" style="flex:1;max-width:280px">
@@ -114,7 +116,10 @@
             <option value="">All Reasons</option>
           </select>
         </div>
-        <div id="tableWrap"></div>
+        <div class="arch-section-title">Previously Active <span id="activeCount">0</span></div>
+        <div id="activeWrap" style="margin-bottom:24px"></div>
+        <div class="arch-section-title">Leads / Never Active <span id="inactiveCount">0</span></div>
+        <div id="inactiveWrap"></div>
       </div>
 
       <!-- Right: blacklist panel -->
@@ -188,23 +193,32 @@
     }).join('');
   }
 
+  function isWasActive(s) {
+    // pre_archive_status saved since this feature; for older records null = assume active if they had Active status history
+    return s.preArchiveStatus === 'Active' || (!s.preArchiveStatus && s.archiveReason && s.archiveReason !== 'Blacklist');
+  }
+
   function filterList() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const fr = document.getElementById('filterReason').value;
-    // Left column never shows blacklisted students
     const list = _all.filter(s => {
       if (s.archiveReason === 'Blacklist') return false;
       if (q && !(s.firstName+' '+s.lastName).toLowerCase().includes(q) && !(s.phone||'').includes(q)) return false;
       if (fr && s.archiveReason !== fr) return false;
       return true;
     });
-    render(list);
+    const active   = list.filter(s => s.preArchiveStatus === 'Active'   || (!s.preArchiveStatus));
+    const inactive = list.filter(s => s.preArchiveStatus && s.preArchiveStatus !== 'Active');
+    document.getElementById('activeCount').textContent  = active.length;
+    document.getElementById('inactiveCount').textContent = inactive.length;
+    renderSection('activeWrap',   active);
+    renderSection('inactiveWrap', inactive);
   }
 
-  function render(list) {
-    const wrap = document.getElementById('tableWrap');
+  function renderSection(wrapId, list) {
+    const wrap = document.getElementById(wrapId);
     if (!list.length) {
-      wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">🗃️</div><p>No archived students.</p></div>';
+      wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0 4px">No students.</div>';
       return;
     }
     wrap.innerHTML = `<div class="arch-table-wrap"><table class="arch-table">

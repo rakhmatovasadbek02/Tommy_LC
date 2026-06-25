@@ -331,6 +331,7 @@ async function initDB() {
     `CREATE INDEX IF NOT EXISTS idx_groups_student_ids ON groups USING gin (student_ids)`,
     `CREATE TABLE IF NOT EXISTS archive_reasons (id SERIAL PRIMARY KEY, label TEXT NOT NULL UNIQUE, is_blacklist BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS pre_archive_status TEXT`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -753,9 +754,12 @@ app.delete('/api/students/:id', async (req, res) => {
   try {
     const { reason, comment } = req.body || {};
     const sid = req.params.id;
+    // Save current status before overwriting it
+    const { rows: cur } = await pool.query('SELECT status FROM students WHERE id=$1', [sid]);
+    const preStatus = cur[0]?.status || null;
     await pool.query(
-      `UPDATE students SET archived=TRUE, archive_reason=$1, archive_comment=$2, archived_at=NOW(), status='Inactive' WHERE id=$3`,
-      [reason||null, comment||null, sid]
+      `UPDATE students SET archived=TRUE, archive_reason=$1, archive_comment=$2, archived_at=NOW(), status='Inactive', pre_archive_status=$3 WHERE id=$4`,
+      [reason||null, comment||null, preStatus, sid]
     );
     // Remove from all groups' student_ids
     const { rows: grps } = await pool.query(
@@ -777,11 +781,11 @@ app.get('/api/students/archived', async (req, res) => {
     );
     res.json(rows.map(s => ({
       id: s.id, firstName: s.first_name, lastName: s.last_name,
-      phone: s.phone, level: s.level, status: s.status,
+      phone: s.phone, level: s.level,
       archiveReason: s.archive_reason,
       archiveComment: s.archive_comment,
       archivedAt: s.archived_at,
-      isBlacklisted: s.archive_reason ? null : false  // resolved below
+      preArchiveStatus: s.pre_archive_status
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
