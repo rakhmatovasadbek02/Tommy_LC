@@ -49,8 +49,6 @@ min-width: 56px;
 .stu-dd-item svg { flex-shrink: 0; color: #6b7280; }
 .stu-dd-item.danger { color: #dc2626; }
 .stu-dd-item.danger svg { color: #dc2626; }
-.archive-btn { margin: 12px 16px 0; width: calc(100% - 32px); padding: 8px; background: var(--crimson); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s; }
-.archive-btn:hover { background: var(--crimson-dark); }
 /* Bottom action bar — horizontal */
 .left-action-bar {
 display: flex; gap: 8px; padding: 12px 16px;
@@ -159,9 +157,6 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 </div>
 <!-- Student list -->
 <div class="student-list" id="studentList"></div>
-<!-- Archive -->
-<button class="archive-btn" id="archiveToggleBtn" onclick="toggleArchivedStudents()">Show archived students</button>
-<div id="archivedStudentsList" style="display:none;margin:8px 16px 0"></div>
 <!-- Bottom action bar: horizontal buttons -->
 <div class="left-action-bar">
 <button class="icon-btn" id="editGroupBtn" title="Edit group" onclick="goEdit()">
@@ -354,7 +349,7 @@ requireAuth('groups');
 renderSidebar('groups');
 if (isTeacher()) {
   const st = document.createElement('style');
-  st.textContent = '#editGroupBtn,#deleteGroupBtn,#addStudentBtn,#unitBadge,.stu-menu-btn,#archiveToggleBtn{display:none!important}';
+  st.textContent = '#editGroupBtn,#deleteGroupBtn,#addStudentBtn,#unitBadge,.stu-menu-btn{display:none!important}';
   document.head.appendChild(st);
 }
 const params = new URLSearchParams(window.location.search);
@@ -929,34 +924,6 @@ function openReminders(id) {
   showToast('Reminders — coming soon.', '');
 }
 
-let archivedVisible = false;
-async function toggleArchivedStudents() {
-  const btn = document.getElementById('archiveToggleBtn');
-  const container = document.getElementById('archivedStudentsList');
-  if (archivedVisible) {
-    archivedVisible = false;
-    container.style.display = 'none';
-    container.innerHTML = '';
-    btn.textContent = 'Show archived students';
-    return;
-  }
-  try {
-    const list = await apiGet('/api/groups/'+groupId+'/archived-students');
-    archivedVisible = true;
-    btn.textContent = 'Hide archived students';
-    if (!list.length) {
-      container.innerHTML = '<div style="padding:10px;text-align:center;color:var(--muted);font-size:13px">No archived students.</div>';
-    } else {
-      container.innerHTML = list.map(s => `
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-          <span style="width:8px;height:8px;border-radius:50%;background:#6b7280;flex-shrink:0"></span>
-          <span style="flex:1;font-size:13px;color:var(--muted)">${s.firstName} ${s.lastName}</span>
-          <span style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.archive_reason||''}">${s.archive_reason||''}</span>
-        </div>`).join('');
-    }
-    container.style.display = 'block';
-  } catch(e) { showToast('Error: '+e.message, 'error'); }
-}
 
 load();
 </script>
