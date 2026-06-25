@@ -1241,13 +1241,26 @@ app.patch('/api/groups/:id/students', async (req, res) => {
           `${names} added to ${groupName}`, 'students.html');
       }
     }
-    // Auto-deactivate students no longer in any group
+    // Deactivate removed students and freeze their finances
     if (removed.length) {
       const allGroups = await pool.query('SELECT student_ids FROM groups WHERE id!=$1', [req.params.id]);
       const stillEnrolled = new Set(allGroups.rows.flatMap(g => g.student_ids || []));
       for (const sid of removed) {
         if (!stillEnrolled.has(sid)) {
           await pool.query("UPDATE students SET status='Inactive' WHERE id=$1", [sid]);
+          // Cancel pending Auto invoices and reverse their balance impact
+          const { rows: pending } = await pool.query(
+            `SELECT id, total FROM invoices WHERE student_id=$1 AND status='Pending' AND payment_type='Auto'`,
+            [sid]
+          );
+          if (pending.length) {
+            const totalToReverse = pending.reduce((s, i) => s + Number(i.total || 0), 0);
+            await pool.query(
+              `UPDATE invoices SET status='Cancelled' WHERE student_id=$1 AND status='Pending' AND payment_type='Auto'`,
+              [sid]
+            );
+            await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [totalToReverse, sid]);
+          }
         }
       }
     }
