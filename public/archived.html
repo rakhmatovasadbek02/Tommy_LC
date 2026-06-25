@@ -13,10 +13,23 @@
     .arch-table tr:hover td{background:#fafafa}
     .arch-avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:white;flex-shrink:0}
     .arch-name{font-weight:600;color:var(--text)}
-    .arch-reason{max-width:240px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .arch-reason{max-width:220px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .arch-date{color:var(--muted);font-size:12px;white-space:nowrap}
-    .search-bar{display:flex;gap:10px;margin-bottom:16px}
-    .search-bar input{flex:1;max-width:320px}
+    .blacklist-badge{display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#dc2626;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;margin-left:6px;flex-shrink:0}
+    .arch-comment{font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* Reason manager */
+    .reason-manager{background:white;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+    .reason-manager-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .reason-manager-title{font-size:14px;font-weight:700;color:var(--text)}
+    .reason-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;min-height:32px}
+    .reason-chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--border);border-radius:20px;padding:5px 10px 5px 12px;font-size:13px;background:white;color:var(--text)}
+    .reason-chip.blacklist{border-color:#dc2626;background:#fff5f5;color:#dc2626}
+    .reason-chip-del{width:18px;height:18px;border:none;background:none;cursor:pointer;color:inherit;opacity:.5;font-size:14px;padding:0;line-height:1;display:flex;align-items:center;justify-content:center;border-radius:50%}
+    .reason-chip-del:hover{opacity:1;background:rgba(0,0,0,.07)}
+    .reason-add-row{display:flex;gap:8px;align-items:center}
+    .reason-add-row input{flex:1;max-width:220px}
+    .reason-add-row label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap}
   </style>
 </head>
 <body>
@@ -27,6 +40,20 @@
     <div class="topbar-right" id="countBadge"></div>
   </div>
   <div class="page-content">
+
+    <!-- Reason manager -->
+    <div class="reason-manager">
+      <div class="reason-manager-header">
+        <div class="reason-manager-title">Archive Reasons</div>
+      </div>
+      <div class="reason-list" id="reasonList"></div>
+      <div class="reason-add-row">
+        <input type="text" id="newReasonInput" placeholder="New reason…" onkeydown="if(event.key==='Enter')addReason()">
+        <label><input type="checkbox" id="newReasonBlacklist"> Blacklist</label>
+        <button class="btn btn-primary btn-sm" onclick="addReason()">Add</button>
+      </div>
+    </div>
+
     <div class="toolbar" style="margin-bottom:16px">
       <div class="search-bar" style="flex:1;max-width:280px">
         <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
@@ -34,23 +61,11 @@
       </div>
       <select id="filterReason" onchange="filterList()" style="width:auto;padding:9px 14px">
         <option value="">All Reasons</option>
+        <option value="__blacklist__">Blacklisted only</option>
       </select>
     </div>
-    <div id="tableWrap">
-      <div class="arch-table-wrap"><table class="arch-table" id="archTable">
-        <thead>
-          <tr>
-            <th style="width:36px"></th>
-            <th>Name</th>
-            <th>Phone</th>
-            <th>Archive Reason</th>
-            <th>Archived At</th>
-            <th style="width:90px"></th>
-          </tr>
-        </thead>
-        <tbody id="archBody"></tbody>
-      </table></div>
-    </div>
+
+    <div id="tableWrap"></div>
   </div>
 </div>
 
@@ -61,36 +76,80 @@
   renderSidebar('archived');
 
   let _all = [];
+  let _reasons = [];
 
   async function load() {
-    _all = await apiGet('/api/students/archived');
-    // Populate reason filter
-    const reasons = [...new Set(_all.map(s => s.archiveReason).filter(Boolean))].sort();
+    [_all, _reasons] = await Promise.all([
+      apiGet('/api/students/archived'),
+      apiGet('/api/archive-reasons')
+    ]);
+    renderReasons();
+    // Populate reason filter dropdown
     const rSel = document.getElementById('filterReason');
-    reasons.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; rSel.appendChild(o); });
+    rSel.innerHTML = '<option value="">All Reasons</option><option value="__blacklist__">Blacklisted only</option>';
+    _reasons.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.label; o.textContent = r.label + (r.is_blacklist ? ' ⛔' : '');
+      rSel.appendChild(o);
+    });
     filterList();
     document.getElementById('countBadge').innerHTML = _all.length
       ? `<span style="font-size:13px;color:var(--muted)">${_all.length} student${_all.length===1?'':'s'}</span>`
       : '';
   }
 
+  function renderReasons() {
+    const el = document.getElementById('reasonList');
+    if (!_reasons.length) {
+      el.innerHTML = '<span style="font-size:13px;color:var(--muted)">No reasons yet. Add one below.</span>';
+      return;
+    }
+    el.innerHTML = _reasons.map(r =>
+      `<div class="reason-chip ${r.is_blacklist?'blacklist':''}">
+        ${r.is_blacklist ? '⛔ ' : ''}${r.label}
+        <button class="reason-chip-del" onclick="deleteReason(${r.id},'${r.label.replace(/'/g,"\\'")}')">×</button>
+      </div>`
+    ).join('');
+  }
+
+  async function addReason() {
+    const label = document.getElementById('newReasonInput').value.trim();
+    const isBlacklist = document.getElementById('newReasonBlacklist').checked;
+    if (!label) return showToast('Enter a reason label.', 'error');
+    try {
+      await apiPost('/api/archive-reasons', { label, isBlacklist });
+      document.getElementById('newReasonInput').value = '';
+      document.getElementById('newReasonBlacklist').checked = false;
+      await load();
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+  }
+
+  async function deleteReason(id, label) {
+    if (!confirm(`Delete reason "${label}"?`)) return;
+    await apiDelete('/api/archive-reasons/' + id);
+    await load();
+  }
+
   function filterList() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const fr = document.getElementById('filterReason').value;
-    const list = _all.filter(s =>
-      (!q || (s.firstName+' '+s.lastName).toLowerCase().includes(q) || (s.phone||'').includes(q))
-      && (!fr || s.archiveReason === fr)
-    );
-    render(list);
+    const blacklistLabels = new Set(_reasons.filter(r => r.is_blacklist).map(r => r.label));
+    const list = _all.filter(s => {
+      if (q && !(s.firstName+' '+s.lastName).toLowerCase().includes(q) && !(s.phone||'').includes(q)) return false;
+      if (fr === '__blacklist__') return blacklistLabels.has(s.archiveReason);
+      if (fr && s.archiveReason !== fr) return false;
+      return true;
+    });
+    render(list, blacklistLabels);
   }
 
-  function render(list) {
+  function render(list, blacklistLabels) {
     const wrap = document.getElementById('tableWrap');
     if (!list.length) {
       wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">🗃️</div><p>No archived students.</p></div>';
       return;
     }
-    wrap.innerHTML = `<div class="arch-table-wrap"><table class="arch-table" id="archTable">
+    wrap.innerHTML = `<div class="arch-table-wrap"><table class="arch-table">
       <thead><tr>
         <th style="width:36px"></th>
         <th>Name</th><th>Phone</th><th>Archive Reason</th><th>Archived At</th>
@@ -101,11 +160,20 @@
         const col  = avatarColor(name);
         const dt   = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
         const phone = s.phone ? '+998 ' + s.phone : '—';
+        const isBl  = blacklistLabels.has(s.archiveReason);
         return `<tr>
           <td><span class="arch-avatar" style="background:${col}">${initials(name)}</span></td>
-          <td><div class="arch-name"><a href="student-profile.html?id=${s.id}" style="color:inherit;text-decoration:none">${name}</a></div></td>
+          <td>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+              <span class="arch-name"><a href="student-profile.html?id=${s.id}" style="color:inherit;text-decoration:none">${name}</a></span>
+              ${isBl ? '<span class="blacklist-badge">⛔ Blacklist</span>' : ''}
+            </div>
+          </td>
           <td style="color:var(--muted);font-size:13px">${phone}</td>
-          <td><div class="arch-reason" title="${(s.archiveReason||'').replace(/"/g,'&quot;')}">${s.archiveReason||'—'}</div></td>
+          <td>
+            <div class="arch-reason" title="${(s.archiveReason||'').replace(/"/g,'&quot;')}">${s.archiveReason||'—'}</div>
+            ${s.archiveComment ? `<div class="arch-comment" title="${s.archiveComment.replace(/"/g,'&quot;')}">${s.archiveComment}</div>` : ''}
+          </td>
           <td><div class="arch-date">${dt}</div></td>
           <td><button class="btn btn-outline btn-sm" onclick="restoreStudent('${s.id}','${name.replace(/'/g,"\\'")}')">Restore</button></td>
         </tr>`;

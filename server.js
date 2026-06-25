@@ -329,6 +329,8 @@ async function initDB() {
     `CREATE TABLE IF NOT EXISTS lead_conversions (id SERIAL PRIMARY KEY, lead_id TEXT NOT NULL, student_id TEXT, converted_by TEXT, converted_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_attendance_grp_date ON attendance(group_id, date)`,
     `CREATE INDEX IF NOT EXISTS idx_groups_student_ids ON groups USING gin (student_ids)`,
+    `CREATE TABLE IF NOT EXISTS archive_reasons (id SERIAL PRIMARY KEY, label TEXT NOT NULL UNIQUE, is_blacklist BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW())`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -749,11 +751,11 @@ app.put('/api/students/:id', async (req, res) => {
 
 app.delete('/api/students/:id', async (req, res) => {
   try {
-    const { reason } = req.body || {};
+    const { reason, comment } = req.body || {};
     const sid = req.params.id;
     await pool.query(
-      `UPDATE students SET archived=TRUE, archive_reason=$1, archived_at=NOW(), status='Inactive' WHERE id=$2`,
-      [reason||null, sid]
+      `UPDATE students SET archived=TRUE, archive_reason=$1, archive_comment=$2, archived_at=NOW(), status='Inactive' WHERE id=$3`,
+      [reason||null, comment||null, sid]
     );
     // Remove from all groups' student_ids
     const { rows: grps } = await pool.query(
@@ -777,6 +779,80 @@ app.get('/api/students/archived', async (req, res) => {
       id: s.id, firstName: s.first_name, lastName: s.last_name,
       phone: s.phone, level: s.level, status: s.status,
       archiveReason: s.archive_reason,
+      archiveComment: s.archive_comment,
+      archivedAt: s.archived_at,
+      isBlacklisted: s.archive_reason ? null : false  // resolved below
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Archive reasons management
+app.get('/api/archive-reasons', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM archive_reasons ORDER BY label');
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/archive-reasons', async (req, res) => {
+  try {
+    const { label, isBlacklist } = req.body;
+    if (!label?.trim()) return res.status(400).json({ error: 'Label required' });
+    const { rows } = await pool.query(
+      'INSERT INTO archive_reasons(label, is_blacklist) VALUES($1,$2) ON CONFLICT(label) DO NOTHING RETURNING *',
+      [label.trim(), isBlacklist || false]
+    );
+    res.json(rows[0] || { error: 'Already exists' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/archive-reasons/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM archive_reasons WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Blacklist check — used during new student registration
+app.get('/api/students/blacklist-check', async (req, res) => {
+  try {
+    const { name, phone } = req.query;
+    const { rows: reasons } = await pool.query('SELECT label FROM archive_reasons WHERE is_blacklist=TRUE');
+    const blacklistLabels = reasons.map(r => r.label);
+    if (!blacklistLabels.length) return res.json([]);
+
+    const conditions = [];
+    const params = [blacklistLabels];
+    let idx = 2;
+    if (name && name.trim()) {
+      // Match first+last name fuzzy: both parts present in full name
+      const parts = name.trim().toLowerCase().split(/\s+/);
+      parts.forEach(p => {
+        conditions.push(`LOWER(first_name || ' ' || last_name) LIKE $${idx}`);
+        params.push('%' + p + '%');
+        idx++;
+      });
+    }
+    if (phone && phone.trim().length >= 7) {
+      conditions.push(`phone LIKE $${idx}`);
+      params.push('%' + phone.trim().replace(/\s/g,'').slice(-7) + '%');
+      idx++;
+    }
+    if (!conditions.length) return res.json([]);
+
+    const { rows } = await pool.query(
+      `SELECT id, first_name, last_name, phone, archive_reason, archive_comment, archived_at
+       FROM students
+       WHERE archived=TRUE AND archive_reason = ANY($1)
+       AND (${conditions.join(' OR ')})`,
+      params
+    );
+    res.json(rows.map(s => ({
+      id: s.id,
+      name: s.first_name + ' ' + s.last_name,
+      phone: s.phone,
+      reason: s.archive_reason,
+      comment: s.archive_comment,
       archivedAt: s.archived_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
