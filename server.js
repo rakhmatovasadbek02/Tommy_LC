@@ -750,10 +750,20 @@ app.put('/api/students/:id', async (req, res) => {
 app.delete('/api/students/:id', async (req, res) => {
   try {
     const { reason } = req.body || {};
+    const sid = req.params.id;
     await pool.query(
       `UPDATE students SET archived=TRUE, archive_reason=$1, archived_at=NOW(), status='Inactive' WHERE id=$2`,
-      [reason||null, req.params.id]
+      [reason||null, sid]
     );
+    // Remove from all groups' student_ids
+    const { rows: grps } = await pool.query(
+      `SELECT id, student_ids FROM groups WHERE student_ids @> $1::jsonb`,
+      [JSON.stringify([sid])]
+    );
+    for (const g of grps) {
+      const updated = (g.student_ids || []).filter(id => id !== sid);
+      await pool.query('UPDATE groups SET student_ids=$1 WHERE id=$2', [JSON.stringify(updated), g.id]);
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
