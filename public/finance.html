@@ -93,12 +93,14 @@
     <div class="page-title">Finance</div>
     <div class="topbar-right">
       <button class="btn btn-outline" onclick="exportCSV()" title="Export filtered payments to CSV"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+      <button class="btn btn-outline" id="monthlyChargeBtn" onclick="runMonthlyCharge()" style="display:none" title="Manually trigger the monthly fee charge for all active students">⚡ Run Monthly Charge</button>
       <button class="btn btn-primary" id="newPaymentBtn" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Payment</button>
     </div>
   </div>
   <div class="page-content">
 
     <div class="summary-row" id="summaryRow"></div>
+    <div id="monthlyChargeInfo" style="display:none;margin-bottom:16px;padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);background:white;font-size:13px;display:flex;align-items:center;gap:12px"></div>
 
     <div class="chart-card">
       <div class="chart-head">
@@ -236,6 +238,7 @@
 
   let invoices=[], students=[], groups=[];
   let currentTab = 'Paid';
+  let chargeStatus = null;
 
   async function load() {
     try {
@@ -246,9 +249,49 @@
       invoices=[]; students=[]; groups=[];
     }
     if (!FIN_MANAGE) document.getElementById('newPaymentBtn').style.display='none';
+    if (isAdministration()) {
+      document.getElementById('monthlyChargeBtn').style.display='';
+      apiGet('/api/admin/monthly-charge-status').then(s => {
+        chargeStatus = s;
+        renderChargeInfo();
+      }).catch(()=>{});
+    }
     renderSummary();
     renderChart();
     render();
+  }
+
+  function renderChargeInfo() {
+    const el = document.getElementById('monthlyChargeInfo');
+    if (!chargeStatus) { el.style.display='none'; return; }
+    const lr = chargeStatus.lastRun;
+    const now = new Date();
+    const curMonthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const alreadyRanThisMonth = lr && lr.month === curMonthStr;
+    const lastRunText = lr
+      ? `Last run: <strong>${lr.month}</strong> — ${lr.processed} charged, ${lr.skipped} skipped${lr.errors?' · ⚠️ '+lr.errors+' errors':''} · ${new Date(lr.ts).toLocaleString('en-GB',{timeZone:'Asia/Tashkent',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`
+      : 'Never run manually.';
+    el.style.display='flex';
+    el.innerHTML = `<span style="font-size:18px">${alreadyRanThisMonth?'✅':'🔔'}</span>
+      <span style="flex:1;color:var(--muted)">${lastRunText}</span>
+      ${!alreadyRanThisMonth?`<span style="font-size:12px;font-weight:700;color:var(--crimson)">Monthly charges not yet run for ${curMonthStr}</span>`:''}`;
+  }
+
+  async function runMonthlyCharge() {
+    if (!confirm(`Run monthly charge for all active students now?\n\nThis will deduct fees from every active student's balance. It runs automatically on the 1st of each month — only run manually if it failed or was missed.`)) return;
+    const btn = document.getElementById('monthlyChargeBtn');
+    btn.disabled = true; btn.textContent = '⏳ Running…';
+    try {
+      const result = await apiPost('/api/admin/run-monthly-charge', {});
+      showToast(`Done — ${result.processed} students charged, ${result.skipped} skipped${result.errors?' · '+result.errors+' errors':''}`);
+      chargeStatus = await apiGet('/api/admin/monthly-charge-status');
+      renderChargeInfo();
+      await load();
+    } catch(e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '⚡ Run Monthly Charge';
+    }
   }
 
   function paidInvoices() { return invoices.filter(i=>i.status==='Paid'); }
@@ -473,53 +516,72 @@
     const el = document.getElementById('invoiceList');
     const foot = document.getElementById('listFoot');
     const paid = paidInvoices();
-    if (!paid.length) {
+    const autoCharges = invoices.filter(i => i.paymentType === 'Auto' && i.status === 'Pending');
+
+    if (!paid.length && !autoCharges.length) {
       el.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><p>No payments recorded yet.</p></div>';
       foot.style.display='none'; return;
     }
-    // Build monthly buckets from all paid invoices
+
+    // Build monthly buckets — keyed by the invoice's month field (what month it covers)
     const bucketMap = {};
+    const ensureBucket = k => { if (!bucketMap[k]) bucketMap[k] = { cash:0, click:0, count:0, charged:0, chargedCount:0 }; };
+
     paid.forEach(i => {
-      const d = new Date(i.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      if (!bucketMap[key]) bucketMap[key] = { cash:0, click:0, count:0 };
+      // Use month-covered field if set, otherwise fall back to created date
+      const key = i.month || (() => { const d=new Date(i.createdAt); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+      ensureBucket(key);
       if (i.paymentType==='Click') bucketMap[key].click += Number(i.total||0);
       else bucketMap[key].cash += Number(i.total||0);
       bucketMap[key].count++;
     });
+
+    autoCharges.forEach(i => {
+      const key = i.month || (() => { const d=new Date(i.createdAt); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+      ensureBucket(key);
+      bucketMap[key].charged += Number(i.total||0);
+      bucketMap[key].chargedCount++;
+    });
+
     const keys = Object.keys(bucketMap).sort().reverse();
-    const grandTotal = paid.reduce((s,i)=>s+Number(i.total||0),0);
+    const grandCollected = paid.reduce((s,i)=>s+Number(i.total||0),0);
+    const grandCharged   = autoCharges.reduce((s,i)=>s+Number(i.total||0),0);
 
     el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:var(--crimson);color:white">
         <th style="padding:10px 16px;text-align:left;font-weight:700">Month</th>
-        <th style="padding:10px 16px;text-align:right;font-weight:700">Cash</th>
-        <th style="padding:10px 16px;text-align:right;font-weight:700">Click</th>
-        <th style="padding:10px 16px;text-align:right;font-weight:700">Total</th>
-        <th style="padding:10px 16px;text-align:right;font-weight:700">Payments</th>
+        <th style="padding:10px 16px;text-align:right;font-weight:700">Charged</th>
+        <th style="padding:10px 16px;text-align:right;font-weight:700">Collected</th>
+        <th style="padding:10px 16px;text-align:right;font-weight:700">Gap</th>
+        <th style="padding:10px 16px;text-align:right;font-weight:700">Cash / Click</th>
+        <th style="padding:10px 16px;text-align:right;font-weight:700">#</th>
       </tr></thead>
       <tbody>
-      ${keys.map((k,idx) => {
+      ${keys.map((k, idx) => {
         const b = bucketMap[k];
-        const [y,m] = k.split('-');
-        const label = MONTHS[Number(m)-1]+' '+y;
-        const total = b.cash + b.click;
+        const [y, m] = k.split('-');
+        const label = MONTHS[Number(m)-1] + ' ' + y;
+        const collected = b.cash + b.click;
+        const gap = collected - b.charged;
+        const gapColor = gap >= 0 ? 'var(--green)' : 'var(--crimson)';
+        const gapSign = gap >= 0 ? '+' : '';
         return `<tr style="border-bottom:1px solid var(--border);${idx%2===0?'background:var(--surface)':'background:white'};cursor:pointer" onclick="filterChartMonth(${y},${Number(m)-1})">
           <td style="padding:10px 16px;font-weight:700">${label}</td>
-          <td style="padding:10px 16px;text-align:right;color:var(--green);font-weight:600">💵 ${compact(b.cash)}</td>
-          <td style="padding:10px 16px;text-align:right;color:#1E88E5;font-weight:600">📱 ${compact(b.click)}</td>
-          <td style="padding:10px 16px;text-align:right;font-weight:800;font-family:'Playfair Display',serif">${fmt(total)}</td>
+          <td style="padding:10px 16px;text-align:right;color:var(--crimson);font-weight:600">${b.charged ? '−'+compact(b.charged) : '<span style="color:var(--muted)">—</span>'}</td>
+          <td style="padding:10px 16px;text-align:right;color:var(--green);font-weight:700;font-family:'Playfair Display',serif">${collected ? fmt(collected) : '<span style="color:var(--muted)">—</span>'}</td>
+          <td style="padding:10px 16px;text-align:right;font-weight:700;color:${gapColor}">${b.charged||collected ? gapSign+compact(gap) : '—'}</td>
+          <td style="padding:10px 16px;text-align:right;color:var(--muted);font-size:12px">💵 ${compact(b.cash)} · 📱 ${compact(b.click)}</td>
           <td style="padding:10px 16px;text-align:right;color:var(--muted)">${b.count}</td>
         </tr>`;
       }).join('')}
       </tbody></table>`;
     el.style.overflowX = 'auto';
 
-    document.getElementById('listFootLabel').textContent = 'Grand Total';
-    document.getElementById('listFootVal').textContent = fmt(grandTotal);
+    document.getElementById('listFootLabel').textContent = 'Total Collected';
+    document.getElementById('listFootVal').textContent = fmt(grandCollected);
     document.getElementById('listFootVal').style.color = 'var(--green)';
     foot.style.display='';
-    document.getElementById('invoiceCount').textContent = `${keys.length} months`;
+    document.getElementById('invoiceCount').textContent = `${keys.length} months · ${grandCharged ? fmt(grandCharged)+' charged' : 'no auto-charges'}`;
   }
 
   function renderInvoices() {

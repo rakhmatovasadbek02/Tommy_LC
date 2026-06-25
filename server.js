@@ -2097,7 +2097,9 @@ async function runMonthlyCharge() {
   const { rows: activeStudents } = await pool.query(
     `SELECT * FROM students WHERE status='Active' AND (archived IS NULL OR archived=FALSE)`
   );
-
+  const { rows: allGroups } = await pool.query(
+    `SELECT id, name, level, price, student_ids FROM groups`
+  );
   const { rows: pricing } = await pool.query('SELECT * FROM pricing');
   const priceMap = {};
   pricing.forEach(p => { priceMap[p.level] = Number(p.price); });
@@ -2106,32 +2108,60 @@ async function runMonthlyCharge() {
 
   for (const s of activeStudents) {
     try {
-      const price = Math.abs(priceMap[s.level] || 0);
-      if (!price) { skipped++; continue; }
+      // Find all groups this student is enrolled in
+      const studentGroups = allGroups.filter(g => (g.student_ids || []).includes(s.id));
 
-      const existing = await pool.query(
-        `SELECT id FROM invoices WHERE student_id=$1 AND month=$2 AND payment_type='Auto' AND description LIKE 'Monthly%'`,
-        [s.id, monthStr]
-      );
-      if (existing.rows.length > 0) { skipped++; continue; }
+      // Determine charges: one per group (using group price), or fall back to level price once
+      let charges = [];
+      if (studentGroups.length > 0) {
+        for (const g of studentGroups) {
+          const groupPrice = Math.abs(Number(g.price || 0));
+          const levelPrice = Math.abs(priceMap[g.level] || priceMap[s.level] || 0);
+          const price = groupPrice || levelPrice;
+          if (price > 0) charges.push({ price, groupId: g.id, groupName: g.name });
+        }
+      } else {
+        // Student not in any group — use their level price
+        const price = Math.abs(priceMap[s.level] || 0);
+        if (price > 0) charges.push({ price, groupId: null, groupName: null });
+      }
 
-      const invId  = 'inv-' + Date.now() + '-' + s.id.slice(-4);
-      const invNum = 'INV-' + Date.now().toString().slice(-6);
-      await pool.query(
-        `INSERT INTO invoices(id,number,student_id,month,description,total,status,payment_type)
-         VALUES($1,$2,$3,$4,$5,$6,'Pending','Auto')`,
-        [invId, invNum, s.id, monthStr, `Monthly charge — ${monthStr}`, price]
-      );
-      await pool.query(
-        'UPDATE students SET balance=balance-$1 WHERE id=$2',
-        [price, s.id]
-      );
-      processed++;
+      if (!charges.length) { skipped++; continue; }
+
+      for (const charge of charges) {
+        const existing = await pool.query(
+          `SELECT id FROM invoices WHERE student_id=$1 AND month=$2 AND payment_type='Auto' AND group_id IS NOT DISTINCT FROM $3`,
+          [s.id, monthStr, charge.groupId || null]
+        );
+        if (existing.rows.length > 0) continue;
+
+        const invId  = 'inv-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+        const invNum = 'INV-' + Date.now().toString().slice(-6);
+        const desc   = charge.groupName
+          ? `Monthly charge — ${charge.groupName} (${monthStr})`
+          : `Monthly charge — ${monthStr}`;
+        await pool.query(
+          `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type)
+           VALUES($1,$2,$3,$4,$5,$6,$7,'Pending','Auto')`,
+          [invId, invNum, s.id, charge.groupId, monthStr, desc, charge.price]
+        );
+        await pool.query(
+          'UPDATE students SET balance=balance-$1 WHERE id=$2',
+          [charge.price, s.id]
+        );
+        processed++;
+      }
     } catch(e) {
       console.error(`[Monthly charge] Error for student ${s.id}:`, e.message);
       errors++;
     }
   }
+
+  // Persist last run timestamp and result
+  await pool.query(
+    `INSERT INTO app_config(key,value) VALUES('monthly_charge_last_run',$1) ON CONFLICT(key) DO UPDATE SET value=$1`,
+    [JSON.stringify({ month: monthStr, processed, skipped, errors, ts: new Date().toISOString() })]
+  ).catch(()=>{});
 
   console.log(`[Monthly charge] Processed ${processed}, skipped ${skipped}, errors ${errors} for ${monthStr}`);
   return { processed, skipped, errors, month: monthStr };
@@ -2144,4 +2174,18 @@ app.post('/api/admin/run-monthly-charge', async (req, res) => {
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.get('/api/admin/monthly-charge-status', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`SELECT value FROM app_config WHERE key='monthly_charge_last_run'`);
+    const lastRun = rows[0] ? JSON.parse(rows[0].value) : null;
+    // Also return pending (Auto) invoice totals per month
+    const { rows: charges } = await pool.query(
+      `SELECT month, COUNT(*)::int AS count, SUM(total)::numeric AS total
+       FROM invoices WHERE payment_type='Auto' AND status='Pending'
+       GROUP BY month ORDER BY month DESC LIMIT 12`
+    );
+    res.json({ lastRun, charges });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
