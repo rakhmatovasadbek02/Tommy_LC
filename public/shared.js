@@ -274,20 +274,16 @@ function renderSidebar(activePage) {
  const hasBothRoles = isTeacher() && isSupportTeacher();
  const NAV_SECTIONS = [
  { label: null, items: [
-   { feature:'dashboard', href:'index.html',    iconKey:'dashboard', label: hasBothRoles ? 'Teaching' : 'Dashboard' },
-   { feature:'leads',     href:'leads.html',    iconKey:'leads',     label:'Leads'     },
-   { feature:'students',  href:'students.html', iconKey:'students',  label:'Students'  },
-   { feature:'groups',    href:'groups.html',   iconKey:'groups',    label:'Groups'    },
-   { feature:'payments',  href:'finance.html',  iconKey:'payments',  label:'Finance'   },
-   { feature:'support',   href:'support.html',  iconKey:'support',   label:'Support'   },
- ]},
- { label: 'Staff', items: [
-   { feature:'settings', href:'users.html',    iconKey:'settings',  label:'Staff'    },
-   { feature:'actions',  href:'actions.html',  iconKey:'actions',   label:'Actions'  },
- ]},
- { label: 'Settings', items: [
-    { feature:'archived',   href:'archived.html',   iconKey:'archived',   label:'Archived'   },
-    { feature:'reminders',  href:'reminders.html',  iconKey:'reminders',  label:'To Do List'  },
+   { feature:'dashboard', href:'index.html',      iconKey:'dashboard', label: hasBothRoles ? 'Teaching' : 'Dashboard' },
+   { feature:'leads',     href:'leads.html',      iconKey:'leads',     label:'Leads'      },
+   { feature:'students',  href:'students.html',   iconKey:'students',  label:'Students'   },
+   { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
+   { feature:'payments',  href:'finance.html',    iconKey:'payments',  label:'Finance'    },
+   { feature:'support',   href:'support.html',    iconKey:'support',   label:'Support'    },
+   { feature:'settings',  href:'users.html',      iconKey:'settings',  label:'Staff'      },
+   { feature:'actions',   href:'actions.html',    iconKey:'actions',   label:'Actions'    },
+   { feature:'archived',  href:'archived.html',   iconKey:'archived',  label:'Archived'   },
+   { feature:'reminders', href:'reminders.html',  iconKey:'reminders', label:'To Do List' },
  ]},
  ];
 
