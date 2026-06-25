@@ -168,6 +168,7 @@ async function initDB() {
     );
     ALTER TABLE reminders ADD COLUMN IF NOT EXISTS due_time TIME;
     ALTER TABLE reminders ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
+    ALTER TABLE reminders ADD COLUMN IF NOT EXISTS repeat_every TEXT DEFAULT NULL;
     -- Migrate existing done=true rows to completed
     UPDATE reminders SET status='completed' WHERE done=TRUE AND (status IS NULL OR status='pending');
     -- Auto-mark overdue: past due date+time and not completed
@@ -325,6 +326,7 @@ async function initDB() {
     `CREATE INDEX IF NOT EXISTS idx_calls_student ON student_calls(student_id)`,
     `CREATE TABLE IF NOT EXISTS lead_calls (id SERIAL PRIMARY KEY, lead_id TEXT NOT NULL, note TEXT NOT NULL, actor TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_lead_calls ON lead_calls(lead_id)`,
+    `CREATE TABLE IF NOT EXISTS lead_conversions (id SERIAL PRIMARY KEY, lead_id TEXT NOT NULL, student_id TEXT, converted_by TEXT, converted_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_attendance_grp_date ON attendance(group_id, date)`,
     `CREATE INDEX IF NOT EXISTS idx_groups_student_ids ON groups USING gin (student_ids)`,
   ];
@@ -1572,6 +1574,21 @@ app.get('/api/attendance/day/:date', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/students/:id/attendance', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.date, a.status, a.group_id, g.name AS group_name
+       FROM attendance a
+       LEFT JOIN groups g ON g.id = a.group_id
+       WHERE a.student_id = $1
+       ORDER BY a.date DESC
+       LIMIT 120`,
+      [req.params.id]
+    );
+    res.json(rows.map(r => ({ date: r.date, status: r.status, groupId: r.group_id, groupName: r.group_name })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/attendance/:groupId/:date', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -1696,6 +1713,11 @@ app.post('/api/leads/:id/convert', async (req, res) => {
       [studentId, l.first_name, l.last_name, phone, l.current_level]
     );
     await pool.query(`UPDATE leads SET status='Student' WHERE id=$1`, [req.params.id]);
+    const actor = req.user ? req.user.first_name + ' ' + req.user.last_name : null;
+    await pool.query(
+      `INSERT INTO lead_conversions(lead_id, student_id, converted_by) VALUES($1,$2,$3)`,
+      [req.params.id, studentId, actor]
+    ).catch(()=>{});
     // Add to group student_ids now that they are a real student
     if (l.group_id) {
       const grp = await pool.query('SELECT student_ids FROM groups WHERE id=$1', [l.group_id]);
@@ -1715,6 +1737,24 @@ app.delete('/api/leads/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM leads WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* LEAD CONVERSIONS */
+app.get('/api/lead-conversions', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT lc.*, l.first_name||' '||l.last_name AS lead_name
+       FROM lead_conversions lc
+       LEFT JOIN leads l ON l.id = lc.lead_id
+       ORDER BY lc.converted_at DESC
+       LIMIT 100`
+    );
+    res.json(rows.map(r => ({
+      id: r.id, leadId: r.lead_id, leadName: r.lead_name,
+      studentId: r.student_id, convertedBy: r.converted_by,
+      convertedAt: r.converted_at
+    })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1829,6 +1869,7 @@ app.get('/api/reminders', async (req, res) => {
       status: r.status || 'pending', createdAt: r.created_at,
       createdById: r.created_by_id, createdByName: r.created_by_name,
       assignedToId: r.assigned_to_id, assignedToName: r.assigned_to_name,
+      repeatEvery: r.repeat_every || null,
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1850,13 +1891,13 @@ app.get('/api/reminders/count', async (req, res) => {
 app.post('/api/reminders', async (req, res) => {
   try {
     const me = req.user;
-    const { id, title, note, dueDate, dueTime, priority, assignedToId } = req.body;
+    const { id, title, note, dueDate, dueTime, priority, assignedToId, repeatEvery } = req.body;
     if (!title) return res.status(400).json({ error: 'Title required.' });
     const finalAssignee = assignedToId || me.id;
     await pool.query(
-      `INSERT INTO reminders(id,title,note,due_date,due_time,priority,created_by_id,assigned_to_id,status)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending')`,
-      [id, title, note||null, dueDate||null, dueTime||null, priority||'medium', me.id, finalAssignee]
+      `INSERT INTO reminders(id,title,note,due_date,due_time,priority,created_by_id,assigned_to_id,status,repeat_every)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9)`,
+      [id, title, note||null, dueDate||null, dueTime||null, priority||'medium', me.id, finalAssignee, repeatEvery||null]
     );
     if (finalAssignee === 'administration') {
       const { rows: admins } = await pool.query(
@@ -1894,7 +1935,7 @@ app.put('/api/reminders/:id/status', async (req, res) => {
       return res.status(403).json({ error: 'Only assignee can update status.' });
     if (isAdminTask && !isAdminUser && !isCEO)
       return res.status(403).json({ error: 'Only Admin/Head Admin/Manager can update this task.' });
-    const { rows: tr } = await pool.query(`SELECT title, created_by_id FROM reminders WHERE id=$1`, [req.params.id]);
+    const { rows: tr } = await pool.query(`SELECT title, created_by_id, due_date, due_time, priority, assigned_to_id, repeat_every, note FROM reminders WHERE id=$1`, [req.params.id]);
     // Claim administration task when moving to in_process
     if (isAdminTask && status === 'in_process') {
       await pool.query(`UPDATE reminders SET status=$1, assigned_to_id=$2 WHERE id=$3`, [status, me.id, req.params.id]);
@@ -1906,6 +1947,23 @@ app.put('/api/reminders/:id/status', async (req, res) => {
       await createNotif(tr[0].created_by_id, 'task_status', 'Task status updated',
         `"${tr[0].title}" marked as ${statusLabel} by ${me.first_name} ${me.last_name}`, 'reminders.html');
     }
+    // Spawn next occurrence if recurring and just completed
+    if (status === 'completed' && tr.length && tr[0].repeat_every && tr[0].due_date) {
+      const t = tr[0];
+      const DAYS = { daily:1, weekly:7, biweekly:14, monthly:30 };
+      const delta = DAYS[t.repeat_every];
+      if (delta) {
+        const nextDate = new Date(t.due_date);
+        nextDate.setDate(nextDate.getDate() + delta);
+        const nextIso = nextDate.toISOString().split('T')[0];
+        const newId = require('crypto').randomUUID();
+        await pool.query(
+          `INSERT INTO reminders(id,title,note,due_date,due_time,priority,created_by_id,assigned_to_id,status,repeat_every)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9)`,
+          [newId, t.title, t.note||null, nextIso, t.due_time||null, t.priority||'medium', t.created_by_id, t.assigned_to_id, t.repeat_every]
+        );
+      }
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1915,15 +1973,15 @@ app.put('/api/reminders/:id', async (req, res) => {
     const me = req.user;
     const myRoles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
     const isCEO = myRoles.includes('ceo');
-    const { title, note, dueDate, dueTime, priority, assignedToId } = req.body;
+    const { title, note, dueDate, dueTime, priority, assignedToId, repeatEvery } = req.body;
     // Check if overdue
     const { rows } = await pool.query(`SELECT status, created_by_id FROM reminders WHERE id=$1`, [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Not found.' });
     if (rows[0].status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks cannot be edited.' });
     if (rows[0].created_by_id !== me.id && !isCEO) return res.status(403).json({ error: 'Not allowed.' });
     await pool.query(
-      `UPDATE reminders SET title=$1,note=$2,due_date=$3,due_time=$4,priority=$5,assigned_to_id=$6 WHERE id=$7`,
-      [title, note||null, dueDate||null, dueTime||null, priority||'medium', assignedToId, req.params.id]
+      `UPDATE reminders SET title=$1,note=$2,due_date=$3,due_time=$4,priority=$5,assigned_to_id=$6,repeat_every=$7 WHERE id=$8`,
+      [title, note||null, dueDate||null, dueTime||null, priority||'medium', assignedToId, repeatEvery||null, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

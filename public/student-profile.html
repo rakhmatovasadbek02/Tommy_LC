@@ -217,6 +217,7 @@
         <div class="card" style="padding:0;overflow:hidden">
           <div class="profile-tabs" style="padding:0 20px">
             <button class="profile-tab active" onclick="switchTab('groups',this)">Groups</button>
+            <button class="profile-tab" onclick="switchTab('attendance',this)">Attendance</button>
             <button class="profile-tab" onclick="switchTab('comments',this)">Comments</button>
             <button class="profile-tab" onclick="switchTab('calls',this)">Calls</button>
             <button class="profile-tab" onclick="switchTab('invoices',this)">Payments</button>
@@ -235,6 +236,11 @@
                 <textarea id="commentInput" placeholder="Add a comment…"></textarea>
                 <button class="btn btn-primary" style="align-self:flex-end" onclick="addComment()">Post</button>
               </div>
+            </div>
+
+            <!-- ATTENDANCE -->
+            <div class="tab-panel" id="tab-attendance">
+              <div id="attendanceList"><div class="empty-feed">Loading…</div></div>
             </div>
 
             <!-- CALLS -->
@@ -434,12 +440,13 @@
 
   async function loadProfile() {
     try {
-      const [s, grps, cmts, invs, calls] = await Promise.all([
+      const [s, grps, cmts, invs, calls, att] = await Promise.all([
         apiGet('/api/students/'+STUDENT_ID),
         apiGet('/api/students/'+STUDENT_ID+'/groups'),
         apiGet('/api/students/'+STUDENT_ID+'/comments'),
         apiGet('/api/students/'+STUDENT_ID+'/invoices'),
         apiGet('/api/students/'+STUDENT_ID+'/calls'),
+        apiGet('/api/students/'+STUDENT_ID+'/attendance'),
       ]);
       student = s;
       studentGroups = grps;
@@ -481,6 +488,7 @@
 
       _invoices = invs;
       renderGroups(grps);
+      renderAttendance(att);
       renderComments(cmts);
       renderCalls(calls);
       renderInvoices(invs);
@@ -505,6 +513,42 @@
         </div>
         ${g.price?`<span style="font-weight:700;color:var(--text);white-space:nowrap">${Number(g.price).toLocaleString()} <span style="font-size:11px;color:var(--muted)">/ mo</span></span>`:''}
       </div>`).join('');
+  }
+
+  function renderAttendance(att) {
+    const el = document.getElementById('attendanceList');
+    if (!att.length) { el.innerHTML='<div class="empty-feed">No attendance records yet.</div>'; return; }
+    const present = att.filter(r=>r.status==='present').length;
+    const absent  = att.filter(r=>r.status==='absent').length;
+    const pct = att.length ? Math.round(present/att.length*100) : 0;
+    const barColor = pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--crimson)';
+    el.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:16px">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Attendance Rate</div>
+          <div style="background:var(--border);border-radius:20px;height:8px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${barColor};border-radius:20px;transition:width .4s"></div>
+          </div>
+        </div>
+        <div style="font-size:28px;font-weight:900;color:${barColor};white-space:nowrap">${pct}%</div>
+        <div style="font-size:12px;color:var(--muted);text-align:right;white-space:nowrap">
+          <div style="color:var(--green);font-weight:700">${present} present</div>
+          <div style="color:var(--crimson);font-weight:700">${absent} absent</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${att.map(r => {
+          const d = new Date(r.date);
+          const dateStr = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+          const isPresent = r.status === 'present';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:${isPresent?'#f0fdf4':'#fef2f2'}">
+            <span style="font-size:14px">${isPresent?'✅':'❌'}</span>
+            <span style="font-weight:600;font-size:13px;color:${isPresent?'var(--green)':'var(--crimson)'}">${isPresent?'Present':'Absent'}</span>
+            <span style="font-size:12px;color:var(--muted);margin-left:auto">${dateStr}</span>
+            ${r.groupName?`<span style="font-size:11px;font-weight:700;background:white;border:1px solid var(--border);padding:2px 8px;border-radius:20px">${r.groupName}</span>`:''}
+          </div>`;
+        }).join('')}
+      </div>`;
   }
 
   function renderComments(cmts) {

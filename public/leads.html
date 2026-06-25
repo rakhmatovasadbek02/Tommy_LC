@@ -1020,6 +1020,7 @@ function showDetail(id) {
       </div>
     </div>
     ${l.notes?`<div class="form-group"><label>Notes</label><div style="background:var(--crimson-soft);padding:12px;border-radius:8px;font-size:14px">${l.notes}</div></div>`:''}
+    <div id="conversionInfo"></div>
   `;
   document.getElementById('detailFooter').innerHTML = `
     <button class="btn btn-ghost" onclick="editLead('${id}')">${IC.edit} Edit</button>
@@ -1029,6 +1030,22 @@ function showDetail(id) {
   openModal('detailModal');
   document.getElementById('leadCallInput').value = '';
   apiGet('/api/leads/'+id+'/calls').then(renderLeadCalls).catch(()=>renderLeadCalls([]));
+  if (l.status === 'Student') {
+    apiGet('/api/lead-conversions').then(all => {
+      const conv = all.find(c => c.leadId === id);
+      const el = document.getElementById('conversionInfo');
+      if (!el) return;
+      if (conv) {
+        const when = new Date(conv.convertedAt).toLocaleString('en-GB',{timeZone:'Asia/Tashkent',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        el.innerHTML = `<div style="margin-top:10px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:13px">
+          ✅ <strong>Converted to student</strong> by ${conv.convertedBy||'unknown'} on ${when}
+          ${conv.studentId?`· <a href="student-profile.html?id=${conv.studentId}" style="color:#16a34a;font-weight:700">View profile →</a>`:''}
+        </div>`;
+      } else {
+        el.innerHTML = '';
+      }
+    }).catch(()=>{});
+  }
 }
 
 function editLead(id) {

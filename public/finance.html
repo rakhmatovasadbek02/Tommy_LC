@@ -303,15 +303,31 @@
       const total = b.cash + b.click;
       const hCash  = Math.round(b.cash  / max * 100);
       const hClick = Math.round(b.click / max * 100);
-      return `<div class="chart-col${idx===5?' current':''}">
-        <div class="chart-val">${total ? compact(total) : ''}</div>
-        <div class="chart-stack" style="height:${Math.max(hCash+hClick, total?3:0)}%">
+      const tooltip = total
+        ? `💵 Cash: ${fmt(b.cash)}\n📱 Click: ${fmt(b.click)}\nTotal: ${fmt(total)}`
+        : 'No payments';
+      return `<div class="chart-col${idx===5?' current':''}" title="${tooltip}">
+        <div class="chart-val" style="font-size:10px">${total ? compact(total) : ''}</div>
+        <div class="chart-stack" style="height:${Math.max(hCash+hClick, total?3:0)}%;cursor:pointer" onclick="filterChartMonth(${b.y},${b.m})">
           ${b.click ? `<div class="chart-seg-click" style="flex:${b.click}"></div>` : ''}
           ${b.cash  ? `<div class="chart-seg-cash"  style="flex:${b.cash}"></div>`  : ''}
         </div>
-        <div class="chart-month">${MONTHS[b.m]}</div>
+        <div class="chart-month">${MONTHS[b.m]}<br><span style="font-size:9px;font-weight:500;opacity:.7">${total?compact(total):''}</span></div>
       </div>`;
     }).join('');
+  }
+
+  function filterChartMonth(y, m) {
+    const val = `${y}-${String(m+1).padStart(2,'0')}`;
+    const el = document.getElementById('filterMonth');
+    el.value = el.value === val ? '' : val;
+    // Switch to payments tab if on debtors
+    if (currentTab === 'debtors') {
+      const btn = document.querySelector('.tab-btn');
+      if (btn) setTab('payments', btn);
+    }
+    render();
+    document.getElementById('invoiceList')?.scrollIntoView({ behavior:'smooth', block:'start' });
   }
 
   function setTab(tab, btn) {
