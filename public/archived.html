@@ -5,43 +5,54 @@
   <title>Archived Students — TommyLC CRM</title>
   <link rel="stylesheet" href="shared.css">
   <style>
-    .arch-layout{display:grid;grid-template-columns:1fr 1fr 280px;gap:20px;align-items:start}
+    /* Layout */
+    .arch-layout{display:grid;grid-template-columns:1fr 1fr 300px;gap:20px;align-items:start}
     @media(max-width:1100px){.arch-layout{grid-template-columns:1fr 1fr}}
     @media(max-width:700px){.arch-layout{grid-template-columns:1fr}}
-    .arch-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;gap:8px}
-    .arch-section-title span{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700;color:var(--muted)}
 
-    /* Left — main table */
-    .arch-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-    .arch-table{width:100%;border-collapse:collapse;background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);min-width:520px}
-    .arch-table th{background:var(--bg);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
-    .arch-table td{padding:11px 14px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border-light,#f1f1f1);vertical-align:middle}
-    .arch-table td:last-child{text-align:right;white-space:nowrap}
-    .arch-table tr:last-child td{border-bottom:none}
-    .arch-table tr:hover td{background:#fafafa}
-    .arch-avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:white;flex-shrink:0}
-    .arch-name{font-weight:600;color:var(--text)}
-    .arch-reason{max-width:160px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .arch-date{color:var(--muted);font-size:12px;white-space:nowrap}
-    .arch-comment{font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    /* Column header */
+    .col-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
+    .col-count{font-size:11px;font-weight:700;background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:2px 9px;border-radius:20px}
 
-    /* Right — blacklist panel */
-    .blacklist-panel{background:white;border:1.5px solid #fca5a5;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;position:sticky;top:20px}
-    .blacklist-panel-header{background:#fff5f5;padding:14px 16px;border-bottom:1px solid #fca5a5;display:flex;align-items:center;gap:8px}
-    .blacklist-panel-title{font-size:13px;font-weight:700;color:#dc2626;flex:1}
-    .blacklist-panel-count{font-size:11px;font-weight:700;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:20px}
-    .bl-item{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid #fef2f2}
-    .bl-item:last-child{border-bottom:none}
-    .bl-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;flex-shrink:0;background:#dc2626}
-    .bl-name{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
+    /* Cards */
+    .arch-cards{display:flex;flex-direction:column;gap:8px}
+    .arch-card{background:white;border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;transition:box-shadow .15s,border-color .15s}
+    .arch-card:hover{border-color:#cbd5e1;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+    .arch-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:white;flex-shrink:0}
+    .arch-info{flex:1;min-width:0}
+    .arch-name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+    .arch-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .arch-name a{color:inherit;text-decoration:none}
+    .arch-name a:hover{color:var(--primary)}
+    .lead-badge{font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0}
+    .arch-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .arch-phone{font-size:12px;color:var(--muted)}
+    .arch-dot{width:3px;height:3px;border-radius:50%;background:var(--border);flex-shrink:0}
+    .arch-reason-pill{font-size:11px;font-weight:600;background:#f1f5f9;color:#64748b;border-radius:20px;padding:2px 9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+    .arch-date{font-size:11px;color:#94a3b8;white-space:nowrap}
+    .arch-comment{font-size:11px;color:#94a3b8;font-style:italic;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+    .arch-restore{flex-shrink:0}
+
+    /* Blacklist column */
+    .bl-panel{background:white;border:1.5px solid #fca5a5;border-radius:12px;overflow:hidden;position:sticky;top:20px}
+    .bl-panel-head{background:#fff5f5;padding:14px 16px;border-bottom:1px solid #fca5a5;display:flex;align-items:center;gap:8px}
+    .bl-panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#dc2626;flex:1}
+    .bl-count{font-size:11px;font-weight:700;background:#fee2e2;color:#dc2626;padding:2px 9px;border-radius:20px}
+    .bl-cards{display:flex;flex-direction:column;gap:0;padding:8px}
+    .bl-card{border:1px solid #fee2e2;border-radius:10px;padding:12px;margin-bottom:8px;background:#fffafa}
+    .bl-card:last-child{margin-bottom:0}
+    .bl-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+    .bl-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;flex-shrink:0;background:#dc2626}
+    .bl-name{font-size:13px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .bl-name a{color:inherit;text-decoration:none}
     .bl-name a:hover{color:#dc2626}
-    .bl-phone{font-size:11px;color:var(--muted);margin-top:1px}
-    .bl-comment{font-size:11px;color:#7f1d1d;font-style:italic;margin-top:3px;line-height:1.4}
-    .bl-date{font-size:10px;color:#9ca3af;margin-top:2px}
-    .blacklist-badge{display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#dc2626;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;margin-left:6px;flex-shrink:0}
+    .bl-phone{font-size:11px;color:var(--muted);margin-bottom:4px}
+    .bl-comment{font-size:11px;color:#991b1b;background:#fff1f1;border-left:2px solid #fca5a5;padding:4px 8px;border-radius:0 6px 6px 0;margin-bottom:6px;line-height:1.4;font-style:italic}
+    .bl-footer{display:flex;align-items:center;justify-content:space-between}
+    .bl-date{font-size:10px;color:#9ca3af}
 
-    /* Overlay sidebar for managing reasons */
+    /* Sidebar */
     .reasons-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
     .reasons-backdrop.open{opacity:1;pointer-events:all}
     .reasons-sidebar{position:fixed;top:0;right:0;bottom:0;width:320px;background:white;box-shadow:-4px 0 24px rgba(0,0,0,.12);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1)}
@@ -66,7 +77,6 @@
 <body>
 <nav class="sidebar"></nav>
 
-<!-- Reasons management overlay -->
 <div class="reasons-backdrop" id="reasonsBackdrop" onclick="closeReasonsSidebar()"></div>
 <div class="reasons-sidebar" id="reasonsSidebar">
   <div class="reasons-sidebar-header">
@@ -94,51 +104,53 @@
 
 <div class="main">
   <div class="topbar">
-    <div class="page-title">Archived Students</div>
+    <div class="page-title">Archived</div>
     <div class="topbar-right">
-      <span id="countBadge"></span>
       <button class="btn btn-outline" onclick="openReasonsSidebar()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Manage Reasons
       </button>
     </div>
   </div>
+
   <div class="page-content">
     <div class="toolbar" style="margin-bottom:16px">
       <div class="search-bar" style="flex:1;max-width:280px">
         <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" id="searchInput" placeholder="Search by name or phone…" oninput="filterList()">
+        <input type="text" id="searchInput" placeholder="Search…" oninput="filterList()">
       </div>
       <select id="filterReason" onchange="filterList()" style="width:auto;padding:9px 14px">
         <option value="">All Reasons</option>
       </select>
     </div>
+
     <div class="arch-layout">
-
-      <!-- Column 1: Previously Active -->
       <div>
-        <div class="arch-section-title">Previously Active <span id="activeCount">0</span></div>
-        <div id="activeWrap"></div>
+        <div class="col-header">
+          <span class="col-title">Previously Active</span>
+          <span class="col-count" id="activeCount">0</span>
+        </div>
+        <div class="arch-cards" id="activeWrap"></div>
       </div>
 
-      <!-- Column 2: Leads / Never Active -->
       <div>
-        <div class="arch-section-title">Leads / Never Active <span id="inactiveCount">0</span></div>
-        <div id="inactiveWrap"></div>
+        <div class="col-header">
+          <span class="col-title">Leads / Never Active</span>
+          <span class="col-count" id="inactiveCount">0</span>
+        </div>
+        <div class="arch-cards" id="inactiveWrap"></div>
       </div>
 
-      <!-- Column 3: Blacklist panel -->
       <div>
-        <div class="blacklist-panel">
-          <div class="blacklist-panel-header">
-            <span style="font-size:16px">⛔</span>
-            <div class="blacklist-panel-title">Blacklisted</div>
-            <span class="blacklist-panel-count" id="blCount">0</span>
+        <div class="bl-panel">
+          <div class="bl-panel-head">
+            <span style="font-size:15px">⛔</span>
+            <span class="bl-panel-title">Blacklisted</span>
+            <span class="bl-count" id="blCount">0</span>
           </div>
-          <div id="blList"></div>
+          <div class="bl-cards" id="blList"></div>
         </div>
       </div>
-
     </div>
   </div>
 </div>
@@ -166,11 +178,6 @@
       o.value = r.label; o.textContent = r.label;
       rSel.appendChild(o);
     });
-
-    const nonBl = _all.filter(s => s.archiveReason !== 'Blacklist');
-    document.getElementById('countBadge').innerHTML = nonBl.length
-      ? `<span style="font-size:13px;color:var(--muted);margin-right:8px">${nonBl.length} student${nonBl.length===1?'':'s'}</span>`
-      : '';
     filterList();
   }
 
@@ -179,28 +186,30 @@
     document.getElementById('blCount').textContent = bl.length;
     const el = document.getElementById('blList');
     if (!bl.length) {
-      el.innerHTML = '<div style="padding:20px 16px;text-align:center;color:var(--muted);font-size:13px">No blacklisted students.</div>';
+      el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">No blacklisted entries.</div>';
       return;
     }
     el.innerHTML = bl.map(s => {
       const name = s.firstName + ' ' + s.lastName;
       const col  = avatarColor(name);
       const dt   = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+      const src  = s.sourceType || 'student';
       const safeName = name.replace(/'/g,"\\'");
-      const src = s.sourceType || 'student';
-      return `<div class="bl-item">
-        <div class="bl-avatar" style="background:${col}">${initials(name)}</div>
-        <div style="min-width:0;flex:1">
+      return `<div class="bl-card">
+        <div class="bl-top">
+          <div class="bl-avatar" style="background:${col}">${initials(name)}</div>
           <div class="bl-name">
             ${src === 'lead'
-              ? `<span style="font-size:10px;background:#eff6ff;color:#3b82f6;border-radius:20px;padding:1px 6px;font-weight:700;margin-right:4px">Lead</span>${name}`
+              ? `<span class="lead-badge" style="font-size:9px;margin-right:4px">Lead</span>${name}`
               : `<a href="student-profile.html?id=${s.id}">${name}</a>`}
           </div>
-          ${s.phone ? `<div class="bl-phone">+998 ${s.phone}</div>` : ''}
-          ${s.archiveComment ? `<div class="bl-comment">"${s.archiveComment}"</div>` : ''}
-          <div class="bl-date">${dt}</div>
         </div>
-        <button class="btn btn-outline btn-sm" style="flex-shrink:0;font-size:11px;padding:3px 8px" onclick="restoreStudent('${s.id}','${safeName}','${src}')">Restore</button>
+        ${s.phone ? `<div class="bl-phone">+998 ${s.phone}</div>` : ''}
+        ${s.archiveComment ? `<div class="bl-comment">${s.archiveComment}</div>` : ''}
+        <div class="bl-footer">
+          <span class="bl-date">${dt}</span>
+          <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="restoreStudent('${s.id}','${safeName}','${src}')">Restore</button>
+        </div>
       </div>`;
     }).join('');
   }
@@ -214,10 +223,9 @@
       if (fr && s.archiveReason !== fr) return false;
       return true;
     });
-    // Leads and students who were never Active → Leads/Never Active column
     const active   = list.filter(s => s.sourceType !== 'lead' && s.preArchiveStatus === 'Active');
     const inactive = list.filter(s => s.sourceType === 'lead' || s.preArchiveStatus !== 'Active');
-    document.getElementById('activeCount').textContent  = active.length;
+    document.getElementById('activeCount').textContent   = active.length;
     document.getElementById('inactiveCount').textContent = inactive.length;
     renderSection('activeWrap',   active);
     renderSection('inactiveWrap', inactive);
@@ -226,49 +234,45 @@
   function renderSection(wrapId, list) {
     const wrap = document.getElementById(wrapId);
     if (!list.length) {
-      wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0 4px">None.</div>';
+      wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0">None.</div>';
       return;
     }
-    wrap.innerHTML = `<div class="arch-table-wrap"><table class="arch-table">
-      <thead><tr>
-        <th style="width:36px"></th>
-        <th>Name</th><th>Phone</th><th>Reason</th><th>Archived At</th>
-        <th style="width:100px"></th>
-      </tr></thead>
-      <tbody>${list.map(s => {
-        const name  = s.firstName + ' ' + s.lastName;
-        const col   = avatarColor(name);
-        const dt    = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-        const phone = s.phone ? '+998 ' + s.phone : '—';
-        return `<tr>
-          <td><span class="arch-avatar" style="background:${col}">${initials(name)}</span></td>
-          <td>
+    wrap.innerHTML = list.map(s => {
+      const name  = s.firstName + ' ' + s.lastName;
+      const col   = avatarColor(name);
+      const dt    = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      const phone = s.phone ? '+998 ' + s.phone : null;
+      const src   = s.sourceType || 'student';
+      const safeName = name.replace(/'/g,"\\'");
+      return `<div class="arch-card">
+        <div class="arch-avatar" style="background:${col}">${initials(name)}</div>
+        <div class="arch-info">
+          <div class="arch-name-row">
+            ${src === 'lead' ? '<span class="lead-badge">Lead</span>' : ''}
             <span class="arch-name">
-              ${s.sourceType === 'lead'
-                ? `<span style="font-size:11px;background:#eff6ff;color:#3b82f6;border-radius:20px;padding:1px 7px;font-weight:700;margin-right:4px">Lead</span>${name}`
-                : `<a href="student-profile.html?id=${s.id}" style="color:inherit;text-decoration:none">${name}</a>`}
+              ${src === 'lead'
+                ? name
+                : `<a href="student-profile.html?id=${s.id}">${name}</a>`}
             </span>
-          </td>
-          <td style="color:var(--muted);font-size:13px">${phone}</td>
-          <td>
-            <div class="arch-reason" title="${(s.archiveReason||'').replace(/"/g,'&quot;')}">${s.archiveReason||'—'}</div>
-            ${s.archiveComment ? `<div class="arch-comment" title="${s.archiveComment.replace(/"/g,'&quot;')}">${s.archiveComment}</div>` : ''}
-          </td>
-          <td><div class="arch-date">${dt}</div></td>
-          <td><button class="btn btn-outline btn-sm" onclick="restoreStudent('${s.id}','${name.replace(/'/g,"\\'")}','${s.sourceType||'student'}')">Restore</button></td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table></div>`;
+          </div>
+          <div class="arch-meta">
+            ${phone ? `<span class="arch-phone">${phone}</span>` : ''}
+            ${phone && s.archiveReason ? '<span class="arch-dot"></span>' : ''}
+            ${s.archiveReason ? `<span class="arch-reason-pill" title="${s.archiveReason}">${s.archiveReason}</span>` : ''}
+            ${(phone||s.archiveReason) ? '<span class="arch-dot"></span>' : ''}
+            <span class="arch-date">${dt}</span>
+          </div>
+          ${s.archiveComment ? `<div class="arch-comment" title="${s.archiveComment.replace(/"/g,'&quot;')}">${s.archiveComment}</div>` : ''}
+        </div>
+        <div class="arch-restore">
+          <button class="btn btn-outline btn-sm" onclick="restoreStudent('${s.id}','${safeName}','${src}')">Restore</button>
+        </div>
+      </div>`;
+    }).join('');
   }
 
-  function openReasonsSidebar() {
-    document.getElementById('reasonsSidebar').classList.add('open');
-    document.getElementById('reasonsBackdrop').classList.add('open');
-  }
-  function closeReasonsSidebar() {
-    document.getElementById('reasonsSidebar').classList.remove('open');
-    document.getElementById('reasonsBackdrop').classList.remove('open');
-  }
+  function openReasonsSidebar()  { document.getElementById('reasonsSidebar').classList.add('open');    document.getElementById('reasonsBackdrop').classList.add('open'); }
+  function closeReasonsSidebar() { document.getElementById('reasonsSidebar').classList.remove('open'); document.getElementById('reasonsBackdrop').classList.remove('open'); }
 
   function renderReasonsList() {
     const el = document.getElementById('reasonsList');
@@ -306,9 +310,7 @@
   async function restoreStudent(id, name, sourceType) {
     if (!confirm(`Restore ${name}?`)) return;
     try {
-      const endpoint = sourceType === 'lead'
-        ? `/api/leads/${id}/restore`
-        : `/api/students/${id}/restore`;
+      const endpoint = sourceType === 'lead' ? `/api/leads/${id}/restore` : `/api/students/${id}/restore`;
       await apiPut(endpoint, {});
       showToast(name + ' restored.');
       await load();
