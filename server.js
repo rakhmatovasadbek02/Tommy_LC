@@ -798,6 +798,7 @@ app.post('/api/archive-reasons', async (req, res) => {
   try {
     const { label, isBlacklist } = req.body;
     if (!label?.trim()) return res.status(400).json({ error: 'Label required' });
+    if (label.trim().toLowerCase() === 'blacklist') return res.status(400).json({ error: 'Blacklist is a fixed reason and cannot be added as custom' });
     const { rows } = await pool.query(
       'INSERT INTO archive_reasons(label, is_blacklist) VALUES($1,$2) ON CONFLICT(label) DO NOTHING RETURNING *',
       [label.trim(), isBlacklist || false]

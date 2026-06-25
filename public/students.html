@@ -408,10 +408,11 @@
     const s = students.find(s=>s.id===id);
     _archiveId = id;
     document.getElementById('archiveStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
-    // Populate reasons dropdown
+    // Populate reasons dropdown — Blacklist is fixed, custom reasons follow
     const sel = document.getElementById('archiveReason');
     sel.innerHTML = '<option value="">Select a reason…</option>' +
-      archiveReasons.map(r => `<option value="${r.label}" data-blacklist="${r.is_blacklist}">${r.is_blacklist ? '⛔ ' : ''}${r.label}</option>`).join('');
+      '<option value="Blacklist" data-blacklist="true">⛔ Blacklist</option>' +
+      archiveReasons.map(r => `<option value="${r.label}" data-blacklist="false">${r.label}</option>`).join('');
     document.getElementById('archiveCommentGroup').style.display = 'none';
     document.getElementById('archiveComment').value = '';
     openModal('archiveModal');

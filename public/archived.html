@@ -19,42 +19,69 @@
     .blacklist-badge{display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#dc2626;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;margin-left:6px;flex-shrink:0}
     .arch-comment{font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-    /* Reason manager */
-    .reason-manager{background:white;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
-    .reason-manager-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-    .reason-manager-title{font-size:14px;font-weight:700;color:var(--text)}
-    .reason-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;min-height:32px}
-    .reason-chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--border);border-radius:20px;padding:5px 10px 5px 12px;font-size:13px;background:white;color:var(--text)}
-    .reason-chip.blacklist{border-color:#dc2626;background:#fff5f5;color:#dc2626}
-    .reason-chip-del{width:18px;height:18px;border:none;background:none;cursor:pointer;color:inherit;opacity:.5;font-size:14px;padding:0;line-height:1;display:flex;align-items:center;justify-content:center;border-radius:50%}
-    .reason-chip-del:hover{opacity:1;background:rgba(0,0,0,.07)}
-    .reason-add-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .reason-add-row input[type=text]{flex:1;min-width:160px;max-width:260px}
-    .reason-add-row label{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;padding:0 4px}
+    /* Right sidebar */
+    .reasons-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+    .reasons-backdrop.open{opacity:1;pointer-events:all}
+    .reasons-sidebar{position:fixed;top:0;right:0;bottom:0;width:320px;background:white;box-shadow:-4px 0 24px rgba(0,0,0,.12);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1)}
+    .reasons-sidebar.open{transform:translateX(0)}
+    .reasons-sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+    .reasons-sidebar-title{font-size:15px;font-weight:700;color:var(--text)}
+    .reasons-sidebar-close{width:32px;height:32px;border:none;background:none;cursor:pointer;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+    .reasons-sidebar-close:hover{background:var(--bg);color:var(--text)}
+    .reasons-sidebar-body{flex:1;overflow-y:auto;padding:20px}
+    .fixed-reason{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #fca5a5;border-radius:10px;background:#fff5f5;margin-bottom:16px}
+    .fixed-reason-label{font-size:13px;font-weight:700;color:#dc2626;flex:1}
+    .fixed-reason-note{font-size:11px;color:#9ca3af;font-style:italic}
+    .reasons-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px}
+    .reason-row{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:white;margin-bottom:8px}
+    .reason-row-label{flex:1;font-size:13px;color:var(--text)}
+    .reason-row-del{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+    .reason-row-del:hover{background:#fee2e2;color:#dc2626}
+    .reasons-add-row{display:flex;gap:8px;margin-top:16px}
+    .reasons-add-row input{flex:1}
   </style>
 </head>
 <body>
 <nav class="sidebar"></nav>
+
+<!-- Reasons sidebar -->
+<div class="reasons-backdrop" id="reasonsBackdrop" onclick="closeReasonsSidebar()"></div>
+<div class="reasons-sidebar" id="reasonsSidebar">
+  <div class="reasons-sidebar-header">
+    <div class="reasons-sidebar-title">Archive Reasons</div>
+    <button class="reasons-sidebar-close" onclick="closeReasonsSidebar()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="reasons-sidebar-body">
+    <div class="fixed-reason">
+      <span style="font-size:18px">⛔</span>
+      <div>
+        <div class="fixed-reason-label">Blacklist</div>
+        <div class="fixed-reason-note">Fixed reason — cannot be removed</div>
+      </div>
+    </div>
+    <div class="reasons-section-title">Custom Reasons</div>
+    <div id="reasonsList"></div>
+    <div class="reasons-add-row">
+      <input type="text" id="newReasonInput" placeholder="New reason…" onkeydown="if(event.key==='Enter')addReason()">
+      <button class="btn btn-primary btn-sm" onclick="addReason()">Add</button>
+    </div>
+  </div>
+</div>
+
 <div class="main">
   <div class="topbar">
     <div class="page-title">Archived Students</div>
-    <div class="topbar-right" id="countBadge"></div>
+    <div class="topbar-right">
+      <span id="countBadge"></span>
+      <button class="btn btn-outline" onclick="openReasonsSidebar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Manage Reasons
+      </button>
+    </div>
   </div>
   <div class="page-content">
-
-    <!-- Reason manager -->
-    <div class="reason-manager">
-      <div class="reason-manager-header">
-        <div class="reason-manager-title">Archive Reasons</div>
-      </div>
-      <div class="reason-list" id="reasonList"></div>
-      <div class="reason-add-row">
-        <input type="text" id="newReasonInput" placeholder="New reason…" onkeydown="if(event.key==='Enter')addReason()">
-        <label><input type="checkbox" id="newReasonBlacklist"> Blacklist</label>
-        <button class="btn btn-primary btn-sm" onclick="addReason()">Add</button>
-      </div>
-    </div>
-
     <div class="toolbar" style="margin-bottom:16px">
       <div class="search-bar" style="flex:1;max-width:280px">
         <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
@@ -62,10 +89,9 @@
       </div>
       <select id="filterReason" onchange="filterList()" style="width:auto;padding:9px 14px">
         <option value="">All Reasons</option>
-        <option value="__blacklist__">Blacklisted only</option>
+        <option value="Blacklist">⛔ Blacklist</option>
       </select>
     </div>
-
     <div id="tableWrap"></div>
   </div>
 </div>
@@ -76,51 +102,60 @@
   requireAuth('archived');
   renderSidebar('archived');
 
-  let _all = [];
-  let _reasons = [];
+  let _all = [], _reasons = [];
 
   async function load() {
     [_all, _reasons] = await Promise.all([
       apiGet('/api/students/archived'),
       apiGet('/api/archive-reasons')
     ]);
-    renderReasons();
-    // Populate reason filter dropdown
+    renderReasonsList();
+    // Populate filter dropdown: Blacklist first (fixed), then custom reasons
     const rSel = document.getElementById('filterReason');
-    rSel.innerHTML = '<option value="">All Reasons</option><option value="__blacklist__">Blacklisted only</option>';
+    rSel.innerHTML = '<option value="">All Reasons</option><option value="Blacklist">⛔ Blacklist</option>';
     _reasons.forEach(r => {
       const o = document.createElement('option');
-      o.value = r.label; o.textContent = r.label + (r.is_blacklist ? ' ⛔' : '');
+      o.value = r.label; o.textContent = r.label;
       rSel.appendChild(o);
     });
     filterList();
     document.getElementById('countBadge').innerHTML = _all.length
-      ? `<span style="font-size:13px;color:var(--muted)">${_all.length} student${_all.length===1?'':'s'}</span>`
+      ? `<span style="font-size:13px;color:var(--muted);margin-right:8px">${_all.length} student${_all.length===1?'':'s'}</span>`
       : '';
   }
 
-  function renderReasons() {
-    const el = document.getElementById('reasonList');
+  function openReasonsSidebar() {
+    document.getElementById('reasonsSidebar').classList.add('open');
+    document.getElementById('reasonsBackdrop').classList.add('open');
+  }
+  function closeReasonsSidebar() {
+    document.getElementById('reasonsSidebar').classList.remove('open');
+    document.getElementById('reasonsBackdrop').classList.remove('open');
+  }
+
+  function renderReasonsList() {
+    const el = document.getElementById('reasonsList');
     if (!_reasons.length) {
-      el.innerHTML = '<span style="font-size:13px;color:var(--muted)">No reasons yet. Add one below.</span>';
+      el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:4px 0">No custom reasons yet.</div>';
       return;
     }
     el.innerHTML = _reasons.map(r =>
-      `<div class="reason-chip ${r.is_blacklist?'blacklist':''}">
-        ${r.is_blacklist ? '⛔ ' : ''}${r.label}
-        <button class="reason-chip-del" onclick="deleteReason(${r.id},'${r.label.replace(/'/g,"\\'")}')">×</button>
+      `<div class="reason-row">
+        <span class="reason-row-label">${r.label}</span>
+        <button class="reason-row-del" onclick="deleteReason(${r.id},'${r.label.replace(/'/g,"\\'")}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>`
     ).join('');
   }
 
   async function addReason() {
     const label = document.getElementById('newReasonInput').value.trim();
-    const isBlacklist = document.getElementById('newReasonBlacklist').checked;
-    if (!label) return showToast('Enter a reason label.', 'error');
+    if (!label) return showToast('Enter a reason.', 'error');
+    if (label.toLowerCase() === 'blacklist') return showToast('Blacklist is a fixed reason.', 'error');
     try {
-      await apiPost('/api/archive-reasons', { label, isBlacklist });
+      await apiPost('/api/archive-reasons', { label, isBlacklist: false });
       document.getElementById('newReasonInput').value = '';
-      document.getElementById('newReasonBlacklist').checked = false;
       await load();
     } catch(e) { showToast('Error: ' + e.message, 'error'); }
   }
@@ -134,17 +169,15 @@
   function filterList() {
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const fr = document.getElementById('filterReason').value;
-    const blacklistLabels = new Set(_reasons.filter(r => r.is_blacklist).map(r => r.label));
     const list = _all.filter(s => {
       if (q && !(s.firstName+' '+s.lastName).toLowerCase().includes(q) && !(s.phone||'').includes(q)) return false;
-      if (fr === '__blacklist__') return blacklistLabels.has(s.archiveReason);
       if (fr && s.archiveReason !== fr) return false;
       return true;
     });
-    render(list, blacklistLabels);
+    render(list);
   }
 
-  function render(list, blacklistLabels) {
+  function render(list) {
     const wrap = document.getElementById('tableWrap');
     if (!list.length) {
       wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">🗃️</div><p>No archived students.</p></div>';
@@ -154,18 +187,18 @@
       <thead><tr>
         <th style="width:36px"></th>
         <th>Name</th><th>Phone</th><th>Archive Reason</th><th>Archived At</th>
-        <th style="width:90px"></th>
+        <th style="width:100px"></th>
       </tr></thead>
       <tbody>${list.map(s => {
-        const name = s.firstName + ' ' + s.lastName;
-        const col  = avatarColor(name);
-        const dt   = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+        const name  = s.firstName + ' ' + s.lastName;
+        const col   = avatarColor(name);
+        const dt    = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
         const phone = s.phone ? '+998 ' + s.phone : '—';
-        const isBl  = blacklistLabels.has(s.archiveReason);
+        const isBl  = s.archiveReason === 'Blacklist';
         return `<tr>
           <td><span class="arch-avatar" style="background:${col}">${initials(name)}</span></td>
           <td>
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
               <span class="arch-name"><a href="student-profile.html?id=${s.id}" style="color:inherit;text-decoration:none">${name}</a></span>
               ${isBl ? '<span class="blacklist-badge">⛔ Blacklist</span>' : ''}
             </div>
@@ -189,7 +222,7 @@
       showToast(name + ' restored.');
       _all = _all.filter(s => s.id !== id);
       document.getElementById('countBadge').innerHTML = _all.length
-        ? `<span style="font-size:13px;color:var(--muted)">${_all.length} student${_all.length===1?'':'s'}</span>`
+        ? `<span style="font-size:13px;color:var(--muted);margin-right:8px">${_all.length} student${_all.length===1?'':'s'}</span>`
         : '';
       filterList();
     } catch(e) { showToast('Error restoring.', 'error'); }
