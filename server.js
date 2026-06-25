@@ -336,6 +336,7 @@ async function initDB() {
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`,
+    `ALTER TABLE leads ADD COLUMN IF NOT EXISTS pre_archive_status TEXT`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -801,7 +802,7 @@ app.get('/api/students/archived', async (req, res) => {
         archiveReason: l.archive_reason,
         archiveComment: l.archive_comment,
         archivedAt: l.archived_at,
-        preArchiveStatus: null,
+        preArchiveStatus: l.pre_archive_status,
         sourceType: 'lead'
       }))
     ];
@@ -864,14 +865,20 @@ app.get('/api/students/blacklist-check', async (req, res) => {
     }
     if (!conditions.length) return res.json([]);
 
-    const { rows } = await pool.query(
-      `SELECT id, first_name, last_name, phone, archive_reason, archive_comment, archived_at
-       FROM students
-       WHERE archived=TRUE AND archive_reason = ANY($1)
-       AND (${conditions.join(' OR ')})`,
-      params
-    );
-    res.json(rows.map(s => ({
+    const where = `archived=TRUE AND archive_reason = ANY($1) AND (${conditions.join(' OR ')})`;
+
+    const [{ rows: students }, { rows: leads }] = await Promise.all([
+      pool.query(
+        `SELECT id, first_name, last_name, phone, archive_reason, archive_comment, archived_at FROM students WHERE ${where}`,
+        params
+      ),
+      pool.query(
+        `SELECT id, first_name, last_name, phone_student AS phone, archive_reason, archive_comment, archived_at FROM leads WHERE ${where}`,
+        params
+      )
+    ]);
+    const all = [...students, ...leads];
+    res.json(all.map(s => ({
       id: s.id,
       name: s.first_name + ' ' + s.last_name,
       phone: s.phone,
@@ -884,9 +891,11 @@ app.get('/api/students/blacklist-check', async (req, res) => {
 
 app.put('/api/students/:id/restore', async (req, res) => {
   try {
+    const { rows } = await pool.query('SELECT pre_archive_status FROM students WHERE id=$1', [req.params.id]);
+    const status = rows[0]?.pre_archive_status || 'Inactive';
     await pool.query(
-      `UPDATE students SET archived=FALSE, archive_reason=NULL, archived_at=NULL, status='Inactive' WHERE id=$1`,
-      [req.params.id]
+      `UPDATE students SET archived=FALSE, archive_reason=NULL, archive_comment=NULL, archived_at=NULL, pre_archive_status=NULL, status=$1 WHERE id=$2`,
+      [status, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1859,9 +1868,23 @@ app.post('/api/leads/:id/convert', async (req, res) => {
 app.delete('/api/leads/:id', async (req, res) => {
   try {
     const { reason, comment } = req.body || {};
+    const { rows: cur } = await pool.query('SELECT status FROM leads WHERE id=$1', [req.params.id]);
+    const preStatus = cur[0]?.status || null;
     await pool.query(
-      `UPDATE leads SET archived=TRUE, archive_reason=$1, archive_comment=$2, archived_at=NOW() WHERE id=$3`,
-      [reason||null, comment||null, req.params.id]
+      `UPDATE leads SET archived=TRUE, archive_reason=$1, archive_comment=$2, archived_at=NOW(), pre_archive_status=$3 WHERE id=$4`,
+      [reason||null, comment||null, preStatus, req.params.id]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/leads/:id/restore', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT pre_archive_status FROM leads WHERE id=$1', [req.params.id]);
+    const status = rows[0]?.pre_archive_status || 'Registration';
+    await pool.query(
+      `UPDATE leads SET archived=FALSE, archive_reason=NULL, archive_comment=NULL, archived_at=NULL, pre_archive_status=NULL, status=$1 WHERE id=$2`,
+      [status, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
