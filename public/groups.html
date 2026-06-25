@@ -48,6 +48,14 @@
 <select id="filterSched" onchange="renderGroups()" style="width:auto;padding:9px 14px">
 <option value="">All Schedules</option><option value="odd">Odd Days</option><option value="even">Even Days</option><option value="custom">Custom</option>
 </select>
+<select id="filterLevel" onchange="renderGroups()" style="width:auto;padding:9px 14px">
+<option value="">All Levels</option>
+<option>RoundUp</option><option>Beginner</option><option>Elementary</option>
+<option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
+</select>
+<select id="filterTeacher" onchange="renderGroups()" style="width:auto;padding:9px 14px">
+<option value="">All Teachers</option>
+</select>
 <span class="text-muted" id="groupCount" style="margin-left:auto"></span>
 </div>
 <div class="groups-grid" id="groupsGrid"></div>
@@ -169,14 +177,20 @@ apiGet('/api/teachers'),
 apiGet('/api/leads').catch(()=>[]), apiGet('/api/levels').catch(()=>[])
 ]);
 if(isTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';}
+const tSel=document.getElementById('filterTeacher');
+[...new Set(groups.map(g=>g.teacher).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;tSel.appendChild(o);});
 renderGroups();
 }
 function renderGroups() {
 const q=document.getElementById('searchInput').value.toLowerCase();
 const fs=document.getElementById('filterSched').value;
+const fl=document.getElementById('filterLevel').value;
+const ft=document.getElementById('filterTeacher').value;
 const filtered=groups.filter(g=>
 (!q||g.name.toLowerCase().includes(q)||(g.teacher||'').toLowerCase().includes(q)||(g.level||'').toLowerCase().includes(q))
-&&(!fs||g.schedType===fs));
+&&(!fs||g.schedType===fs)
+&&(!fl||g.level===fl)
+&&(!ft||g.teacher===ft));
 document.getElementById('groupCount').textContent=`${filtered.length} group${filtered.length!==1?'s':''}`;
 const canManage=can('settings')||getRole()==='CEO';
 const grid=document.getElementById('groupsGrid');

@@ -37,6 +37,25 @@
     </div>
   </div>
   <div class="page-content">
+    <div class="toolbar" style="margin-bottom:16px">
+      <div class="search-bar" style="flex:1;max-width:300px">
+        <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+        <input type="text" id="searchInput" placeholder="Search actions…" oninput="renderFeed()">
+      </div>
+      <select id="filterActor" onchange="renderFeed()" style="width:auto;padding:9px 14px">
+        <option value="">All Staff</option>
+      </select>
+      <select id="filterRole" onchange="renderFeed()" style="width:auto;padding:9px 14px">
+        <option value="">All Roles</option>
+        <option>CEO</option><option>Head Admin</option><option>Manager</option><option>Admin</option><option>Teacher</option>
+      </select>
+      <select id="filterDate" onchange="renderFeed()" style="width:auto;padding:9px 14px">
+        <option value="">All Time</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+      </select>
+    </div>
     <div class="card">
       <div class="card-body" style="padding:0 24px">
         <div id="actionsFeed" class="actions-feed"></div>
@@ -59,12 +78,46 @@
 
   const DOT_CLASS = { green:'green', red:'red', blue:'blue', gold:'gold', '':'default', null:'default' };
 
+  let _allItems = [];
+
   async function load() {
-    const items = await apiGet('/api/activity');
+    _allItems = await apiGet('/api/activity');
+    // Populate actor dropdown
+    const actors = [...new Set(_allItems.map(a => a.actor).filter(Boolean))].sort();
+    const aSel = document.getElementById('filterActor');
+    actors.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; aSel.appendChild(o); });
+    renderFeed();
+  }
+
+  function renderFeed() {
+    const q   = document.getElementById('searchInput').value.toLowerCase();
+    const fa  = document.getElementById('filterActor').value;
+    const fr  = document.getElementById('filterRole').value;
+    const fd  = document.getElementById('filterDate').value;
+    const now = new Date();
+    const startOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek  = new Date(startOfDay); startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const items = _allItems.filter(a => {
+      if (q  && !(a.text||'').toLowerCase().includes(q) && !(a.actor||'').toLowerCase().includes(q)) return false;
+      if (fa && a.actor !== fa) return false;
+      if (fr && a.role  !== fr) return false;
+      if (fd) {
+        const ts = a.rawTime ? new Date(a.rawTime) : null;
+        if (ts) {
+          if (fd === 'today' && ts < startOfDay) return false;
+          if (fd === 'week'  && ts < startOfWeek) return false;
+          if (fd === 'month' && ts < startOfMonth) return false;
+        }
+      }
+      return true;
+    });
+
     document.getElementById('actionCount').textContent = `${items.length} action${items.length!==1?'s':''}`;
     const feed = document.getElementById('actionsFeed');
     if (!items.length) {
-      feed.innerHTML = '<div class="actions-empty"><div class="empty-icon">📋</div><p>No actions recorded yet.</p></div>';
+      feed.innerHTML = '<div class="actions-empty"><div class="empty-icon">📋</div><p>No actions found.</p></div>';
       return;
     }
     feed.innerHTML = items.map((a, i) => {

@@ -348,6 +348,12 @@
           <option value="">All</option>
         </select>
       </div>
+      <div class="filter-chip">
+        <span class="filter-chip-label">Source</span>
+        <select id="filterSource" onchange="renderBoard()">
+          <option value="">All</option>
+        </select>
+      </div>
       <div class="filter-bar-right">
         <button class="filter-icon-btn" onclick="load()" title="Refresh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
       </div>
@@ -563,6 +569,10 @@ async function load() {
   const sel = document.getElementById('filterGroup');
   sel.innerHTML = '<option value="">All Groups</option>' +
     groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  const sources = [...new Set(leads.map(l => l.source).filter(Boolean))].sort();
+  const sSel = document.getElementById('filterSource');
+  sSel.innerHTML = '<option value="">All</option>' +
+    sources.map(s => `<option value="${s}">${s}</option>`).join('');
   renderBoard();
   if (editorColStatus) renderContainerEditor();
 }
@@ -572,12 +582,14 @@ function renderBoard() {
   const q  = document.getElementById('searchInput').value.toLowerCase();
   const fl = document.getElementById('filterLevel').value;
   const fg = document.getElementById('filterGroup').value;
+  const fs = document.getElementById('filterSource').value;
 
   const filtered = leads.filter(l => {
     const name = (l.firstName+' '+l.lastName).toLowerCase();
     return (!q || name.includes(q) || (l.phoneStudent||'').includes(q))
         && (!fl || l.currentLevel === fl)
-        && (!fg || l.groupId === fg);
+        && (!fg || l.groupId === fg)
+        && (!fs || l.source === fs);
   });
 
   document.getElementById('kanbanBoard').innerHTML =

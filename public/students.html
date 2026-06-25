@@ -77,6 +77,18 @@
         <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
         <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
       </select>
+      <select id="filterGroup" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+        <option value="">All Groups</option>
+      </select>
+      <select id="filterTeacher" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+        <option value="">All Teachers</option>
+      </select>
+      <select id="filterBalance" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+        <option value="">All Balances</option>
+        <option value="pos">Credit (positive)</option>
+        <option value="neg">Debt (negative)</option>
+        <option value="zero">Zero</option>
+      </select>
     </div>
 
     <div class="students-table-wrap">
@@ -221,6 +233,13 @@
   async function load() {
     students = await apiGet('/api/students');
     if (isTeacher()) { students = students.filter(s => (s.groups||[]).some(ownsGroup)); document.getElementById('addStudentBtn').style.display='none'; }
+    // Populate group and teacher filter dropdowns dynamically
+    const allGroups   = [...new Map(students.flatMap(s=>s.groups||[]).map(g=>[g.id,g])).values()];
+    const allTeachers = [...new Set(students.flatMap(s=>(s.groups||[]).map(g=>g.teacher)).filter(Boolean))].sort();
+    const gSel = document.getElementById('filterGroup');
+    allGroups.forEach(g => { const o=document.createElement('option'); o.value=g.id; o.textContent=g.name; gSel.appendChild(o); });
+    const tSel = document.getElementById('filterTeacher');
+    allTeachers.forEach(t => { const o=document.createElement('option'); o.value=t; o.textContent=t; tSel.appendChild(o); });
     renderStudents();
   }
 
@@ -242,11 +261,18 @@
     const q  = document.getElementById('searchInput').value.toLowerCase();
     const fs = document.getElementById('filterStatus').value;
     const fl = document.getElementById('filterLevel').value;
+    const fg = document.getElementById('filterGroup').value;
+    const ft = document.getElementById('filterTeacher').value;
+    const fb = document.getElementById('filterBalance').value;
     let filtered = students.filter(s => {
       const name = (s.firstName+' '+s.lastName).toLowerCase();
+      const bal  = Number(s.balance||0);
       return (!q || name.includes(q) || (s.phone||'').includes(q))
           && (!fs || s.status === fs)
-          && (!fl || s.level === fl);
+          && (!fl || s.level === fl)
+          && (!fg || (s.groups||[]).some(g=>g.id===fg))
+          && (!ft || (s.groups||[]).some(g=>g.teacher===ft))
+          && (!fb || (fb==='pos'?bal>0 : fb==='neg'?bal<0 : bal===0));
     });
     if (sortCol === 'name') filtered.sort((a,b) => sortDir*(a.firstName+a.lastName).localeCompare(b.firstName+b.lastName));
     if (sortCol === 'balance') filtered.sort((a,b) => sortDir*(a.balance - b.balance));

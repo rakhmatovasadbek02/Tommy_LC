@@ -185,7 +185,21 @@
         <div class="stats-row" id="statsRow"></div>
         <div class="tasks-header">
           <h2 id="viewTitle">My Tasks</h2>
-          <input type="text" class="form-control" id="searchInput" placeholder="Search…" style="max-width:200px;font-size:13px" oninput="renderList()">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" class="form-control" id="searchInput" placeholder="Search…" style="max-width:180px;font-size:13px" oninput="renderList()">
+            <select id="filterPriority" onchange="renderList()" style="width:auto;padding:7px 12px;font-size:13px">
+              <option value="">All Priorities</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <select id="filterDue" onchange="renderList()" style="width:auto;padding:7px 12px;font-size:13px">
+              <option value="">All Due Dates</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Due Today</option>
+              <option value="week">Due This Week</option>
+            </select>
+          </div>
         </div>
         <div id="taskList"></div>
       </div>
@@ -384,9 +398,25 @@ function setFilter(filter, el) {
 }
 
 function renderList() {
-  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const q  = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const fp = document.getElementById('filterPriority')?.value || '';
+  const fd = document.getElementById('filterDue')?.value || '';
   let items = CURRENT_FILTER === 'inbox' ? myTasks() : assignedByMe();
-  if (q) items = items.filter(t => t.title.toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q));
+  if (q)  items = items.filter(t => t.title.toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q));
+  if (fp) items = items.filter(t => t.priority === fp);
+  if (fd) {
+    const now = new Date();
+    const todayEnd  = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const weekEnd   = new Date(todayEnd); weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
+    items = items.filter(t => {
+      if (!t.dueDate) return false;
+      const d = new Date(t.dueDate);
+      if (fd === 'overdue') return d < now;
+      if (fd === 'today')   return d <= todayEnd && d >= new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (fd === 'week')    return d <= weekEnd && d >= now;
+      return true;
+    });
+  }
 
   // Group by status
   const groups = STATUS_ORDER.map(s => ({ status: s, tasks: items.filter(t => t.status === s) })).filter(g => g.tasks.length);
