@@ -243,12 +243,14 @@
       apiGet('/api/archive-reasons').catch(() => [])
     ]);
     if (isTeacher()) { students = students.filter(s => (s.groups||[]).some(ownsGroup)); document.getElementById('addStudentBtn').style.display='none'; }
-    // Populate group and teacher filter dropdowns dynamically
+    // Populate group and teacher filter dropdowns dynamically (reset first to avoid duplicates on reload)
     const allGroups   = [...new Map(students.flatMap(s=>s.groups||[]).map(g=>[g.id,g])).values()];
     const allTeachers = [...new Set(students.flatMap(s=>(s.groups||[]).map(g=>g.teacher)).filter(Boolean))].sort();
     const gSel = document.getElementById('filterGroup');
+    gSel.innerHTML = '<option value="">All Groups</option>';
     allGroups.forEach(g => { const o=document.createElement('option'); o.value=g.id; o.textContent=g.name; gSel.appendChild(o); });
     const tSel = document.getElementById('filterTeacher');
+    tSel.innerHTML = '<option value="">All Teachers</option>';
     allTeachers.forEach(t => { const o=document.createElement('option'); o.value=t; o.textContent=t; tSel.appendChild(o); });
     renderStudents();
   }
@@ -431,11 +433,13 @@
     const comment = document.getElementById('archiveComment').value.trim();
     if (isBlacklist && !comment) { showToast('Please enter a blacklist comment.', 'error'); return; }
     const s = students.find(s=>s.id===_archiveId);
-    await apiDelete('/api/students/'+_archiveId, { reason, comment: comment||null });
-    logActivity(`Archived student: ${s?.firstName} ${s?.lastName} — ${reason}${isBlacklist?' [BLACKLISTED]':''}`, 'red');
-    closeModal('archiveModal');
-    await load();
-    showToast('Student archived.');
+    try {
+      await apiDelete('/api/students/'+_archiveId, { reason, comment: comment||null });
+      logActivity(`Archived student: ${s?.firstName} ${s?.lastName} — ${reason}${isBlacklist?' [BLACKLISTED]':''}`, 'red');
+      closeModal('archiveModal');
+      await load();
+      showToast('Student archived.');
+    } catch(e) { showToast('Error archiving student.', 'error'); }
   }
 
   function clearForm() {
