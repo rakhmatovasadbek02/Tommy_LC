@@ -829,7 +829,6 @@
   async function confirmArchive() {
     const sel = document.getElementById('archiveReason');
     const reason = sel.value;
-    if (!reason) { showToast('Please select a reason.', 'error'); return; }
     const isBlacklist = sel.selectedOptions[0]?.dataset.blacklist === 'true';
     const comment = document.getElementById('archiveComment').value.trim();
     if (isBlacklist && !comment) { showToast('Please enter a blacklist comment.', 'error'); return; }
