@@ -874,7 +874,7 @@ app.post('/api/students/:id/activate', async (req, res) => {
       if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
       const lessonDays = getLessonDays(g.sched_type, customDays);
       const remaining = Math.max(0, countLessons(year, month, lessonDays, today));
-      const amount    = Math.round((monthlyPrice / 12) * remaining);
+      const amount    = Math.round((monthlyPrice / 12) * remaining / 1000) * 1000;
 
       // Record invoice + update balance
       const invId  = 'inv-' + Date.now();
