@@ -90,9 +90,9 @@
       <div class="form-group">
         <label>Roles * <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(select one or more)</span></label>
         <div id="roleCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-          <label class="perm-chip" id="rchk_CEO"><input type="checkbox" value="CEO" onchange="onRoleChange()"> <span class="perm-chip-label">CEO</span></label>
-          <label class="perm-chip" id="rchk_HeadAdmin"><input type="checkbox" value="Head Admin" onchange="onRoleChange()"> <span class="perm-chip-label">Head Admin</span></label>
-          <label class="perm-chip" id="rchk_Manager"><input type="checkbox" value="Manager" onchange="onRoleChange()"> <span class="perm-chip-label">Manager</span></label>
+          <label class="perm-chip" id="rchk_CEO" style="${amHeadAdminOnly?'display:none':''}"><input type="checkbox" value="CEO" onchange="onRoleChange()"> <span class="perm-chip-label">CEO</span></label>
+          <label class="perm-chip" id="rchk_HeadAdmin" style="${amHeadAdminOnly?'display:none':''}"><input type="checkbox" value="Head Admin" onchange="onRoleChange()"> <span class="perm-chip-label">Head Admin</span></label>
+          <label class="perm-chip" id="rchk_Manager" style="${amHeadAdminOnly?'display:none':''}"><input type="checkbox" value="Manager" onchange="onRoleChange()"> <span class="perm-chip-label">Manager</span></label>
           <label class="perm-chip" id="rchk_Admin"><input type="checkbox" value="Admin" onchange="onRoleChange()"> <span class="perm-chip-label">Admin</span></label>
           <label class="perm-chip" id="rchk_Teacher"><input type="checkbox" value="Teacher" onchange="onRoleChange()"> <span class="perm-chip-label">Teacher</span></label>
           <label class="perm-chip" id="rchk_SupportTeacher"><input type="checkbox" value="Support Teacher" onchange="onRoleChange()"> <span class="perm-chip-label">Support Teacher</span></label>
@@ -134,6 +134,14 @@
     'Support Teacher': 'Sees only their own Support timetable. Cannot change anything.'
   };
   const canManage = can('staff');
+  const HEAD_ADMIN_ALLOWED = ['Teacher','Support Teacher','Admin'];
+  const myRoles = (getSession()?.roles || [getSession()?.title || '']).filter(Boolean);
+  const amHeadAdminOnly = myRoles.includes('Head Admin') && !myRoles.includes('CEO');
+  function canManageUser(targetRoles) {
+    if (!canManage) return false;
+    if (amHeadAdminOnly) return targetRoles.every(r => HEAD_ADMIN_ALLOWED.includes(r));
+    return true;
+  }
 
   let users = [];
 
@@ -223,7 +231,7 @@
           <div class="sf-perms-box">${summary}</div>
         </div>
         <div class="sf-footer">
-          ${canManage ? `<button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">${IC.edit} Edit</button>${!isMe?`<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">${IC.trash}</button>`:''}` : ''}
+          ${canManageUser(roles) ? `<button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">${IC.edit} Edit</button>${!isMe?`<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">${IC.trash}</button>`:''}` : ''}
         </div>
       </div>`;
     }).join('');

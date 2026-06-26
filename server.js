@@ -627,11 +627,17 @@ app.get('/api/users', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+const HEAD_ADMIN_ALLOWED = ['Teacher','Support Teacher','Admin'];
+function callerRoles(req) { return Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title]; }
+function isHeadAdminOnly(req) { const r = callerRoles(req); return r.includes('Head Admin') && !r.includes('CEO'); }
+function headAdminCanTarget(targetRoles) { return targetRoles.every(r => HEAD_ADMIN_ALLOWED.includes(r)); }
+
 app.post('/api/users', async (req, res) => {
   try {
     const { id, firstName, lastName, phone, password } = req.body;
     const roles = Array.isArray(req.body.roles) && req.body.roles.length ? req.body.roles : [req.body.title];
     if (!roles.every(r => ROLE_PERMS[r])) return res.status(400).json({ error: 'Invalid role' });
+    if (isHeadAdminOnly(req) && !headAdminCanTarget(roles)) return res.status(403).json({ error: 'Head Admin can only create Teacher, Support Teacher, or Admin accounts.' });
     const title = roles[0];
     const pwErr = validateCreatePassword(password);
     if (pwErr) return res.status(400).json({ error: pwErr });
@@ -651,6 +657,11 @@ app.put('/api/users/:id', async (req, res) => {
     const { firstName, lastName, phone, password } = req.body;
     const roles = Array.isArray(req.body.roles) && req.body.roles.length ? req.body.roles : [req.body.title];
     if (!roles.every(r => ROLE_PERMS[r])) return res.status(400).json({ error: 'Invalid role' });
+    if (isHeadAdminOnly(req)) {
+      const target = await pool.query('SELECT roles, title FROM users WHERE id=$1', [req.params.id]);
+      const targetRoles = target.rows[0] ? (Array.isArray(target.rows[0].roles) && target.rows[0].roles.length ? target.rows[0].roles : [target.rows[0].title]) : [];
+      if (!headAdminCanTarget(targetRoles) || !headAdminCanTarget(roles)) return res.status(403).json({ error: 'Head Admin can only manage Teacher, Support Teacher, or Admin accounts.' });
+    }
     const title = roles[0];
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     const perms = permsForRoles(roles);
@@ -674,6 +685,11 @@ app.put('/api/users/:id', async (req, res) => {
 
 app.delete('/api/users/:id', async (req, res) => {
   try {
+    if (isHeadAdminOnly(req)) {
+      const target = await pool.query('SELECT roles, title FROM users WHERE id=$1', [req.params.id]);
+      const targetRoles = target.rows[0] ? (Array.isArray(target.rows[0].roles) && target.rows[0].roles.length ? target.rows[0].roles : [target.rows[0].title]) : [];
+      if (!headAdminCanTarget(targetRoles)) return res.status(403).json({ error: 'Head Admin can only delete Teacher, Support Teacher, or Admin accounts.' });
+    }
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
