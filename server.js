@@ -24,7 +24,7 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
   'CEO':        [...PAGE_PERMISSIONS],
-  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','archived','finance_view_only','reminders'],
+  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','staff','archived','finance_view_only','reminders'],
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
   'Teacher':    ['dashboard','students','groups','reminders'],
