@@ -93,10 +93,10 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .att-table tr:last-child td { border-bottom: none; }
 .att-name-cell { display: flex; align-items: center; gap: 10px; }
 .att-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; }
-.chip { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 22px; border-radius: 5px; font-size: 12px; font-weight: 800; cursor: pointer; transition: all 0.13s; border: none; letter-spacing: .3px; }
+.chip { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; transition: all 0.13s; border: none; }
 .chip-present { background: #1E6B45; color: white; }
 .chip-absent { background: var(--crimson); color: white; }
-.chip-empty { width: 32px; height: 22px; border-radius: 5px; border: 1.5px solid var(--border); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s; }
+.chip-empty { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s; }
 .chip-empty:hover { border-color: var(--crimson); background: var(--crimson-soft); }
 .att-picker { position: fixed; z-index: 999; background: white; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.13); display: flex; gap: 6px; padding: 6px; }
 .att-picker button { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 7px; border: none; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .1s; }
@@ -361,6 +361,8 @@ if (isTeacher()) {
   document.head.appendChild(st);
 }
 const params = new URLSearchParams(window.location.search);
+const IC_CHECK = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const IC_X     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const groupId = params.get('id');
 if (!groupId) window.location.replace('groups.html');
 let group = null, students = [], allStudents = [], trialStudents = [];
@@ -607,8 +609,8 @@ const status = attData[ds]?.[s.id] || '';
 const date = new Date(year, month, d); date.setHours(0,0,0,0);
 const isFuture = date > today;
 if (isFuture) return `<td><span class="chip-empty"></span></td>`;
-if (status==='present') return `<td><button class="chip chip-present" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></button></td>`;
-if (status==='absent') return `<td><button class="chip chip-absent" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></button></td>`;
+if (status==='present') return `<td><button class="chip chip-present" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_CHECK}</button></td>`;
+if (status==='absent') return `<td><button class="chip chip-absent" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_X}</button></td>`;
 return `<td><span class="chip-empty" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
 }).join('')}
 </tr>`;
@@ -632,8 +634,8 @@ const status = attData[ds]?.[s.id] || '';
 const date = new Date(year, month, d); date.setHours(0,0,0,0);
 const isFuture = date > today;
 if (isFuture) return `<td><span class="chip-empty"></span></td>`;
-if (status==='present') return `<td><button class="chip chip-present" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">✓</button></td>`;
-if (status==='absent') return `<td><button class="chip chip-absent" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">✗</button></td>`;
+if (status==='present') return `<td><button class="chip chip-present" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_CHECK}</button></td>`;
+if (status==='absent') return `<td><button class="chip chip-absent" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_X}</button></td>`;
 return `<td><span class="chip-empty" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
 }).join('')}
 </tr>`;
@@ -667,8 +669,8 @@ function cycleAtt(el) {
   picker.id = 'attPickerEl';
   picker.className = 'att-picker';
   picker.innerHTML = `
-    <button class="ap-present" onclick="setAtt('${sid}','${date}','present')">✓ Present</button>
-    <button class="ap-absent"  onclick="setAtt('${sid}','${date}','absent')">✗ Absent</button>
+    <button class="ap-present" onclick="setAtt('${sid}','${date}','present')">${IC_CHECK} Present</button>
+    <button class="ap-absent"  onclick="setAtt('${sid}','${date}','absent')">${IC_X} Absent</button>
     <button class="ap-clear"   onclick="setAtt('${sid}','${date}','')">— Clear</button>`;
   const rect = el.getBoundingClientRect();
   document.body.appendChild(picker);
@@ -687,8 +689,8 @@ function setAtt(sid, date, next) {
   attData[date][sid] = next;
   const td = document.querySelector(`[data-sid="${sid}"][data-date="${date}"]`)?.parentElement;
   if (!td) return;
-  if (next==='present') td.innerHTML = `<button class="chip chip-present" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">✓</button>`;
-  else if (next==='absent') td.innerHTML = `<button class="chip chip-absent" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">✗</button>`;
+  if (next==='present') td.innerHTML = `<button class="chip chip-present" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_CHECK}</button>`;
+  else if (next==='absent') td.innerHTML = `<button class="chip chip-absent" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_X}</button>`;
   else td.innerHTML = `<span class="chip-empty" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></span>`;
   scheduleAutoSave();
 }
