@@ -94,6 +94,7 @@
     <div class="topbar-right">
       <button class="btn btn-outline" onclick="exportCSV()" title="Export filtered payments to CSV"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
 <button class="btn btn-primary" id="newPaymentBtn" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Payment</button>
+      <button class="btn btn-primary" id="addSpendingBtn" onclick="openSpending()" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Spending</button>
     </div>
   </div>
   <div class="page-content">
@@ -113,6 +114,7 @@
       <button class="tab-btn" onclick="setTab('unpaid',this)">Unpaid This Month</button>
       <button class="tab-btn" onclick="setTab('debtors',this)">Debtors</button>
       <button class="tab-btn" onclick="setTab('bymonth',this)">By Month</button>
+      <button class="tab-btn" onclick="setTab('spendings',this)">Spendings</button>
     </div>
 
     <div class="toolbar" id="mainToolbar" style="margin-bottom:16px">
@@ -216,6 +218,43 @@
   </div>
 </div>
 
+<!-- SPENDING MODAL -->
+<div class="modal-overlay" id="spendingModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title" id="spendingModalTitle">Add Spending</div>
+      <button class="modal-close" onclick="closeModal('spendingModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="spendingId">
+      <div class="form-group">
+        <label>Amount (UZS) *</label>
+        <input type="number" id="spAmount" placeholder="e.g. 500000" min="0">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="spCategory">
+          <option value="">— Select category —</option>
+          <option>Rent</option><option>Salaries</option><option>Utilities</option>
+          <option>Marketing</option><option>Equipment</option><option>Supplies</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="spDesc" placeholder="Optional note">
+      </div>
+      <div class="form-group">
+        <label>Month *</label>
+        <input type="month" id="spMonth">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('spendingModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSpending()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
@@ -234,13 +273,13 @@
   const compact = n => n>=1e6 ? (n/1e6).toFixed(1).replace(/\.0$/,'')+'M' : n>=1e3 ? Math.round(n/1e3)+'K' : String(Math.round(n));
   const monthLabel = m => { if(!m) return '—'; const [y,mo]=m.split('-'); return MONTHS[Number(mo)-1]+' '+y; };
 
-  let invoices=[], students=[], groups=[];
+  let invoices=[], students=[], groups=[], spendings=[];
   let currentTab = 'Paid';
 
   async function load() {
     try {
-      [invoices, students, groups] = await Promise.all([
-        apiGet('/api/invoices'), apiGet('/api/students'), apiGet('/api/groups')
+      [invoices, students, groups, spendings] = await Promise.all([
+        apiGet('/api/invoices'), apiGet('/api/students'), apiGet('/api/groups'), apiGet('/api/spendings').catch(()=>[])
       ]);
     } catch(e) {
       invoices=[]; students=[]; groups=[];
@@ -374,9 +413,12 @@ renderSummary();
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    const hideFilters = tab==='debtors' || tab==='unpaid' || tab==='bymonth';
+    const hideFilters = tab==='debtors' || tab==='unpaid' || tab==='bymonth' || tab==='spendings';
     document.querySelectorAll('.pay-only').forEach(el => el.style.display = hideFilters ? 'none' : '');
-    document.getElementById('mainToolbar').style.display = tab==='bymonth' ? 'none' : '';
+    document.getElementById('mainToolbar').style.display = (tab==='bymonth'||tab==='spendings') ? 'none' : '';
+    const addBtn = document.getElementById('newPaymentBtn');
+    if (addBtn) addBtn.style.display = tab==='spendings' ? 'none' : '';
+    document.getElementById('addSpendingBtn').style.display = (tab==='spendings' && FIN_MANAGE) ? '' : 'none';
     render();
   }
 
@@ -384,6 +426,7 @@ renderSummary();
     if (currentTab === 'debtors') renderDebtors();
     else if (currentTab === 'unpaid') renderUnpaid();
     else if (currentTab === 'bymonth') renderByMonth();
+    else if (currentTab === 'spendings') renderSpendings();
     else renderInvoices();
   }
 
@@ -799,6 +842,84 @@ renderSummary();
     const sel = document.getElementById('invGroup');
     sel.innerHTML = '<option value="">— Select group —</option>' +
       groups.map(g=>`<option value="${g.id}">${g.name}${g.level?' · '+g.level:''}</option>`).join('');
+  }
+
+  /* ── Spendings ── */
+  function renderSpendings() {
+    const el = document.getElementById('invoiceList');
+    document.getElementById('listFoot').style.display = 'none';
+    if (!spendings.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">💸</div><p>No spendings recorded yet.</p></div>';
+      return;
+    }
+    const total = spendings.reduce((s,x)=>s+Number(x.amount||0),0);
+    document.getElementById('listFoot').style.display = '';
+    document.getElementById('listFootLabel').textContent = 'Total Spendings';
+    document.getElementById('listFootVal').textContent = fmt(total);
+    const CATS = {};
+    spendings.forEach(s => { const k=s.category||'Other'; CATS[k]=(CATS[k]||0)+Number(s.amount||0); });
+    el.innerHTML = spendings.map(s => `
+      <div class="inv-row" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div style="width:32px;height:32px;border-radius:8px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${s.category||'Other'}</div>
+          <div style="font-size:12px;color:var(--muted)">${s.description||'—'} · ${s.month||'—'}</div>
+        </div>
+        <div style="font-weight:800;font-size:14px;color:#dc2626;white-space:nowrap">${fmt(s.amount)}</div>
+        ${FIN_MANAGE ? `
+        <button class="btn btn-ghost btn-sm" onclick="openSpending('${s.id}')">${IC.edit}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSpending('${s.id}')">${IC.trash}</button>` : ''}
+      </div>`).join('');
+  }
+
+  function openSpending(id) {
+    document.getElementById('spendingId').value = id||'';
+    document.getElementById('spendingModalTitle').textContent = id ? 'Edit Spending' : 'Add Spending';
+    if (id) {
+      const s = spendings.find(x=>x.id===id);
+      document.getElementById('spAmount').value = s.amount||'';
+      document.getElementById('spCategory').value = s.category||'';
+      document.getElementById('spDesc').value = s.description||'';
+      document.getElementById('spMonth').value = s.month||'';
+    } else {
+      document.getElementById('spAmount').value='';
+      document.getElementById('spCategory').value='';
+      document.getElementById('spDesc').value='';
+      document.getElementById('spMonth').value=new Date().toISOString().slice(0,7);
+    }
+    openModal('spendingModal');
+  }
+
+  async function saveSpending() {
+    const id = document.getElementById('spendingId').value;
+    const amount = Number(document.getElementById('spAmount').value);
+    const category = document.getElementById('spCategory').value;
+    const description = document.getElementById('spDesc').value.trim();
+    const month = document.getElementById('spMonth').value;
+    if (!amount || amount<=0) return showToast('Enter a valid amount.','error');
+    if (!month) return showToast('Select a month.','error');
+    try {
+      if (id) {
+        await apiPut('/api/spendings/'+id, {amount,category,description,month});
+      } else {
+        await apiPost('/api/spendings', {id:genId(),amount,category,description,month});
+      }
+      closeModal('spendingModal');
+      await load();
+      showToast(id?'Updated!':'Spending added!');
+    } catch(e){ showToast(e.message||'Error.','error'); }
+  }
+
+  async function deleteSpending(id) {
+    const s = spendings.find(x=>x.id===id);
+    if (!confirm(`Delete spending of ${fmt(s?.amount||0)}?`)) return;
+    try {
+      await apiDelete('/api/spendings/'+id);
+      await load();
+      showToast('Deleted.','error');
+    } catch(e){ showToast(e.message||'Error.','error'); }
   }
 
   load();
