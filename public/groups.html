@@ -36,7 +36,7 @@
 <div class="topbar">
 <div class="page-title">Groups</div>
 <div class="topbar-right">
-<button class="btn btn-outline btn-sm" onclick="openLevelsModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Levels</button>
+<button class="btn btn-outline btn-sm" id="levelsBtn" onclick="openLevelsModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Levels</button>
 <button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Group</button>
 </div>
 </div>
@@ -176,7 +176,7 @@ apiGet('/api/groups'), apiGet('/api/students'),
 apiGet('/api/teachers'),
 apiGet('/api/leads').catch(()=>[]), apiGet('/api/levels').catch(()=>[])
 ]);
-if(isTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';}
+if(isTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';document.getElementById('levelsBtn').style.display='none';}
 const tSel=document.getElementById('filterTeacher');
 [...new Set(groups.map(g=>g.teacher).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;tSel.appendChild(o);});
 renderGroups();
