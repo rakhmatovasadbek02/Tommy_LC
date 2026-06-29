@@ -347,8 +347,7 @@
         <td class="col-bal"><span class="st-balance ${balClass}">${balStr}</span></td>
         <td class="col-comment">${commentHTML}</td>
         <td class="col-actions st-actions" onclick="event.stopPropagation()">
-          ${isTeacher()?'':`<button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">${IC.edit}</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">${IC.trash}</button>`}
+          ${isTeacher()?'':`<button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">${IC.edit}</button>`}
         </td>
       </tr>`;
     }).join('');

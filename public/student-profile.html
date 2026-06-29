@@ -408,6 +408,11 @@
   requireAuth('students');
   renderSidebar('students');
 
+  const _profArchSess = getSession();
+  const _profArchRoles = (_profArchSess?.roles || [_profArchSess?.title || '']).filter(Boolean);
+  const CAN_ARCHIVE = _profArchRoles.some(r => ['CEO','Head Admin','Manager'].includes(r));
+  if (!CAN_ARCHIVE) document.querySelector('.pc2-icon-btn.danger')?.remove();
+
   const params = new URLSearchParams(location.search);
   const STUDENT_ID = params.get('id');
   if (!STUDENT_ID) location.replace('students.html');
