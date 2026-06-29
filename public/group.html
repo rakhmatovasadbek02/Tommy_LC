@@ -680,7 +680,14 @@ function cycleAtt(el) {
   while (el && !el.dataset.sid) el = el.parentElement;
   if (!el) return;
   if (!isDuringLesson()) {
-    showToast('Too late!', 'error');
+    if (!_canMarkAnyTime && group?.time) {
+      const now = new Date();
+      const [h, m] = group.time.split(':').map(Number);
+      const start = new Date(now); start.setHours(h, m, 0, 0);
+      showToast(now < start ? 'Too early!' : 'Too late!', 'error');
+    } else {
+      showToast('Too late!', 'error');
+    }
     return;
   }
   _pickerSid  = el.dataset.sid;
