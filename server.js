@@ -23,7 +23,7 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
-  'CEO':        [...PAGE_PERMISSIONS],
+  'CEO':        [...PAGE_PERMISSIONS, 'statistics'],
   'Head Admin': ['dashboard','leads','students','groups','finance','teachers','staff','archived','finance_view_only','reminders'],
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
@@ -2228,6 +2228,117 @@ app.post('/api/activity', async (req, res) => {
     const { text, color, actor, role } = req.body;
     await pool.query('INSERT INTO activity(text,color,actor,role) VALUES($1,$2,$3,$4)', [text, color||null, actor||null, role||null]);
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/statistics', async (req, res) => {
+  try {
+    const callerRoles_ = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
+    if (!callerRoles_.includes('CEO')) return res.status(403).json({ error: 'CEO only.' });
+
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+
+    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR] = await Promise.all([
+      pool.query('SELECT id, status, balance FROM students WHERE archived IS NOT TRUE'),
+      pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
+      pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
+      pool.query("SELECT id, total, status, payment_type, created_at, month FROM invoices ORDER BY created_at ASC"),
+      pool.query('SELECT id, first_name, last_name, title, roles FROM users'),
+      pool.query(`SELECT archive_reason FROM students WHERE archived IS TRUE
+                  UNION ALL SELECT archive_reason FROM leads WHERE archived IS TRUE`),
+      pool.query(`SELECT a.group_id, a.student_id, a.status, g.teacher
+                  FROM attendance a JOIN groups g ON g.id=a.group_id
+                  WHERE a.date >= $1`, [prevMonthStart]),
+      pool.query(`SELECT teacher, attended, date FROM support_sessions WHERE date >= $1`, [prevMonthStart]),
+      pool.query(`SELECT created_at FROM leads WHERE status='Registration' OR (archived IS TRUE AND pre_archive_status='Registration')`),
+    ]);
+
+    const students = stuR.rows;
+    const leads = leadR.rows;
+    const groups = grpR.rows;
+    const invoices = invR.rows;
+    const users = usersR.rows;
+
+    // ── Students ──
+    const activeStudents = students.filter(s => s.status === 'Active').length;
+    const debtors = students.filter(s => Number(s.balance || 0) < 0).length;
+    const totalBalance = students.reduce((sum, s) => sum + Number(s.balance || 0), 0);
+
+    // ── Leads funnel ──
+    const FUNNEL_ORDER = ['New','Contacted','Trial','Registration','Waitlist'];
+    const leadsByStatus = {};
+    leads.forEach(l => { leadsByStatus[l.status] = (leadsByStatus[l.status] || 0) + 1; });
+    const totalLeads = leads.length;
+    const registeredLeads = leadConvR.rows.length;
+    const conversionRate = totalLeads > 0 ? Math.round(registeredLeads / (totalLeads + registeredLeads) * 100) : 0;
+    const leadsThisMonth = leads.filter(l => l.created_at && l.created_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
+
+    // ── Finance ──
+    const paidInvoices = invoices.filter(i => i.status === 'Paid');
+    const totalRevenue = paidInvoices.reduce((sum, i) => sum + Number(i.total || 0), 0);
+    const pendingRevenue = invoices.filter(i => i.status === 'Pending').reduce((sum, i) => sum + Number(i.total || 0), 0);
+    const revenueByMonth = {};
+    paidInvoices.forEach(i => {
+      const key = i.month || (i.created_at ? i.created_at.toISOString().slice(0, 7) : null);
+      if (key) revenueByMonth[key] = (revenueByMonth[key] || 0) + Number(i.total || 0);
+    });
+    const revenueByType = {};
+    paidInvoices.forEach(i => { const k = i.payment_type || 'Cash'; revenueByType[k] = (revenueByType[k] || 0) + Number(i.total || 0); });
+    const thisMonthRevenue = paidInvoices.filter(i => {
+      const key = i.month || (i.created_at ? i.created_at.toISOString().slice(0, 7) : '');
+      return key === now.toISOString().slice(0, 7);
+    }).reduce((sum, i) => sum + Number(i.total || 0), 0);
+    const prevMonthRevenue = paidInvoices.filter(i => {
+      const key = i.month || (i.created_at ? i.created_at.toISOString().slice(0, 7) : '');
+      return key === prevMonthStart.slice(0, 7);
+    }).reduce((sum, i) => sum + Number(i.total || 0), 0);
+
+    // ── Staff efficiency ──
+    const teacherMap = {};
+    groups.forEach(g => {
+      if (!g.teacher) return;
+      if (!teacherMap[g.teacher]) teacherMap[g.teacher] = { groups: 0, students: 0, present: 0, absent: 0 };
+      teacherMap[g.teacher].groups++;
+      teacherMap[g.teacher].students += (g.student_ids || []).length;
+    });
+    attR.rows.forEach(a => {
+      const t = a.teacher;
+      if (!t || !teacherMap[t]) return;
+      if (a.status === 'present') teacherMap[t].present++;
+      else if (a.status === 'absent') teacherMap[t].absent++;
+    });
+
+    const supMap = {};
+    supR.rows.forEach(s => {
+      if (!s.teacher) return;
+      if (!supMap[s.teacher]) supMap[s.teacher] = { total: 0, attended: 0 };
+      supMap[s.teacher].total++;
+      if (s.attended) supMap[s.teacher].attended++;
+    });
+
+    const teacherStats = Object.entries(teacherMap).map(([name, d]) => {
+      const total = d.present + d.absent;
+      return { name, groups: d.groups, students: d.students, attendanceRate: total > 0 ? Math.round(d.present / total * 100) : null, sessions: total };
+    }).sort((a, b) => b.students - a.students);
+
+    const supportStats = Object.entries(supMap).map(([name, d]) => ({
+      name, total: d.total, attended: d.attended,
+      rate: d.total > 0 ? Math.round(d.attended / d.total * 100) : null
+    })).sort((a, b) => b.total - a.total);
+
+    const archiveByReason = {};
+    archR.rows.forEach(a => { const k = a.archive_reason || 'Other'; archiveByReason[k] = (archiveByReason[k] || 0) + 1; });
+
+    res.json({
+      students: { total: students.length, active: activeStudents, inactive: students.length - activeStudents, debtors, totalBalance },
+      leads: { total: totalLeads, byStatus: leadsByStatus, conversionRate, leadsThisMonth, funnelOrder: FUNNEL_ORDER },
+      finance: { totalRevenue, pendingRevenue, revenueByMonth, revenueByType, thisMonthRevenue, prevMonthRevenue, paidCount: paidInvoices.length },
+      staff: { teachers: teacherStats, support: supportStats, total: users.length },
+      archive: { total: archR.rows.length, byReason: archiveByReason },
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
