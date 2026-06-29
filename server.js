@@ -342,6 +342,17 @@ async function initDB() {
     await pool.query(sql).catch(() => {});
   }
 
+  // Grant 'statistics' permission to all existing CEO users who don't have it yet.
+  try {
+    const ceos = await pool.query(`SELECT id, permissions FROM users WHERE title='CEO' OR roles @> '["CEO"]'::jsonb`);
+    for (const u of ceos.rows) {
+      const perms = Array.isArray(u.permissions) ? u.permissions : [];
+      if (!perms.includes('statistics')) {
+        await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify([...perms,'statistics']), u.id]);
+      }
+    }
+  } catch(e) { console.warn('Statistics permission migration skipped:', e.message); }
+
   // One-time: migrate old single support shift → separate odd/even shifts.
   try {
     await pool.query(`
