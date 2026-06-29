@@ -5,107 +5,115 @@
 <title>Statistics · Tommy LC</title>
 <link rel="stylesheet" href="shared.css">
 <style>
-:root { --c1:#c0392b; --c2:#e74c3c; --c3:#f9a8a8; --green:#16a34a; --amber:#d97706; --blue:#2563eb; --purple:#7c3aed; --indigo:#4338ca; }
-
-/* ── Layout ── */
-.stat-page { padding:0 0 60px; }
-.section { margin-bottom:36px; }
-.section-hd { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
-.section-hd h2 { font-size:15px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--text); margin:0; }
-.section-hd .hd-line { flex:1; height:1px; background:#e8d0d0; }
-.section-hd .hd-badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:99px; background:var(--surface); color:var(--muted); }
-
-/* ── KPI row ── */
-.kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:32px; }
-@media(max-width:640px){ .kpi-row{ grid-template-columns:1fr 1fr; } }
-.kpi { background:white; border:1px solid #edd8d8; border-radius:14px; padding:18px 20px 16px; box-shadow:0 1px 4px rgba(0,0,0,.06); position:relative; overflow:hidden; }
-.kpi::before { content:''; position:absolute; inset:0 0 0 0; border-top:3px solid var(--kc,var(--c1)); border-radius:14px 14px 0 0; }
-.kpi-icon { width:34px; height:34px; border-radius:10px; background:var(--ki,#fde8e8); display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
-.kpi-icon svg { width:16px; height:16px; stroke:var(--kc,var(--c1)); }
-.kpi-val { font-size:28px; font-weight:900; color:var(--text); line-height:1; letter-spacing:-1px; }
-.kpi-val.sm { font-size:20px; letter-spacing:-.5px; }
-.kpi-lbl { font-size:11px; font-weight:600; color:var(--muted); margin-top:5px; text-transform:uppercase; letter-spacing:.8px; }
-.kpi-delta { font-size:11px; font-weight:700; margin-top:6px; }
-.kpi-delta.up { color:var(--green); }
-.kpi-delta.dn { color:#dc2626; }
-
-/* ── Two/three column grids ── */
-.col2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.col3 { display:grid; grid-template-columns:2fr 1fr; gap:16px; }
-@media(max-width:1024px){ .col3{ grid-template-columns:1fr 1fr; } }
-@media(max-width:768px){ .col2,.col3{ grid-template-columns:1fr; } }
-@media(max-width:768px){ .col3 .span2{ grid-column:1; } }
-
-/* ── Chart cards ── */
-.chart-card { background:white; border:1px solid #edd8d8; border-radius:14px; padding:22px 24px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
-.chart-card h3 { font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin:0 0 18px; }
-
-/* ── Bar chart ── */
-.bar-chart-wrap { overflow-x:auto; }
-.bar-chart { display:flex; align-items:flex-end; gap:6px; height:120px; min-width:320px; }
-.bc-col { display:flex; flex-direction:column; align-items:center; flex:1; gap:4px; height:100%; justify-content:flex-end; min-width:28px; }
-.bc-bar { width:100%; border-radius:5px 5px 0 0; min-height:3px; transition:height .5s cubic-bezier(.4,0,.2,1); }
-.bc-lbl { font-size:9px; color:var(--muted); white-space:nowrap; font-weight:600; }
-.bc-val { font-size:9px; font-weight:700; color:var(--text); }
-
-/* ── Donut chart ── */
-.donut-wrap { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
-@media(max-width:480px){ .donut-wrap{ flex-direction:column; align-items:flex-start; } }
-.donut-legend { display:flex; flex-direction:column; gap:8px; flex:1; min-width:0; }
-.dl-row { display:flex; align-items:center; gap:8px; }
-.dl-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-.dl-lbl { font-size:12px; color:var(--text); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.dl-val { font-size:12px; font-weight:700; color:var(--text); }
-
-/* ── Funnel ── */
-.funnel { display:flex; flex-direction:column; gap:6px; }
-.funnel-step { display:flex; align-items:center; gap:10px; }
-.funnel-bar-wrap { flex:1; position:relative; height:34px; background:var(--surface); border-radius:6px; overflow:hidden; min-width:0; }
-.funnel-bar { height:100%; border-radius:6px; display:flex; align-items:center; padding:0 10px; transition:width .6s cubic-bezier(.4,0,.2,1); }
-.funnel-bar span { font-size:12px; font-weight:700; color:white; white-space:nowrap; }
-.funnel-lbl { font-size:12px; font-weight:600; color:var(--text); width:80px; text-align:right; flex-shrink:0; }
-.funnel-n { font-size:13px; font-weight:800; color:var(--text); width:24px; text-align:right; flex-shrink:0; }
-@media(max-width:480px){ .funnel-lbl{ width:60px; font-size:11px; } }
-
-/* ── Gauge ── */
-.gauge-wrap { display:flex; flex-direction:column; align-items:center; }
-.gauge-val { font-size:36px; font-weight:900; color:var(--c1); letter-spacing:-2px; margin-top:-8px; }
-.gauge-lbl { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; }
-
-/* ── Staff table ── */
-.table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-.staff-table { width:100%; border-collapse:collapse; min-width:400px; }
-.staff-table th { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); padding:0 10px 10px; text-align:left; }
-.staff-table th:not(:first-child) { text-align:center; }
-.staff-table td { padding:9px 10px; border-top:1px solid #f3e8e8; font-size:13px; color:var(--text); }
-.staff-table td:not(:first-child) { text-align:center; }
-.staff-table tr:hover td { background:#fdf5f5; }
-.att-bar { display:inline-flex; align-items:center; gap:6px; width:100%; }
-.att-track { flex:1; height:5px; background:var(--surface); border-radius:99px; overflow:hidden; }
-.att-fill { height:100%; border-radius:99px; }
-.att-pct { font-size:11px; font-weight:700; width:30px; text-align:right; flex-shrink:0; }
-.role-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; vertical-align:middle; }
-.staff-name { font-weight:700; font-size:13px; display:flex; align-items:center; gap:7px; }
-.mini-avatar { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:white; flex-shrink:0; }
-
-/* ── Archive pills ── */
-.pill-row { display:flex; flex-wrap:wrap; gap:8px; }
-.reason-pill { display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid #edd8d8; border-radius:99px; padding:5px 12px; }
-.reason-pill .rp-n { font-size:13px; font-weight:800; color:var(--c1); }
-.reason-pill .rp-l { font-size:12px; color:var(--text); }
-
-.topbar-right { display:flex; gap:10px; align-items:center; }
-
-/* ── Responsive chart-card ── */
-@media(max-width:640px){
-  .chart-card { padding:16px; }
-  .kpi { padding:14px 16px 12px; }
-  .kpi-val { font-size:24px; }
-  .kpi-val.sm { font-size:17px; }
-  .section-hd { flex-wrap:wrap; }
-  .stat-page { padding:0 0 40px; }
-  .gauge-val { font-size:28px; }
+/* ── tokens ── */
+:root {
+  --cr:#c0392b; --cr2:#e74c3c; --cr-soft:#fdf2f2;
+  --sg:#16a34a; --sg-soft:#f0fdf4;
+  --sb:#2563eb; --sb-soft:#eff6ff;
+  --sa:#d97706; --sa-soft:#fffbeb;
+  --sp:#7c3aed; --sp-soft:#f5f3ff;
+  --card-r:16px;
+  --card-shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.04);
 }
+
+/* ── page shell ── */
+.stat-page { padding-bottom:64px; }
+
+/* ── section ── */
+.sec { margin-bottom:40px; }
+.sec-hd { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #f0dede; }
+.sec-hd-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sec-hd-icon svg { width:15px; height:15px; }
+.sec-hd h2 { font-size:14px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text); margin:0; }
+.sec-hd-meta { font-size:12px; color:var(--muted); margin-left:auto; font-weight:500; }
+
+/* ── KPI strip ── */
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:12px; margin-bottom:36px; }
+.kpi { background:white; border:1px solid #f0dede; border-radius:var(--card-r); padding:16px 18px 14px; box-shadow:var(--card-shadow); display:flex; flex-direction:column; gap:0; }
+.kpi-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px; }
+.kpi-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.kpi-icon svg { width:17px; height:17px; }
+.kpi-trend { font-size:11px; font-weight:700; padding:2px 7px; border-radius:99px; }
+.kpi-trend.up { background:#dcfce7; color:#15803d; }
+.kpi-trend.dn { background:#fee2e2; color:#dc2626; }
+.kpi-trend.neu { background:var(--surface); color:var(--muted); }
+.kpi-val { font-size:30px; font-weight:900; color:var(--text); line-height:1; letter-spacing:-1.5px; }
+.kpi-val.md { font-size:22px; letter-spacing:-.8px; }
+.kpi-lbl { font-size:11px; font-weight:600; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:.7px; }
+.kpi-sub { font-size:11px; color:var(--muted); margin-top:5px; }
+
+/* ── grid layouts ── */
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.g3 { display:grid; grid-template-columns:3fr 2fr; gap:14px; }
+.g3s { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+@media(max-width:1100px){ .g3{ grid-template-columns:1fr; } }
+@media(max-width:900px){ .g2,.g3s{ grid-template-columns:1fr; } }
+@media(max-width:640px){ .kpi-row{ grid-template-columns:1fr 1fr; } .stat-page{ padding-bottom:40px; } }
+
+/* ── card ── */
+.card { background:white; border:1px solid #f0dede; border-radius:var(--card-r); padding:20px 22px; box-shadow:var(--card-shadow); }
+.card-title { font-size:11px; font-weight:700; letter-spacing:.9px; text-transform:uppercase; color:var(--muted); margin:0 0 16px; }
+
+/* ── revenue bar chart ── */
+.rev-chart { overflow-x:auto; }
+.rev-bars { display:flex; align-items:flex-end; gap:8px; height:130px; min-width:280px; padding-bottom:0; }
+.rev-col { display:flex; flex-direction:column; align-items:center; flex:1; gap:4px; height:100%; justify-content:flex-end; min-width:26px; }
+.rev-bar { width:100%; border-radius:6px 6px 2px 2px; min-height:4px; position:relative; }
+.rev-bar.hi { background:var(--cr); }
+.rev-bar.lo { background:#f9a8a8; }
+.rev-x { font-size:9px; color:var(--muted); font-weight:600; white-space:nowrap; }
+.rev-v { font-size:9px; font-weight:800; color:var(--text); line-height:1; }
+
+/* ── donut ── */
+.donut-wrap { display:flex; align-items:center; gap:20px; min-height:112px; }
+.donut-legend { flex:1; min-width:0; display:flex; flex-direction:column; gap:9px; }
+.dl-row { display:flex; align-items:center; gap:8px; }
+.dl-swatch { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+.dl-lbl { font-size:12.5px; color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dl-pct { font-size:12px; font-weight:800; color:var(--text); }
+.dl-amt { font-size:10px; color:var(--muted); margin-left:2px; }
+@media(max-width:480px){ .donut-wrap{ flex-direction:column; align-items:flex-start; } }
+
+/* ── funnel ── */
+.funnel { display:flex; flex-direction:column; gap:7px; }
+.f-row { display:flex; align-items:center; gap:10px; }
+.f-lbl { font-size:12px; font-weight:600; color:var(--text); width:88px; flex-shrink:0; text-align:right; }
+.f-track { flex:1; height:36px; background:#fdf2f2; border-radius:8px; overflow:hidden; position:relative; min-width:0; }
+.f-fill { height:100%; border-radius:8px; display:flex; align-items:center; padding-left:12px; transition:width .7s cubic-bezier(.4,0,.2,1); }
+.f-fill span { font-size:12px; font-weight:800; color:rgba(255,255,255,.95); white-space:nowrap; }
+.f-n { font-size:12px; font-weight:800; color:var(--text); width:30px; text-align:right; flex-shrink:0; }
+@media(max-width:480px){ .f-lbl{ width:64px; font-size:11px; } }
+
+/* ── gauge ── */
+.gauge-card { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding-top:10px; }
+.gauge-num { font-size:42px; font-weight:900; color:var(--cr); letter-spacing:-3px; line-height:1; margin-top:-4px; }
+.gauge-lbl { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; }
+.gauge-sub { font-size:12px; color:var(--muted); margin-top:6px; }
+
+/* ── staff table ── */
+.tscroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.stbl { width:100%; border-collapse:collapse; min-width:360px; }
+.stbl th { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); padding:0 8px 10px; text-align:left; white-space:nowrap; }
+.stbl th:not(:first-child) { text-align:right; }
+.stbl td { padding:8px 8px; border-top:1px solid #fae8e8; font-size:13px; color:var(--text); vertical-align:middle; }
+.stbl td:not(:first-child) { text-align:right; }
+.stbl tbody tr:hover td { background:#fdf7f7; }
+.sname { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; white-space:nowrap; }
+.savatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:white; flex-shrink:0; }
+.rate-cell { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+.rate-track { width:56px; height:5px; background:#f3e8e8; border-radius:99px; overflow:hidden; flex-shrink:0; }
+.rate-fill { height:100%; border-radius:99px; }
+.rate-pct { font-size:11px; font-weight:800; min-width:30px; text-align:right; }
+
+/* ── archive pills ── */
+.arch-pills { display:flex; flex-wrap:wrap; gap:8px; }
+.arch-pill { display:flex; align-items:center; gap:7px; background:var(--cr-soft); border:1px solid #f5d0d0; border-radius:99px; padding:6px 14px 6px 10px; }
+.arch-pill-n { font-size:14px; font-weight:900; color:var(--cr); }
+.arch-pill-l { font-size:12px; color:var(--text); font-weight:500; }
+
+/* ── topbar extras ── */
+.topbar-right { display:flex; align-items:center; gap:10px; }
+.refresh-tag { font-size:11px; color:var(--muted); font-weight:500; }
 </style>
 </head>
 <body>
@@ -114,14 +122,14 @@
   <div class="topbar">
     <div class="page-title">Statistics</div>
     <div class="topbar-right">
-      <span id="refreshedAt" style="font-size:11px;color:var(--muted)"></span>
+      <span class="refresh-tag" id="refreshedAt"></span>
     </div>
   </div>
 
   <div class="page-content stat-page" id="content">
     <div style="text-align:center;padding:80px 0;color:var(--muted)">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="opacity:.4;display:block;margin:0 auto 12px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      Loading statistics…
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="opacity:.35;display:block;margin:0 auto 12px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Loading…
     </div>
   </div>
 </div>
@@ -131,272 +139,273 @@
 requireAuth('statistics');
 renderSidebar('statistics');
 
-/* ─── helpers ─── */
 const fmt  = n => Number(n||0).toLocaleString('ru-RU');
 const fmtM = n => { const v=Number(n||0); if(v>=1e6) return (v/1e6).toFixed(1)+'M'; if(v>=1e3) return (v/1e3).toFixed(0)+'K'; return fmt(v); };
 const pct  = (a,b) => b>0 ? Math.round(a/b*100) : 0;
-const COLORS = ['#c0392b','#e74c3c','#2563eb','#7c3aed','#d97706','#16a34a','#0891b2','#be185d'];
+const PALETTE = ['#c0392b','#2563eb','#7c3aed','#d97706','#16a34a','#0891b2','#be185d','#b45309'];
 
-function avatarBg(name) {
-  const COLS=['#c0392b','#e74c3c','#2563eb','#7c3aed','#d97706','#16a34a','#0891b2','#be185d','#b45309','#047857'];
-  let h=0; for(let i=0;i<(name||'').length;i++) h=(h*31+name.charCodeAt(i))&0xffffff;
-  return COLS[Math.abs(h)%COLS.length];
+function bg(name) {
+  const P=['#c0392b','#2563eb','#7c3aed','#d97706','#16a34a','#0891b2','#be185d','#b45309'];
+  let h=0; for(let i=0;i<(name||'').length;i++) h=(h*31+name.charCodeAt(i))>>>0;
+  return P[h%P.length];
 }
-function initials2(n) { const p=(n||'').trim().split(/\s+/); return (p[0]?.[0]||'')+(p[1]?.[0]||''); }
+function ini(n) { const p=(n||'').trim().split(/\s+/); return (p[0]?.[0]||'')+(p[1]?.[0]||''); }
 
-/* ─── SVG donut ─── */
-function donutSVG(slices, r=48) {
-  const cx=56, cy=56, stroke=14;
-  const total = slices.reduce((s,x)=>s+x.v,0);
-  if (!total) return `<svg width="112" height="112"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f3e8e8" stroke-width="${stroke}"/></svg>`;
-  let offset=0;
-  const circ=2*Math.PI*r;
-  const arcs = slices.map(s => {
-    const len=circ*(s.v/total), gap=1;
-    const arc=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.c}" stroke-width="${stroke}"
-      stroke-dasharray="${Math.max(0,len-gap)} ${circ-(Math.max(0,len-gap))}"
-      stroke-dashoffset="${-(offset*circ/total - circ/4)}" stroke-linecap="butt"/>`;
-    offset+=s.v; return arc;
+/* ── donut SVG ── */
+function donutSVG(slices) {
+  const r=46, cx=54, cy=54, sw=13;
+  const total=slices.reduce((s,x)=>s+x.v,0);
+  if (!total) return `<svg width="108" height="108"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f5e0e0" stroke-width="${sw}"/></svg>`;
+  const circ=2*Math.PI*r; let off=0;
+  const arcs=slices.map(s=>{
+    const len=circ*(s.v/total)-1.2;
+    const a=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.c}" stroke-width="${sw}"
+      stroke-dasharray="${Math.max(0,len)} ${circ-Math.max(0,len)}"
+      stroke-dashoffset="${-(off*circ/total-circ/4)}" stroke-linecap="butt"/>`;
+    off+=s.v; return a;
   }).join('');
-  return `<svg width="112" height="112" viewBox="0 0 112 112">${arcs}</svg>`;
+  return `<svg width="108" height="108" viewBox="0 0 108 108" style="flex-shrink:0">${arcs}</svg>`;
 }
 
-/* ─── SVG gauge ─── */
+/* ── gauge SVG ── */
 function gaugeSVG(val) {
-  const r=52,cx=70,cy=70,sw=10;
-  const circ=Math.PI*r; // half circle
-  const filled=circ*(val/100);
-  return `<svg width="140" height="80" viewBox="0 0 140 80">
-    <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="#f3e8e8" stroke-width="${sw}" stroke-linecap="round"/>
+  const r=50, cx=70, cy=68, sw=11, circ=Math.PI*r;
+  const filled=circ*(Math.min(val,100)/100);
+  return `<svg width="140" height="78" viewBox="0 0 140 78">
+    <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="#f5e0e0" stroke-width="${sw}" stroke-linecap="round"/>
     <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="url(#gg)" stroke-width="${sw}" stroke-linecap="round"
-      stroke-dasharray="${filled} ${circ}" />
+      stroke-dasharray="${filled} ${circ}"/>
     <defs><linearGradient id="gg" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#f9a8a8"/><stop offset="100%" stop-color="#c0392b"/>
     </linearGradient></defs>
   </svg>`;
 }
 
-/* ─── Main render ─── */
 async function load() {
   const d = await apiGet('/api/statistics');
-  const now = new Date();
-  document.getElementById('refreshedAt').textContent = 'Updated ' + now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('refreshedAt').textContent =
+    'Updated ' + new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   render(d);
 }
 
 function render(d) {
   const {students:S, leads:L, finance:F, staff:ST, archive:AR} = d;
 
-  /* month-over-month delta */
-  const momDelta = F.prevMonthRevenue > 0
-    ? Math.round((F.thisMonthRevenue - F.prevMonthRevenue) / F.prevMonthRevenue * 100)
-    : null;
-  const momHtml = momDelta !== null
-    ? `<div class="kpi-delta ${momDelta>=0?'up':'dn'}">${momDelta>=0?'▲':'▼'} ${Math.abs(momDelta)}% vs last month</div>`
-    : '';
+  /* ── mom delta ── */
+  const mom = F.prevMonthRevenue > 0
+    ? Math.round((F.thisMonthRevenue - F.prevMonthRevenue) / F.prevMonthRevenue * 100) : null;
+  const momTag = mom !== null
+    ? `<span class="kpi-trend ${mom>=0?'up':'dn'}">${mom>=0?'↑':'↓'} ${Math.abs(mom)}%</span>` : '';
 
-  /* revenue bar chart */
+  /* ── bar chart ── */
   const months = Object.entries(F.revenueByMonth).sort((a,b)=>a[0].localeCompare(b[0])).slice(-9);
-  const maxRev  = Math.max(...months.map(m=>m[1]),1);
-  const barChartHTML = months.map(([m,v]) => {
-    const h = Math.max(Math.round((v/maxRev)*100), 3);
-    const label = m.slice(5); // MM
-    return `<div class="bc-col">
-      <div class="bc-val">${fmtM(v)}</div>
-      <div class="bc-bar" style="height:${h}%;background:var(--c1);opacity:${v===Math.max(...months.map(x=>x[1]))?1:.55}"></div>
-      <div class="bc-lbl">${label}</div>
+  const maxR = Math.max(...months.map(m=>m[1]),1);
+  const bars = months.map(([m,v])=>{
+    const h = Math.max(Math.round(v/maxR*100),2);
+    const isMax = v===maxR;
+    return `<div class="rev-col">
+      <div class="rev-v">${fmtM(v)}</div>
+      <div class="rev-bar ${isMax?'hi':'lo'}" style="height:${h}%"></div>
+      <div class="rev-x">${m.slice(5)}</div>
     </div>`;
   }).join('');
 
-  /* payment type donut */
-  const ptEntries = Object.entries(F.revenueByType);
-  const ptTotal   = ptEntries.reduce((s,[,v])=>s+v,0);
-  const ptSlices  = ptEntries.map(([k,v],i)=>({c:COLORS[i%COLORS.length],k,v}));
-  const donutHTML = donutSVG(ptSlices);
-  const legendHTML = ptSlices.map(s=>`<div class="dl-row">
-    <div class="dl-dot" style="background:${s.c}"></div>
+  /* ── donut ── */
+  const ptE = Object.entries(F.revenueByType);
+  const ptT = ptE.reduce((s,[,v])=>s+v,0);
+  const ptS = ptE.map(([k,v],i)=>({c:PALETTE[i%PALETTE.length],k,v}));
+  const donut = donutSVG(ptS);
+  const legend = ptS.map(s=>`<div class="dl-row">
+    <div class="dl-swatch" style="background:${s.c}"></div>
     <div class="dl-lbl">${s.k}</div>
-    <div class="dl-val">${pct(s.v,ptTotal)}%</div>
+    <div class="dl-pct">${pct(s.v,ptT)}%</div>
+    <div class="dl-amt">${fmtM(s.v)}</div>
   </div>`).join('');
 
-  /* leads funnel */
-  const FUNNEL = (L.funnelOrder||[]).concat(Object.keys(L.byStatus).filter(k=>!(L.funnelOrder||[]).includes(k)));
-  const funnelMax = Math.max(...FUNNEL.map(k=>L.byStatus[k]||0), 1);
-  const funnelColors = ['#c0392b','#e74c3c','#d97706','#2563eb','#7c3aed'];
-  const funnelHTML = FUNNEL.filter(k=>L.byStatus[k]>0).map((k,i)=>{
-    const n = L.byStatus[k]||0;
-    const w = pct(n, funnelMax);
-    return `<div class="funnel-step">
-      <div class="funnel-lbl">${k}</div>
-      <div class="funnel-bar-wrap">
-        <div class="funnel-bar" style="width:${w}%;background:${funnelColors[i%funnelColors.length]}">
+  /* ── funnel ── */
+  const FORD = (L.funnelOrder||[]).concat(
+    Object.keys(L.byStatus).filter(k=>!(L.funnelOrder||[]).includes(k))
+  );
+  const fMax = Math.max(...FORD.map(k=>L.byStatus[k]||0),1);
+  const FCOLS = ['#c0392b','#d97706','#2563eb','#7c3aed','#16a34a'];
+  const funnel = FORD.filter(k=>L.byStatus[k]>0).map((k,i)=>{
+    const n=L.byStatus[k]||0, w=pct(n,fMax);
+    return `<div class="f-row">
+      <div class="f-lbl">${k}</div>
+      <div class="f-track">
+        <div class="f-fill" style="width:${w}%;background:${FCOLS[i%FCOLS.length]}">
           <span>${n}</span>
         </div>
       </div>
+      <div class="f-n">${n}</div>
     </div>`;
-  }).join('') || '<div style="color:var(--muted);font-size:13px">No leads yet</div>';
+  }).join('') || `<p style="color:var(--muted);font-size:13px;margin:0">No leads yet</p>`;
 
-  /* gauge */
-  const convRate = L.conversionRate||0;
-  const gaugeHTML = gaugeSVG(convRate);
-
-  /* teacher table */
-  const teacherRows = ST.teachers.map(t => {
-    const rate = t.attendanceRate;
-    const rateColor = rate===null?'#aaa':rate>=80?'#16a34a':rate>=60?'#d97706':'#dc2626';
-    const bg = avatarBg(t.name);
+  /* ── staff rows ── */
+  function staffRow(t, col3lbl, col3val, rate) {
+    const rc = rate===null?'#bbb':rate>=80?'#16a34a':rate>=60?'#d97706':'#dc2626';
     return `<tr>
-      <td><div class="staff-name">
-        <div class="mini-avatar" style="background:${bg}">${initials2(t.name)}</div>
-        ${t.name}
-      </div></td>
-      <td>${t.groups}</td>
-      <td><strong>${t.students}</strong></td>
+      <td><div class="sname"><div class="savatar" style="background:${bg(t.name)}">${ini(t.name)}</div>${t.name}</div></td>
+      <td>${col3val}</td>
       <td>
         ${rate!==null
-          ? `<div class="att-bar">
-              <div class="att-track"><div class="att-fill" style="width:${rate}%;background:${rateColor}"></div></div>
-              <div class="att-pct" style="color:${rateColor}">${rate}%</div>
-             </div>`
-          : '<span style="color:var(--muted);font-size:11px">No data</span>'}
+          ? `<div class="rate-cell"><div class="rate-track"><div class="rate-fill" style="width:${rate}%;background:${rc}"></div></div><span class="rate-pct" style="color:${rc}">${rate}%</span></div>`
+          : `<span style="color:var(--muted);font-size:11px">—</span>`}
       </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">No teacher data yet</td></tr>`;
+  }
 
-  /* support table */
-  const supportRows = ST.support.map(t => {
-    const rate = t.rate;
-    const rateColor = rate===null?'#aaa':rate>=80?'#16a34a':rate>=60?'#d97706':'#dc2626';
-    const bg = avatarBg(t.name);
-    return `<tr>
-      <td><div class="staff-name">
-        <div class="mini-avatar" style="background:${bg}">${initials2(t.name)}</div>
-        ${t.name}
-      </div></td>
-      <td>${t.total}</td>
-      <td><strong>${t.attended}</strong></td>
-      <td>
-        ${rate!==null
-          ? `<div class="att-bar">
-              <div class="att-track"><div class="att-fill" style="width:${rate}%;background:${rateColor}"></div></div>
-              <div class="att-pct" style="color:${rateColor}">${rate}%</div>
-             </div>`
-          : '<span style="color:var(--muted);font-size:11px">No data</span>'}
-      </td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">No support session data yet</td></tr>`;
+  const tRows = ST.teachers.length
+    ? ST.teachers.map(t=>staffRow(t,'Students',`${t.groups}g · ${t.students}s`,t.attendanceRate)).join('')
+    : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px 0;font-size:13px">No teacher data</td></tr>`;
 
-  /* archive reasons */
-  const archiveHTML = Object.entries(AR.byReason).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
-    <div class="reason-pill">
-      <span class="rp-n">${v}</span>
-      <span class="rp-l">${k}</span>
-    </div>`).join('') || '<span style="color:var(--muted);font-size:13px">No archived records</span>';
+  const sRows = ST.support.length
+    ? ST.support.map(t=>staffRow(t,'Sessions',`${t.total} sessions`,t.rate)).join('')
+    : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px 0;font-size:13px">No session data</td></tr>`;
+
+  /* ── archive ── */
+  const archHTML = Object.entries(AR.byReason).sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`<div class="arch-pill"><span class="arch-pill-n">${v}</span><span class="arch-pill-l">${k}</span></div>`)
+    .join('') || `<span style="color:var(--muted);font-size:13px">No archived records</span>`;
+
+  /* ── icon fragments ── */
+  const IC_FINANCE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+  const IC_LEADS   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`;
+  const IC_STAFF   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+  const IC_ARCHIVE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
 
   document.getElementById('content').innerHTML = `
 
-    <!-- ══ KPI ROW ══ -->
+    <!-- KPI ROW -->
     <div class="kpi-row">
-      <div class="kpi" style="--kc:var(--c1);--ki:#fde8e8">
-        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div class="kpi">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="background:#fde8e8">${IC_STAFF.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
+          <span class="kpi-trend neu">${S.inactive} inactive</span>
+        </div>
         <div class="kpi-val">${S.active}</div>
         <div class="kpi-lbl">Active Students</div>
-        <div class="kpi-delta" style="color:var(--muted)">${S.total} total · ${S.debtors} in debt</div>
+        <div class="kpi-sub">${S.total} total · ${S.debtors} in debt</div>
       </div>
-      <div class="kpi" style="--kc:var(--blue);--ki:#dbeafe">
-        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div class="kpi">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="background:#eff6ff">${IC_LEADS.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
+          <span class="kpi-trend ${L.leadsThisMonth>0?'up':'neu'}">+${L.leadsThisMonth} this month</span>
+        </div>
         <div class="kpi-val">${L.total}</div>
         <div class="kpi-lbl">Active Leads</div>
-        <div class="kpi-delta" style="color:var(--muted)">+${L.leadsThisMonth} this month</div>
+        <div class="kpi-sub">${L.conversionRate}% converted</div>
       </div>
-      <div class="kpi" style="--kc:var(--green);--ki:#dcfce7">
-        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
-        <div class="kpi-val sm">${fmtM(F.thisMonthRevenue)}</div>
+      <div class="kpi">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="background:#f0fdf4">${IC_FINANCE.replace('stroke="currentColor"','stroke="#16a34a"')}</div>
+          ${momTag ? momTag : '<span class="kpi-trend neu">this month</span>'}
+        </div>
+        <div class="kpi-val md">${fmtM(F.thisMonthRevenue)}</div>
         <div class="kpi-lbl">Revenue this month</div>
-        ${momHtml}
+        <div class="kpi-sub">${fmtM(F.totalRevenue)} total all time</div>
       </div>
-      <div class="kpi" style="--kc:var(--amber);--ki:#fef3c7">
-        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-        <div class="kpi-val sm">${fmtM(F.pendingRevenue)}</div>
+      <div class="kpi">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="background:#fffbeb"><svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <span class="kpi-trend neu">${F.paidCount} paid</span>
+        </div>
+        <div class="kpi-val md">${fmtM(F.pendingRevenue)}</div>
         <div class="kpi-lbl">Pending Revenue</div>
-        <div class="kpi-delta" style="color:var(--muted)">${F.paidCount} paid invoices</div>
+        <div class="kpi-sub">Awaiting payment</div>
       </div>
-      <div class="kpi" style="--kc:var(--purple);--ki:#ede9fe">
-        <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41"/></svg></div>
+      <div class="kpi">
+        <div class="kpi-top">
+          <div class="kpi-icon" style="background:#f5f3ff"><svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41"/></svg></div>
+          <span class="kpi-trend neu">${ST.teachers.length} teachers</span>
+        </div>
         <div class="kpi-val">${ST.total}</div>
         <div class="kpi-lbl">Staff Members</div>
-        <div class="kpi-delta" style="color:var(--muted)">${ST.teachers.length} teachers</div>
+        <div class="kpi-sub">${ST.support.length} support teachers</div>
       </div>
     </div>
 
-    <!-- ══ FINANCE ══ -->
-    <div class="section">
-      <div class="section-hd"><h2>Finance</h2><div class="hd-badge">${fmtM(F.totalRevenue)} total revenue</div><div class="hd-line"></div></div>
-      <div class="col2">
-        <div class="chart-card">
-          <h3>Monthly Revenue</h3>
-          <div class="bar-chart-wrap"><div class="bar-chart">${barChartHTML||'<div style="color:var(--muted);font-size:12px;width:100%;text-align:center">No data yet</div>'}</div></div>
+    <!-- FINANCE -->
+    <div class="sec">
+      <div class="sec-hd">
+        <div class="sec-hd-icon" style="background:#fde8e8">${IC_FINANCE.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
+        <h2>Finance</h2>
+        <span class="sec-hd-meta">${fmtM(F.totalRevenue)} UZS total revenue</span>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Monthly Revenue</div>
+          <div class="rev-chart"><div class="rev-bars">${bars||`<p style="color:var(--muted);font-size:13px;width:100%;text-align:center;margin:auto">No payment data yet</p>`}</div></div>
         </div>
-        <div class="chart-card">
-          <h3>Payment Methods</h3>
+        <div class="card">
+          <div class="card-title">Payment Methods</div>
           <div class="donut-wrap">
-            ${donutHTML}
-            <div class="donut-legend">${legendHTML||'<div style="color:var(--muted);font-size:12px">No data yet</div>'}</div>
+            ${donut}
+            <div class="donut-legend">${legend||`<p style="color:var(--muted);font-size:13px;margin:0">No data yet</p>`}</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ══ LEADS ══ -->
-    <div class="section">
-      <div class="section-hd"><h2>Leads Pipeline</h2><div class="hd-badge">${L.total} leads</div><div class="hd-line"></div></div>
-      <div class="col3">
-        <div class="chart-card span2">
-          <h3>Pipeline Funnel</h3>
-          <div class="funnel">${funnelHTML}</div>
+    <!-- LEADS PIPELINE -->
+    <div class="sec">
+      <div class="sec-hd">
+        <div class="sec-hd-icon" style="background:#eff6ff">${IC_LEADS.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
+        <h2>Leads Pipeline</h2>
+        <span class="sec-hd-meta">${L.total} active leads</span>
+      </div>
+      <div class="g3">
+        <div class="card">
+          <div class="card-title">Pipeline Funnel</div>
+          <div class="funnel">${funnel}</div>
         </div>
-        <div class="chart-card">
-          <h3>Conversion Rate</h3>
-          <div class="gauge-wrap">
-            ${gaugeHTML}
-            <div class="gauge-val">${convRate}%</div>
+        <div class="card">
+          <div class="card-title">Conversion Rate</div>
+          <div class="gauge-card">
+            ${gaugeSVG(L.conversionRate||0)}
+            <div class="gauge-num">${L.conversionRate||0}%</div>
             <div class="gauge-lbl">Leads → Students</div>
+            <div class="gauge-sub">${L.leadsThisMonth} new leads this month</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ══ STAFF EFFICIENCY ══ -->
-    <div class="section">
-      <div class="section-hd"><h2>Staff Efficiency</h2><div class="hd-badge">Last 2 months</div><div class="hd-line"></div></div>
-      <div class="col2">
-        <div class="chart-card">
-          <h3>Teachers · Attendance Rate</h3>
-          <div class="table-scroll"><table class="staff-table">
-            <thead><tr>
-              <th>Teacher</th><th>Groups</th><th>Students</th><th style="min-width:130px">Attendance</th>
-            </tr></thead>
-            <tbody>${teacherRows}</tbody>
+    <!-- STAFF EFFICIENCY -->
+    <div class="sec">
+      <div class="sec-hd">
+        <div class="sec-hd-icon" style="background:#fde8e8">${IC_STAFF.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
+        <h2>Staff Efficiency</h2>
+        <span class="sec-hd-meta">Last 2 months</span>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Teachers · Attendance Rate</div>
+          <div class="tscroll"><table class="stbl">
+            <thead><tr><th>Teacher</th><th>Load</th><th>Attendance</th></tr></thead>
+            <tbody>${tRows}</tbody>
           </table></div>
         </div>
-        <div class="chart-card">
-          <h3>Support Teachers · Session Completion</h3>
-          <div class="table-scroll"><table class="staff-table">
-            <thead><tr>
-              <th>Teacher</th><th>Sessions</th><th>Attended</th><th style="min-width:130px">Rate</th>
-            </tr></thead>
-            <tbody>${supportRows}</tbody>
+        <div class="card">
+          <div class="card-title">Support Teachers · Session Completion</div>
+          <div class="tscroll"><table class="stbl">
+            <thead><tr><th>Teacher</th><th>Sessions</th><th>Completion</th></tr></thead>
+            <tbody>${sRows}</tbody>
           </table></div>
         </div>
       </div>
     </div>
 
-    <!-- ══ ARCHIVE ══ -->
-    <div class="section">
-      <div class="section-hd"><h2>Archive</h2><div class="hd-badge">${AR.total} total</div><div class="hd-line"></div></div>
-      <div class="chart-card">
-        <h3>Reasons for Archiving</h3>
-        <div class="pill-row">${archiveHTML}</div>
+    <!-- ARCHIVE -->
+    <div class="sec">
+      <div class="sec-hd">
+        <div class="sec-hd-icon" style="background:#fde8e8">${IC_ARCHIVE.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
+        <h2>Archive</h2>
+        <span class="sec-hd-meta">${AR.total} total archived</span>
+      </div>
+      <div class="card">
+        <div class="card-title">Reasons for Archiving</div>
+        <div class="arch-pills">${archHTML}</div>
       </div>
     </div>
   `;
