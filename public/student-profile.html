@@ -404,13 +404,9 @@
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
+  if (isTeacher()) { window.location.replace('index.html'); }
   requireAuth('students');
   renderSidebar('students');
-  if (isTeacher()) {
-    const st = document.createElement('style');
-    st.textContent = '.pc2-actions,#payActions{display:none!important}';
-    document.head.appendChild(st);
-  }
 
   const params = new URLSearchParams(location.search);
   const STUDENT_ID = params.get('id');

@@ -355,7 +355,8 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <script>
 requireAuth('groups');
 renderSidebar('groups');
-if (isTeacher()) {
+const _isTeacher = isTeacher();
+if (_isTeacher) {
   const st = document.createElement('style');
   st.textContent = '#editGroupBtn,#deleteGroupBtn,#addStudentBtn,#unitBadge,.stu-menu-btn{display:none!important}';
   document.head.appendChild(st);
@@ -453,7 +454,7 @@ el.innerHTML = active.map((s,i) => {
 const frozen = s.status === 'Inactive';
 const dotClass = frozen ? 'frozen' : (s.balance < 0 ? 'debt' : '');
 return `
-<div class="student-list-item" onclick="window.location.href='student-profile.html?id=${s.id}'" style="cursor:pointer">
+<div class="student-list-item" ${_isTeacher ? '' : `onclick="window.location.href='student-profile.html?id=${s.id}'" style="cursor:pointer"`}>
   <span class="student-num">${i+1}.</span>
   <span class="student-dot${dotClass ? ' '+dotClass : ''}"></span>
   <span class="student-list-name">${s.firstName} ${s.lastName}${frozen ? ' <span style="font-size:10px;color:#94a3b8;font-weight:700">FROZEN</span>' : ''}</span>
@@ -600,7 +601,7 @@ tbody += `<tr>
 <td class="name-col">
 <div class="att-name-cell">
 <div class="att-avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
-<span style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'">${name}</span>
+<span ${_isTeacher ? '' : `style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'"`}>${name}</span>
 </div>
 </td>
 ${days.map(d => {

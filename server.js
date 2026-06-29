@@ -27,7 +27,7 @@ const ROLE_PERMS = {
   'Head Admin': ['dashboard','leads','students','groups','finance','teachers','staff','archived','finance_view_only','reminders'],
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
-  'Teacher':    ['dashboard','students','groups','reminders'],
+  'Teacher':    ['dashboard','groups','reminders'],
   'Support Teacher': ['dashboard','support','reminders'],
 };
 function isSupportTitle(t) { return String(t||'').trim().toLowerCase() === 'support teacher'; }
@@ -337,6 +337,14 @@ async function initDB() {
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS pre_archive_status TEXT`,
+    `CREATE TABLE IF NOT EXISTS spendings (
+      id TEXT PRIMARY KEY,
+      amount NUMERIC NOT NULL,
+      category TEXT,
+      description TEXT,
+      month TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -352,6 +360,17 @@ async function initDB() {
       }
     }
   } catch(e) { console.warn('Statistics permission migration skipped:', e.message); }
+
+  // Strip 'students' permission from all Teacher accounts (teachers access students via group page only).
+  try {
+    const teachers = await pool.query(`SELECT id, permissions FROM users WHERE title='Teacher' OR roles @> '["Teacher"]'::jsonb`);
+    for (const u of teachers.rows) {
+      const perms = Array.isArray(u.permissions) ? u.permissions : [];
+      if (perms.includes('students')) {
+        await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms.filter(p => p !== 'students')), u.id]);
+      }
+    }
+  } catch(e) { console.warn('Teacher students-permission strip skipped:', e.message); }
 
   // One-time: migrate old single support shift → separate odd/even shifts.
   try {
@@ -1458,6 +1477,43 @@ app.delete('/api/invoices/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+/* SPENDINGS */
+app.get('/api/spendings', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM spendings ORDER BY created_at DESC');
+    res.json(rows.map(r => ({ id:r.id, amount:Number(r.amount), category:r.category, description:r.description, month:r.month, createdAt:r.created_at })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/spendings', async (req, res) => {
+  try {
+    const { id, amount, category, description, month } = req.body;
+    await pool.query(
+      'INSERT INTO spendings(id,amount,category,description,month) VALUES($1,$2,$3,$4,$5)',
+      [id, Number(amount)||0, category||null, description||null, month||null]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/spendings/:id', async (req, res) => {
+  try {
+    const { amount, category, description, month } = req.body;
+    await pool.query(
+      'UPDATE spendings SET amount=$1,category=$2,description=$3,month=$4 WHERE id=$5',
+      [Number(amount)||0, category||null, description||null, month||null, req.params.id]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/spendings/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM spendings WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 /* SUPPORT SESSIONS — one-time lessons, one room, max 2 teachers at a time */
 function toMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
 function dateDayType(dateStr){ const dow=new Date(dateStr+'T00:00:00').getDay(); if([1,3,5].includes(dow))return 'odd'; if([2,4,6].includes(dow))return 'even'; return null; }
@@ -2252,7 +2308,7 @@ app.get('/api/statistics', async (req, res) => {
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
-    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR] = await Promise.all([
+    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR, spendR] = await Promise.all([
       pool.query('SELECT id, status, balance FROM students WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
@@ -2265,6 +2321,7 @@ app.get('/api/statistics', async (req, res) => {
                   WHERE a.date >= $1`, [prevMonthStart]),
       pool.query(`SELECT teacher, attended, date FROM support_sessions WHERE date >= $1`, [prevMonthStart]),
       pool.query(`SELECT created_at FROM leads WHERE status='Registration' OR (archived IS TRUE AND pre_archive_status='Registration')`),
+      pool.query(`SELECT amount, month, created_at FROM spendings ORDER BY created_at ASC`),
     ]);
 
     const students = stuR.rows;
@@ -2298,6 +2355,15 @@ app.get('/api/statistics', async (req, res) => {
     });
     const revenueByType = {};
     paidInvoices.forEach(i => { const k = i.payment_type || 'Cash'; revenueByType[k] = (revenueByType[k] || 0) + Number(i.total || 0); });
+
+    // Spendings by month
+    const spendingByMonth = {};
+    spendR.rows.forEach(s => {
+      const key = s.month || (s.created_at ? s.created_at.toISOString().slice(0, 7) : null);
+      if (key) spendingByMonth[key] = (spendingByMonth[key] || 0) + Number(s.amount || 0);
+    });
+    const totalSpendings = spendR.rows.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+
     const thisMonthRevenue = paidInvoices.filter(i => {
       const key = i.month || (i.created_at ? i.created_at.toISOString().slice(0, 7) : '');
       return key === now.toISOString().slice(0, 7);
@@ -2346,7 +2412,7 @@ app.get('/api/statistics', async (req, res) => {
     res.json({
       students: { total: students.length, active: activeStudents, inactive: students.length - activeStudents, debtors, totalBalance },
       leads: { total: totalLeads, byStatus: leadsByStatus, conversionRate, leadsThisMonth, funnelOrder: FUNNEL_ORDER },
-      finance: { totalRevenue, pendingRevenue, revenueByMonth, revenueByType, thisMonthRevenue, prevMonthRevenue, paidCount: paidInvoices.length },
+      finance: { totalRevenue, pendingRevenue, revenueByMonth, revenueByType, thisMonthRevenue, prevMonthRevenue, paidCount: paidInvoices.length, pendingByMonth: (() => { const m={}; invoices.filter(i=>i.status==='Pending').forEach(i=>{ const k=i.month||(i.created_at?i.created_at.toISOString().slice(0,7):null); if(k) m[k]=(m[k]||0)+Number(i.total||0); }); return m; })(), spendingByMonth, totalSpendings },
       staff: { teachers: teacherStats, support: supportStats, total: users.length },
       archive: { total: archR.rows.length, byReason: archiveByReason },
     });
