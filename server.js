@@ -24,7 +24,7 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
   'CEO':        [...PAGE_PERMISSIONS, 'statistics'],
-  'Head Admin': ['dashboard','leads','students','groups','finance','teachers','staff','archived','finance_view_only','reminders'],
+  'Head Admin': ['dashboard','leads','students','groups','teachers','staff','archived','reminders'],
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
   'Teacher':    ['dashboard','groups','reminders'],
@@ -360,6 +360,17 @@ async function initDB() {
       }
     }
   } catch(e) { console.warn('Statistics permission migration skipped:', e.message); }
+
+  // Strip 'finance' and 'finance_view_only' from all Head Admin accounts.
+  try {
+    const headAdmins = await pool.query(`SELECT id, permissions FROM users WHERE title='Head Admin' OR roles @> '["Head Admin"]'::jsonb`);
+    for (const u of headAdmins.rows) {
+      const perms = Array.isArray(u.permissions) ? u.permissions : [];
+      if (perms.includes('finance') || perms.includes('finance_view_only')) {
+        await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms.filter(p => p !== 'finance' && p !== 'finance_view_only')), u.id]);
+      }
+    }
+  } catch(e) { console.warn('Head Admin finance-permission strip skipped:', e.message); }
 
   // Strip 'students' permission from all Teacher accounts (teachers access students via group page only).
   try {
