@@ -369,11 +369,24 @@ function isDuringLesson(dateStr) {
   if (_canMarkAnyTime) return true;
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  if (dateStr > todayStr) return false;
-  return true;
+  if (dateStr !== todayStr) return false;
+  if (!group?.time || !group?.duration) return true;
+  const [h, m] = group.time.split(':').map(Number);
+  const start = new Date(now); start.setHours(h, m, 0, 0);
+  const end = new Date(start.getTime() + Number(group.duration) * 60000);
+  return now >= start && now <= end;
 }
 function getLessonToast(dateStr) {
-  return 'Too early!';
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  if (dateStr > todayStr) return 'Too early!';
+  if (dateStr < todayStr) return 'Too late!';
+  if (group?.time) {
+    const [h, m] = group.time.split(':').map(Number);
+    const start = new Date(now); start.setHours(h, m, 0, 0);
+    return now < start ? 'Too early!' : 'Too late!';
+  }
+  return 'Too late!';
 }
 const params = new URLSearchParams(window.location.search);
 const IC_CHECK = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
