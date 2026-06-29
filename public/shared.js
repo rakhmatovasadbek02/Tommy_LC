@@ -457,6 +457,11 @@ function renderSidebar(activePage) {
    const links = section.items
      .filter(item => can(item.feature))
      .filter(item => !(isTeacher() && item.feature === 'students'))
+     .filter(item => {
+       if (item.feature !== 'payments') return true;
+       const r = (session.roles || [session.title || '']).filter(Boolean);
+       return !r.some(x => x === 'Head Admin' || x === 'Admin');
+     })
      .map(item => {
        const isActive = item.feature === activePage;
        return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span>${item.label}</a>`;
