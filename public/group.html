@@ -365,14 +365,29 @@ const _sess = getSession();
 const _myRoles = (_sess?.roles || [_sess?.title || '']).filter(Boolean);
 const _canMarkAnyTime = _myRoles.some(r => ['CEO','Manager'].includes(r));
 
-function isDuringLesson() {
+function isDuringLesson(dateStr) {
   if (_canMarkAnyTime) return true;
   if (!group?.time || !group?.duration) return false;
   const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  if (dateStr !== todayStr) return false;
   const [h, m] = group.time.split(':').map(Number);
   const start = new Date(now); start.setHours(h, m, 0, 0);
   const end   = new Date(start.getTime() + Number(group.duration) * 60000);
   return now >= start && now <= end;
+}
+function getLessonToast(dateStr) {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  if (dateStr > todayStr) return 'Too early!';
+  if (dateStr < todayStr) return 'Too late!';
+  // today but wrong time
+  if (group?.time) {
+    const [h, m] = group.time.split(':').map(Number);
+    const start = new Date(now); start.setHours(h, m, 0, 0);
+    return now < start ? 'Too early!' : 'Too late!';
+  }
+  return 'Too late!';
 }
 const params = new URLSearchParams(window.location.search);
 const IC_CHECK = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -679,15 +694,9 @@ let _pickerSid = null, _pickerDate = null;
 function cycleAtt(el) {
   while (el && !el.dataset.sid) el = el.parentElement;
   if (!el) return;
-  if (!isDuringLesson()) {
-    if (!_canMarkAnyTime && group?.time) {
-      const now = new Date();
-      const [h, m] = group.time.split(':').map(Number);
-      const start = new Date(now); start.setHours(h, m, 0, 0);
-      showToast(now < start ? 'Too early!' : 'Too late!', 'error');
-    } else {
-      showToast('Too late!', 'error');
-    }
+  const _date = el.dataset.date;
+  if (!isDuringLesson(_date)) {
+    showToast(getLessonToast(_date), 'error');
     return;
   }
   _pickerSid  = el.dataset.sid;
