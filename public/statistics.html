@@ -16,9 +16,8 @@
 .section-hd .hd-badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:99px; background:var(--surface); color:var(--muted); }
 
 /* ── KPI row ── */
-.kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:32px; }
-@media(max-width:1100px){ .kpi-row{ grid-template-columns:repeat(3,1fr); } }
-@media(max-width:640px){  .kpi-row{ grid-template-columns:1fr 1fr; } }
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:32px; }
+@media(max-width:640px){ .kpi-row{ grid-template-columns:1fr 1fr; } }
 .kpi { background:white; border:1px solid #edd8d8; border-radius:14px; padding:18px 20px 16px; box-shadow:0 1px 4px rgba(0,0,0,.06); position:relative; overflow:hidden; }
 .kpi::before { content:''; position:absolute; inset:0 0 0 0; border-top:3px solid var(--kc,var(--c1)); border-radius:14px 14px 0 0; }
 .kpi-icon { width:34px; height:34px; border-radius:10px; background:var(--ki,#fde8e8); display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
