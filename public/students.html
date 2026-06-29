@@ -228,6 +228,7 @@
     input.value = o;
   }
 
+  if (isTeacher()) { window.location.replace('index.html'); }
   requireAuth('students');
   renderSidebar('students');
 
