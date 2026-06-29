@@ -176,7 +176,7 @@ apiGet('/api/groups'), apiGet('/api/students'),
 apiGet('/api/teachers'),
 apiGet('/api/leads').catch(()=>[]), apiGet('/api/levels').catch(()=>[])
 ]);
-if(isTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';document.getElementById('levelsBtn').style.display='none';}
+if(isTeacher()||isSupportTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';document.getElementById('levelsBtn').style.display='none';}
 const tSel=document.getElementById('filterTeacher');
 [...new Set(groups.map(g=>g.teacher).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;tSel.appendChild(o);});
 renderGroups();
