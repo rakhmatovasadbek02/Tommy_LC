@@ -662,6 +662,8 @@ function scheduleAutoSave() {
   }, 1200);
 }
 function cycleAtt(el) {
+  while (el && !el.dataset.sid) el = el.parentElement;
+  if (!el) return;
   const sid = el.dataset.sid;
   const date = el.dataset.date;
   document.getElementById('attPickerEl')?.remove();
