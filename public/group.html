@@ -661,38 +661,68 @@ function scheduleAutoSave() {
     }
   }, 1200);
 }
+let _pickerSid = null, _pickerDate = null;
 function cycleAtt(el) {
   while (el && !el.dataset.sid) el = el.parentElement;
   if (!el) return;
-  const sid = el.dataset.sid;
-  const date = el.dataset.date;
-  document.getElementById('attPickerEl')?.remove();
+  _pickerSid  = el.dataset.sid;
+  _pickerDate = el.dataset.date;
+  const existing = document.getElementById('attPickerEl');
+  // toggling: if picker already open for same cell, close it
+  if (existing && existing.dataset.sid === _pickerSid && existing.dataset.date === _pickerDate) {
+    closePicker(); return;
+  }
+  closePicker();
   const picker = document.createElement('div');
   picker.id = 'attPickerEl';
   picker.className = 'att-picker';
-  picker.innerHTML = `
-    <button class="ap-present" onclick="setAtt('${sid}','${date}','present')">${IC_CHECK}</button>
-    <button class="ap-absent"  onclick="setAtt('${sid}','${date}','absent')">${IC_X}</button>
-    <button class="ap-clear"   onclick="setAtt('${sid}','${date}','')"></button>`;
+  picker.dataset.sid  = _pickerSid;
+  picker.dataset.date = _pickerDate;
+  const btnP = document.createElement('button');
+  btnP.className = 'ap-present'; btnP.innerHTML = IC_CHECK;
+  btnP.addEventListener('mousedown', e => { e.stopPropagation(); setAtt(_pickerSid, _pickerDate, 'present'); });
+  const btnA = document.createElement('button');
+  btnA.className = 'ap-absent'; btnA.innerHTML = IC_X;
+  btnA.addEventListener('mousedown', e => { e.stopPropagation(); setAtt(_pickerSid, _pickerDate, 'absent'); });
+  const btnC = document.createElement('button');
+  btnC.className = 'ap-clear';
+  btnC.addEventListener('mousedown', e => { e.stopPropagation(); setAtt(_pickerSid, _pickerDate, ''); });
+  picker.append(btnP, btnA, btnC);
   const rect = el.getBoundingClientRect();
   document.body.appendChild(picker);
   const pw = picker.offsetWidth, ph = picker.offsetHeight;
-  let top = rect.bottom + 6, left = rect.left;
+  let top = rect.bottom + 6, left = rect.left + rect.width/2 - pw/2;
   if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  if (left < 8) left = 8;
   if (top + ph > window.innerHeight - 8) top = rect.top - ph - 6;
   picker.style.top = top + 'px';
   picker.style.left = left + 'px';
-  setTimeout(() => document.addEventListener('click', closePicker, { once: true }), 0);
+  // close on outside click (mousedown so it fires before click)
+  setTimeout(() => document.addEventListener('mousedown', _outsidePickerHandler), 0);
 }
-function closePicker() { document.getElementById('attPickerEl')?.remove(); }
+function _outsidePickerHandler(e) {
+  const picker = document.getElementById('attPickerEl');
+  if (picker && !picker.contains(e.target)) {
+    closePicker();
+  }
+}
+function closePicker() {
+  document.getElementById('attPickerEl')?.remove();
+  document.removeEventListener('mousedown', _outsidePickerHandler);
+}
 function setAtt(sid, date, next) {
   closePicker();
   if (!attData[date]) attData[date] = {};
   attData[date][sid] = next;
-  const td = document.querySelector(`[data-sid="${sid}"][data-date="${date}"]`)?.parentElement;
+  // find chip by iterating — avoids querySelector escaping issues with special chars in sid
+  const all = document.querySelectorAll('[data-sid][data-date]');
+  let td = null;
+  for (const node of all) {
+    if (node.dataset.sid === sid && node.dataset.date === date) { td = node.parentElement; break; }
+  }
   if (!td) return;
-  if (next==='present') td.innerHTML = `<button class="chip chip-present" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_CHECK}</button>`;
-  else if (next==='absent') td.innerHTML = `<button class="chip chip-absent" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_X}</button>`;
+  if (next === 'present') td.innerHTML = `<button class="chip chip-present" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_CHECK}</button>`;
+  else if (next === 'absent') td.innerHTML = `<button class="chip chip-absent" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_X}</button>`;
   else td.innerHTML = `<span class="chip-empty" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></span>`;
   scheduleAutoSave();
 }
