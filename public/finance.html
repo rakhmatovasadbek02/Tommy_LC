@@ -304,7 +304,10 @@
   const FIN_MANAGE = canManageFinance();
   const sess = getSession();
   const myRoles = (sess?.roles || [sess?.title || '']).filter(Boolean);
-  const VIEW_ONLY = !FIN_MANAGE && (myRoles.includes('Head Admin') || sess?.permissions?.includes('finance_view_only'));
+  if (myRoles.includes('Head Admin') || sess?.permissions?.includes('finance_view_only')) {
+    window.location.replace('index.html');
+  }
+  const VIEW_ONLY = false;
 
   const LEVEL_COLORS = {
     'RoundUp':'#FB8C00','Beginner':'#43A047','Elementary':'#E53935',

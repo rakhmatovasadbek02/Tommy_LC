@@ -407,6 +407,10 @@
   if (isTeacher()) { window.location.replace('index.html'); }
   requireAuth('students');
   renderSidebar('students');
+  const _profSess = getSession();
+  const _profRoles = (_profSess?.roles || [_profSess?.title || '']).filter(Boolean);
+  const HIDE_BAL = _profRoles.some(r => ['Head Admin','Admin'].includes(r));
+  if (HIDE_BAL) document.querySelector('.pc2-balance-row').style.display = 'none';
 
   const params = new URLSearchParams(location.search);
   const STUDENT_ID = params.get('id');

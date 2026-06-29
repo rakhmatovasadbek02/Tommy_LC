@@ -238,6 +238,13 @@
   if (isTeacher()) { window.location.replace('index.html'); }
   requireAuth('students');
   renderSidebar('students');
+  const _sess0 = getSession();
+  const _myRoles0 = (_sess0?.roles || [_sess0?.title || '']).filter(Boolean);
+  const HIDE_BAL = _myRoles0.some(r => ['Head Admin','Admin'].includes(r));
+  if (HIDE_BAL) {
+    document.getElementById('th-balance').style.display = 'none';
+    document.getElementById('filterBalance').closest('.form-group, select')?.style && (document.getElementById('filterBalance').style.display = 'none');
+  }
 
   let students = [], archiveReasons = [];
   let sortCol = '', sortDir = 1;
@@ -335,7 +342,7 @@
         <td>${groupsHTML}</td>
         <td class="st-teacher">${teacherHTML}</td>
         <td class="st-dates">${dateHTML}</td>
-        <td><span class="st-balance ${balClass}">${balStr}</span></td>
+        ${HIDE_BAL ? '' : `<td><span class="st-balance ${balClass}">${balStr}</span></td>`}
         <td class="st-comment">${commentHTML}</td>
         <td class="st-actions" onclick="event.stopPropagation()">
           ${isTeacher()?'':`<button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">${IC.edit}</button>
