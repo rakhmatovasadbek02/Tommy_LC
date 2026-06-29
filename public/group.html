@@ -680,8 +680,7 @@ function cycleAtt(el) {
   while (el && !el.dataset.sid) el = el.parentElement;
   if (!el) return;
   if (!isDuringLesson()) {
-    const t = group?.time ? `Lesson is at ${group.time}` : 'Outside lesson time';
-    showToast(t + ' — only CEO and Manager can mark at any time.', 'error');
+    showToast('Too late!', 'error');
     return;
   }
   _pickerSid  = el.dataset.sid;
