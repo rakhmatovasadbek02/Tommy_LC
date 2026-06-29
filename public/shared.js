@@ -456,6 +456,7 @@ function renderSidebar(activePage) {
  const navHTML = NAV_SECTIONS.map(section => {
    const links = section.items
      .filter(item => can(item.feature))
+     .filter(item => !(isTeacher() && item.feature === 'students'))
      .map(item => {
        const isActive = item.feature === activePage;
        return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span>${item.label}</a>`;
