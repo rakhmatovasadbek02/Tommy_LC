@@ -98,14 +98,14 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .chip-absent { background: var(--crimson); color: white; }
 .chip-empty { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s; }
 .chip-empty:hover { border-color: var(--crimson); background: var(--crimson-soft); }
-.att-picker { position: fixed; z-index: 999; background: white; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.13); display: flex; gap: 6px; padding: 6px; }
-.att-picker button { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 7px; border: none; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .1s; }
-.att-picker .ap-present { background: #dcfce7; color: #15803d; }
-.att-picker .ap-present:hover { background: #bbf7d0; }
-.att-picker .ap-absent  { background: #fee2e2; color: #dc2626; }
-.att-picker .ap-absent:hover  { background: #fecaca; }
-.att-picker .ap-clear   { background: #f5f5f5; color: #888; }
-.att-picker .ap-clear:hover   { background: #e5e5e5; }
+.att-picker { position: fixed; z-index: 999; background: white; border: 1px solid var(--border); border-radius: 99px; box-shadow: 0 4px 16px rgba(0,0,0,.13); display: flex; gap: 6px; padding: 6px; }
+.att-picker button { width: 28px; height: 28px; border-radius: 50%; border: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity .1s; padding: 0; }
+.att-picker .ap-present { background: #1E6B45; color: white; }
+.att-picker .ap-present:hover { opacity: .85; }
+.att-picker .ap-absent  { background: var(--crimson); color: white; }
+.att-picker .ap-absent:hover  { opacity: .85; }
+.att-picker .ap-clear   { background: #e5e5e5; color: #666; }
+.att-picker .ap-clear:hover   { background: #d0d0d0; }
 .att-save-row { display: none; }
 /* Auto-save indicator */
 .att-autosave { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; transition: opacity 0.3s; }
