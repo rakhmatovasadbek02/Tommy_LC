@@ -131,6 +131,15 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .unit-opt.active { background: var(--crimson); color: white; border-color: var(--crimson); }
 .pay-type-btn { padding: 7px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; cursor: pointer; background: white; font-weight: 600; transition: all 0.15s; font-family: 'Inter', sans-serif; }
 .pay-type-btn.selected { border-color: var(--crimson); background: var(--crimson-soft); color: var(--crimson); }
+@media(max-width:640px){
+  .group-layout { grid-template-columns: 1fr !important; }
+  .left-panel { position: static !important; }
+  .unit-grid { grid-template-columns: repeat(4,1fr) !important; }
+  .att-table-wrap { -webkit-overflow-scrolling: touch; }
+  .tab-nav { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; }
+  .tab-nav-btn { flex-shrink: 0; white-space: nowrap; }
+  .group-info-block { flex-direction: column; }
+}
 </style>
 </head>
 <body>

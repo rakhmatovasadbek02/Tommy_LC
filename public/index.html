@@ -80,6 +80,16 @@ font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.14s; backg
 .sp-result { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; }
 .sp-result:hover { background: var(--crimson-soft); }
 .sup-cell:hover { background: var(--crimson-soft); }
+@media(max-width:900px){
+  .timetable-section { flex-direction:column !important; }
+  .timetable-section > div { width:100% !important; }
+}
+@media(max-width:640px){
+  .welcome-banner { padding:14px 16px !important; }
+  .welcome-banner h2 { font-size:16px !important; }
+  .stat-row { display:grid !important; grid-template-columns:1fr 1fr; gap:10px; }
+  .stat-box { min-width:0 !important; }
+}
 </style>
 </head>
 <body>

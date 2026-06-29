@@ -48,6 +48,12 @@
     .shift-times{display:flex;align-items:center;gap:6px}
     .shift-times select{width:auto;padding:6px 8px}
     .shift-times span{color:var(--muted)}
+    .users-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+    @media(max-width:640px){
+      .users-grid{grid-template-columns:1fr !important;gap:10px}
+      .user-card-footer{flex-wrap:wrap}
+      .user-card-footer .btn{flex:1;justify-content:center}
+    }
   </style>
 </head>
 <body>

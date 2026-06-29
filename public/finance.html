@@ -113,9 +113,16 @@
     }
     @media(max-width:640px){
       .sum-card { padding:14px 16px; }
-      .sum-card-val { font-size:19px; }
+      .sum-card-val { font-size:17px !important; }
       .toolbar { flex-wrap:wrap; }
       .toolbar .search-bar { flex:1 1 100%; max-width:100%; }
+      .toolbar select, .toolbar input[type=month] { flex:1; min-width:0; }
+      .inv-row { grid-template-columns:36px 1fr auto; gap:8px; padding:10px 12px; }
+      .inv-row > .inv-when, .inv-row > .inv-actions { display:none; }
+      .inv-amount { font-size:13px; }
+      .card { border-radius:10px; }
+      .tab-row { overflow-x:auto; flex-wrap:nowrap; }
+      .tab-btn { flex-shrink:0; padding:10px 12px; font-size:12px; }
     }
   </style>
 </head>

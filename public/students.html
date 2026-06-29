@@ -43,10 +43,17 @@
     .sort-arrow svg { display:block; }
     th.sort-asc .sort-arrow, th.sort-desc .sort-arrow { opacity:1; }
 
+    @media(max-width:900px){
+      .students-table { min-width:600px; }
+      .st-comment, .st-teacher { display:none; }
+    }
     @media(max-width:640px){
-      .students-toolbar { gap:6px; }
+      .students-toolbar { gap:6px; flex-wrap:wrap; }
       .students-toolbar .search-bar { max-width:100%; flex:1 1 100%; }
+      .students-toolbar select { flex:1; }
       .st-comment, .st-teacher, .st-dates { display:none; }
+      .students-table-wrap { overflow-x:auto; }
+      .students-table { min-width:420px; font-size:12px; }
     }
   </style>
 </head>

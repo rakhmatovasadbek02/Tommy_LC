@@ -5,7 +5,12 @@
 <title>Groups — TommyLC CRM</title>
 <link rel="stylesheet" href="shared.css">
 <style>
-.groups-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.groups-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+@media(max-width:640px){
+  .groups-grid{grid-template-columns:1fr;gap:12px}
+  .group-card-footer{flex-wrap:wrap}
+  .sched-options{grid-template-columns:1fr 1fr !important}
+}
 .group-card{background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:box-shadow 0.15s,transform 0.15s}
 .group-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
 .group-card-top{padding:18px 20px 14px;border-bottom:1px solid var(--border);position:relative}
