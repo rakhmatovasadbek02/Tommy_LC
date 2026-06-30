@@ -129,6 +129,9 @@
       .card { border-radius:10px; }
       .tab-row { overflow-x:auto; flex-wrap:nowrap; }
       .tab-btn { flex-shrink:0; padding:10px 12px; font-size:12px; }
+      #exportBtn span, #newPaymentBtn span, #addSpendingBtn span { display:none; }
+      .deb-row { grid-template-columns:36px 1fr auto; gap:8px; padding:10px 12px; }
+      .deb-row .deb-groups { display:none; }
     }
   </style>
 </head>
@@ -138,9 +141,9 @@
   <div class="topbar">
     <div class="page-title">Finance</div>
     <div class="topbar-right">
-      <button class="btn btn-outline" id="exportBtn" onclick="exportCSV()" title="Export filtered payments to CSV"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
-<button class="btn btn-primary" id="newPaymentBtn" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Payment</button>
-      <button class="btn btn-primary" id="addSpendingBtn" onclick="openSpending()" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Spending</button>
+      <button class="btn btn-outline" id="exportBtn" onclick="exportCSV()" title="Export filtered payments to CSV"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <span>Export</span></button>
+<button class="btn btn-primary" id="newPaymentBtn" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>New Payment</span></button>
+      <button class="btn btn-primary" id="addSpendingBtn" onclick="openSpending()" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Spending</span></button>
     </div>
   </div>
   <div class="page-content">

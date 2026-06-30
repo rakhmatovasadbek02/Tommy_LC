@@ -16,6 +16,7 @@
   .groups-grid{grid-template-columns:1fr;gap:12px}
   .group-card-footer{flex-wrap:wrap}
   .sched-options{grid-template-columns:1fr 1fr !important}
+  .topbar-right .btn span { display:none; }
 }
 .group-card{background:white;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);transition:box-shadow 0.15s,transform 0.15s}
 .group-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
@@ -47,8 +48,8 @@
 <div class="topbar">
 <div class="page-title">Groups</div>
 <div class="topbar-right">
-<button class="btn btn-outline btn-sm" id="levelsBtn" onclick="openLevelsModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Levels</button>
-<button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Group</button>
+<button class="btn btn-outline btn-sm" id="levelsBtn" onclick="openLevelsModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Levels</span></button>
+<button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Group</span></button>
 </div>
 </div>
 <div class="page-content">

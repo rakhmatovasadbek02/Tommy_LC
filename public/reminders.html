@@ -18,7 +18,20 @@
     .tasks-sidebar { width:200px; flex-shrink:0; border-right:1px solid var(--border); background:var(--white); overflow-y:auto; padding:18px 0; }
     .tasks-main { flex:1; min-width:0; overflow-y:auto; padding:24px 28px; }
     .app-footer { display:none !important; }
-    @media(max-width:640px){ .main{width:100vw;} .tasks-sidebar{display:none;} }
+    @media(max-width:900px){
+      .kanban { grid-template-columns:repeat(2,1fr); }
+    }
+    @media(max-width:640px){
+      .main{width:100vw;}
+      .tasks-sidebar{display:none;}
+      .tasks-main { padding:14px; }
+      .kanban { grid-template-columns:1fr; }
+      .stats-row { flex-wrap:wrap; }
+      .stat-card { min-width:calc(50% - 6px); flex:1 1 calc(50% - 6px); }
+      .stat-val { font-size:18px; }
+      .task-card { padding:10px 11px; }
+      .task-meta { gap:4px; }
+    }
 
     /* Sidebar */
     .filter-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--text-muted); padding:0 18px; margin-bottom:6px; }

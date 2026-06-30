@@ -63,6 +63,20 @@
     .student-table td{padding:13px 16px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border)}
     .student-table tr:last-child td{border-bottom:none}
     .fine-badge{background:#ffe4e4;color:var(--crimson);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap}
+    @media(max-width:640px){
+      .form-row { grid-template-columns:1fr !important; }
+      .teacher-stats { overflow-x:auto; }
+      .teacher-stats table { min-width:380px; }
+      .student-table { overflow-x:auto; }
+      .student-table table { min-width:340px; }
+      .timetable-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      .session-card { padding:10px 12px; gap:10px; }
+      .session-time { font-size:18px; min-width:54px; }
+      .session-name { font-size:13px; }
+      .theme-input { width:120px; }
+      .attend-btn { padding:6px 10px; font-size:11px; }
+      .stat-row { grid-template-columns:repeat(2,1fr) !important; }
+    }
   </style>
 </head>
 <body>
