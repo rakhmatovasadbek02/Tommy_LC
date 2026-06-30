@@ -99,6 +99,8 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .chip-absent { background: var(--crimson); color: white; }
 .chip-empty { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.13s; }
 .chip-empty:hover { border-color: var(--crimson); background: var(--crimson-soft); }
+.chip-locked { width: 28px; height: 28px; border-radius: 50%; border: 1.5px dashed #d1d5db; background: #f9fafb; display: inline-flex; align-items: center; justify-content: center; opacity: 0.5; }
+.chip.chip-locked { cursor: default; opacity: 0.5; }
 .att-picker { position: fixed; z-index: 999; background: white; border: 1px solid var(--border); border-radius: 99px; box-shadow: 0 4px 16px rgba(0,0,0,.13); display: flex; gap: 6px; padding: 6px; }
 .att-picker button { width: 28px; height: 28px; border-radius: 50%; border: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity .1s; padding: 0; }
 .att-picker .ap-present { background: #1E6B45; color: white; }
@@ -360,6 +362,22 @@ const _sess = getSession();
 const _myRoles = (_sess?.roles || [_sess?.title || '']).filter(Boolean);
 const _canMarkAnyTime = _myRoles.some(r => ['CEO','Manager'].includes(r));
 
+function getTodayStr() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+function attCell(ds, sid, status) {
+  const isToday = _canMarkAnyTime || ds === getTodayStr();
+  if (!isToday) {
+    // locked — show value but no interaction
+    if (status === 'present') return `<td><button class="chip chip-present chip-locked" disabled>${IC_CHECK}</button></td>`;
+    if (status === 'absent')  return `<td><button class="chip chip-absent chip-locked" disabled>${IC_X}</button></td>`;
+    return `<td><span class="chip-locked"></span></td>`;
+  }
+  if (status === 'present') return `<td><button class="chip chip-present" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)">${IC_CHECK}</button></td>`;
+  if (status === 'absent')  return `<td><button class="chip chip-absent" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)">${IC_X}</button></td>`;
+  return `<td><span class="chip-empty" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
+}
 function isDuringLesson(dateStr) {
   if (_canMarkAnyTime) return true;
   const now = new Date();
@@ -629,12 +647,7 @@ tbody += `<tr>
 ${days.map(d => {
 const ds = toDateStr(year, month, d);
 const status = attData[ds]?.[s.id] || '';
-const date = new Date(year, month, d); date.setHours(0,0,0,0);
-const isFuture = date > today;
-if (isFuture) return `<td><span class="chip-empty" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
-if (status==='present') return `<td><button class="chip chip-present" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_CHECK}</button></td>`;
-if (status==='absent') return `<td><button class="chip chip-absent" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_X}</button></td>`;
-return `<td><span class="chip-empty" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
+return attCell(ds, s.id, status);
 }).join('')}
 </tr>`;
 });
@@ -654,12 +667,7 @@ tbody += `<tr class="att-trial-row">
 ${days.map(d => {
 const ds = toDateStr(year, month, d);
 const status = attData[ds]?.[s.id] || '';
-const date = new Date(year, month, d); date.setHours(0,0,0,0);
-const isFuture = date > today;
-if (isFuture) return `<td><span class="chip-empty" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
-if (status==='present') return `<td><button class="chip chip-present" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_CHECK}</button></td>`;
-if (status==='absent') return `<td><button class="chip chip-absent" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)">${IC_X}</button></td>`;
-return `<td><span class="chip-empty" data-sid="${s.id}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
+return attCell(ds, s.id, status);
 }).join('')}
 </tr>`;
 });
@@ -749,9 +757,7 @@ function setAtt(sid, date, next) {
     if (node.dataset.sid === sid && node.dataset.date === date) { td = node.parentElement; break; }
   }
   if (!td) return;
-  if (next === 'present') td.innerHTML = `<button class="chip chip-present" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_CHECK}</button>`;
-  else if (next === 'absent') td.innerHTML = `<button class="chip chip-absent" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)">${IC_X}</button>`;
-  else td.innerHTML = `<span class="chip-empty" data-sid="${sid}" data-date="${date}" onclick="cycleAtt(this)"></span>`;
+  td.outerHTML = attCell(date, sid, next);
   scheduleAutoSave();
 }
 async function saveAttendance() {
