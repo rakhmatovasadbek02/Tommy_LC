@@ -1989,6 +1989,14 @@ app.delete('/api/leads/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.delete('/api/leads/:id/permanent', async (req, res) => {
+  try {
+    const id = req.params.id;
+    await pool.query('DELETE FROM leads WHERE id=$1', [id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.put('/api/leads/:id/restore', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT pre_archive_status FROM leads WHERE id=$1', [req.params.id]);

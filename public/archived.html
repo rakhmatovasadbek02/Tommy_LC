@@ -372,11 +372,8 @@
     if (!confirm(`Permanently delete ${name}? This cannot be undone and will remove all their data including payments and attendance.`)) return;
     if (!confirm(`Are you sure? All records for ${name} will be deleted forever.`)) return;
     try {
-      if (sourceType === 'lead') {
-        await apiDelete(`/api/leads/${id}`);
-      } else {
-        await apiDelete(`/api/students/${id}/permanent`);
-      }
+      const endpoint = sourceType === 'lead' ? `/api/leads/${id}/permanent` : `/api/students/${id}/permanent`;
+      await apiDelete(endpoint);
       showToast(name + ' permanently deleted.');
       await load();
     } catch(e) { showToast('Error deleting: ' + e.message, 'error'); }
