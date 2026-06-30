@@ -102,15 +102,16 @@ font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.14s; backg
   .stat-box-value { font-size:26px; }
   .dashboard-topbar {
     display:grid !important;
-    grid-template-columns:1fr auto;
+    grid-template-columns:auto 1fr auto;
     grid-template-rows:auto auto;
     gap:8px;
     padding:10px 14px !important;
     height:auto !important;
   }
-  .dashboard-topbar .page-title { grid-column:1; grid-row:1; }
-  .dashboard-topbar .topbar-right { grid-column:2; grid-row:1; }
-  #searchWrap { grid-column:1 / -1; grid-row:2; width:100% !important; }
+  .dashboard-topbar .menu-toggle { grid-column:1; grid-row:2; align-self:center; }
+  .dashboard-topbar .page-title { grid-column:1 / 3; grid-row:1; }
+  .dashboard-topbar .topbar-right { grid-column:3; grid-row:1; }
+  #searchWrap { grid-column:2 / 4; grid-row:2; width:100% !important; }
   #hideNumsLabel { display:none; }
   .timetable-header { flex-wrap:wrap; gap:8px; }
   .day-tabs { flex-wrap:wrap; }
