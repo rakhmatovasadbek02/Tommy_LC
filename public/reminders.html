@@ -593,6 +593,11 @@ async function saveTask() {
     } else {
       await apiPost('/api/reminders', { ...body, id: 'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,6) });
       showToast('Task created');
+      if (assignedToId !== me.id && assignedToId !== 'administration') {
+        CURRENT_FILTER = 'assigned';
+        document.querySelectorAll('.filter-item').forEach(el => el.classList.remove('active'));
+        document.querySelector('[data-filter="assigned"]')?.classList.add('active');
+      }
     }
     closeTaskModal();
     ALL_TASKS = await apiGet('/api/reminders');
