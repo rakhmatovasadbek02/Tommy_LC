@@ -467,13 +467,8 @@ async function showAbsentModal() {
   }
 }
 
-let _numsHidden = localStorage.getItem('dash_hide_nums') !== '0';
+let _numsHidden = true;
 let _hideTimer = null;
-function resetHideTimer() {
-  clearTimeout(_hideTimer);
-  _hideTimer = setTimeout(() => { if (!_numsHidden) { _numsHidden = true; applyHideNums(); } }, 3 * 60 * 1000);
-}
-['mousemove','mousedown','keydown','touchstart','scroll'].forEach(e => document.addEventListener(e, resetHideTimer, { passive: true }));
 function applyHideNums() {
   document.getElementById('statRow').classList.toggle('nums-hidden', _numsHidden);
   document.getElementById('hideNumsLabel').textContent = _numsHidden ? 'Show' : 'Hide';
@@ -486,9 +481,11 @@ function applyHideNums() {
 }
 function toggleHideNums() {
   _numsHidden = !_numsHidden;
-  localStorage.setItem('dash_hide_nums', _numsHidden ? '1' : '0');
   applyHideNums();
-  if (!_numsHidden) resetHideTimer();
+  clearTimeout(_hideTimer);
+  if (!_numsHidden) {
+    _hideTimer = setTimeout(() => { _numsHidden = true; applyHideNums(); }, 3 * 60 * 1000);
+  }
 }
 
 async function init() {
