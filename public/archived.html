@@ -165,6 +165,36 @@
   </div>
 </div>
 
+<!-- Activation modal -->
+<div class="modal-overlay" id="activateModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Activate Student</div>
+      <button class="modal-close" onclick="closeModal('activateModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;font-size:15px;font-weight:700" id="actStudentName"></p>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Assign to Group</label>
+        <select id="actGroupSel" onchange="onActGroupChange()">
+          <option value="">— Select group —</option>
+        </select>
+      </div>
+      <div id="actChargeRow" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:none;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Activation charge</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px" id="actLessonNote"></div>
+        </div>
+        <div style="font-size:20px;font-weight:900;color:var(--crimson)" id="actAmount"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('activateModal')">Skip</button>
+      <button class="btn btn-primary" id="actConfirmBtn" onclick="confirmActivation()" disabled>Activate</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
@@ -315,6 +345,13 @@
     await load();
   }
 
+  let _allGroups = [];
+  let _activatingId = null;
+
+  async function ensureGroups() {
+    if (!_allGroups.length) _allGroups = await apiGet('/api/groups');
+  }
+
   function restoreByBtn(btn) {
     restoreStudent(btn.dataset.sid, btn.dataset.name, btn.dataset.src);
   }
@@ -324,9 +361,82 @@
     try {
       const endpoint = sourceType === 'lead' ? `/api/leads/${id}/restore` : `/api/students/${id}/restore`;
       await apiPut(endpoint, {});
-      showToast(name + ' restored.');
       await load();
+      if (sourceType !== 'lead') {
+        await openActivateModal(id, name);
+      } else {
+        showToast(name + ' restored.');
+      }
     } catch(e) { showToast('Error restoring.', 'error'); }
+  }
+
+  async function openActivateModal(studentId, studentName) {
+    await ensureGroups();
+    _activatingId = studentId;
+    document.getElementById('actStudentName').textContent = studentName + ' restored. Activate now?';
+    const sel = document.getElementById('actGroupSel');
+    sel.innerHTML = '<option value="">— Select group —</option>' +
+      _allGroups.map(g => `<option value="${g.id}">${g.name}${g.time ? ' ('+g.time+')' : ''}</option>`).join('');
+    document.getElementById('actChargeRow').style.display = 'none';
+    document.getElementById('actConfirmBtn').disabled = true;
+    openModal('activateModal');
+  }
+
+  function calcProRate(group) {
+    const price = Math.abs(Number(group.price || 0));
+    if (!price) return { amount: 0, remaining: 0 };
+    const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+    let lessonDays;
+    const sched = group.schedType;
+    let customDays = group.customDays;
+    if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
+    if (sched === 'odd')        lessonDays = [1,3,5];
+    else if (sched === 'even')  lessonDays = [2,4,6];
+    else if (sched === 'daily') lessonDays = [1,2,3,4,5];
+    else if (sched === 'custom') lessonDays = (customDays||[]).map(d=>dayMap[d]).filter(d=>d!==undefined);
+    else lessonDays = [1,3,5];
+    const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+    const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+    const last = new Date(year, month+1, 0).getDate();
+    let remaining = 0;
+    for (let d = today; d <= last; d++) {
+      if (lessonDays.includes(new Date(year, month, d).getDay())) remaining++;
+    }
+    return { amount: Math.round((price / 12) * Math.max(0, remaining)), remaining };
+  }
+
+  function onActGroupChange() {
+    const gid = document.getElementById('actGroupSel').value;
+    const btn = document.getElementById('actConfirmBtn');
+    if (!gid) { document.getElementById('actChargeRow').style.display = 'none'; btn.disabled = true; return; }
+    const g = _allGroups.find(x => x.id === gid);
+    if (!g) return;
+    const { amount, remaining } = calcProRate(g);
+    const chargeRow = document.getElementById('actChargeRow');
+    if (amount > 0) {
+      const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      document.getElementById('actAmount').textContent = amount.toLocaleString() + ' UZS';
+      document.getElementById('actLessonNote').textContent = remaining + ' of 12 lessons · ' + months[now.getMonth()] + ' ' + now.getFullYear();
+      chargeRow.style.display = 'flex';
+    } else {
+      chargeRow.style.display = 'none';
+    }
+    btn.disabled = false;
+  }
+
+  async function confirmActivation() {
+    const gid = document.getElementById('actGroupSel').value;
+    if (!gid || !_activatingId) return;
+    closeModal('activateModal');
+    try {
+      const result = await apiPost('/api/students/' + _activatingId + '/activate', { groupId: gid });
+      const g = _allGroups.find(x => x.id === gid);
+      showToast(result.amount > 0
+        ? `Activated in ${g?.name}! −${result.amount.toLocaleString()} UZS`
+        : `Activated in ${g?.name}!`);
+    } catch(e) { showToast('Error activating: ' + e.message, 'error'); }
+    _activatingId = null;
   }
 
   load();
