@@ -84,6 +84,7 @@ font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.14s; backg
   .timetable-section { flex-direction:column !important; }
   .timetable-section > div { width:100% !important; }
 }
+.nums-hidden .stat-box-value { filter:blur(8px); user-select:none; pointer-events:none; }
 @media(max-width:640px){
   .welcome-banner { padding:14px 16px !important; }
   .welcome-banner h2 { font-size:16px !important; }
@@ -106,7 +107,12 @@ onfocus="this.style.borderColor='var(--crimson)'"
 onblur="this.style.borderColor='var(--border)'">
 <div id="searchDropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:999;max-height:320px;overflow-y:auto;"></div>
 </div>
-<div class="topbar-right"></div>
+<div class="topbar-right">
+  <button id="hideNumsBtn" onclick="toggleHideNums()" class="btn btn-outline btn-sm" title="Hide numbers">
+    <svg id="hideNumsIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+    <span id="hideNumsLabel">Hide</span>
+  </button>
+</div>
 </div>
 <div class="page-content">
 <div class="welcome-banner">
@@ -460,6 +466,23 @@ async function showAbsentModal() {
   }
 }
 
+let _numsHidden = localStorage.getItem('dash_hide_nums') === '1';
+function applyHideNums() {
+  document.getElementById('statRow').classList.toggle('nums-hidden', _numsHidden);
+  document.getElementById('hideNumsLabel').textContent = _numsHidden ? 'Show' : 'Hide';
+  const icon = document.getElementById('hideNumsIcon');
+  if (_numsHidden) {
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  } else {
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  }
+}
+function toggleHideNums() {
+  _numsHidden = !_numsHidden;
+  localStorage.setItem('dash_hide_nums', _numsHidden ? '1' : '0');
+  applyHideNums();
+}
+
 async function init() {
 try {
 const d = await apiGet('/api/dashboard');
@@ -468,6 +491,7 @@ window._groups = d.groups; window._stats = d.stats;
 window._groups=[]; window._stats=null;
 }
 renderStats();
+applyHideNums();
 const autoTab = autoDetectTab();
 dayFilter = autoTab;
 document.querySelectorAll('.day-tab').forEach(btn => {
