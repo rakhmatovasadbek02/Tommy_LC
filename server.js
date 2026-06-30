@@ -742,7 +742,7 @@ app.delete('/api/users/:id', async (req, res) => {
 app.get('/api/students', async (req, res) => {
   try {
     const [studRes, grpRes, cmtRes] = await Promise.all([
-      pool.query("SELECT * FROM students WHERE archived IS NOT TRUE AND status != 'Lead' ORDER BY created_at DESC"),
+      pool.query("SELECT * FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') ORDER BY created_at DESC"),
       pool.query('SELECT id,name,teacher,level,time,start_date,student_ids FROM groups'),
       pool.query(`SELECT DISTINCT ON (student_id) student_id, text, actor, created_at
                   FROM student_comments ORDER BY student_id, created_at DESC`)
