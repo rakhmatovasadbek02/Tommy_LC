@@ -953,6 +953,18 @@ app.get('/api/students/blacklist-check', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.delete('/api/students/:id/permanent', async (req, res) => {
+  try {
+    const sid = req.params.id;
+    await pool.query('DELETE FROM student_comments WHERE student_id=$1', [sid]);
+    await pool.query('DELETE FROM student_calls WHERE student_id=$1', [sid]);
+    await pool.query('DELETE FROM invoices WHERE student_id=$1', [sid]);
+    await pool.query('DELETE FROM attendance WHERE student_id=$1', [sid]);
+    await pool.query('DELETE FROM students WHERE id=$1', [sid]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.put('/api/students/:id/restore', async (req, res) => {
   try {
     await pool.query(

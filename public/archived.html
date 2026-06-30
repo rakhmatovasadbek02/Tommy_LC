@@ -247,7 +247,10 @@
         ${s.archiveComment ? `<div class="bl-comment">${s.archiveComment}</div>` : ''}
         <div class="bl-footer">
           <span class="bl-date">${dt}</span>
-          <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="restoreByBtn(this)">Restore</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="restoreByBtn(this)">Restore</button>
+            ${CAN_DELETE ? `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;border:1.5px solid #dc2626;color:#dc2626;background:white" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="deleteByBtn(this)" title="Permanently delete"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -302,8 +305,9 @@
           </div>
           ${s.archiveComment ? `<div class="arch-comment" title="${s.archiveComment.replace(/"/g,'&quot;')}">${s.archiveComment}</div>` : ''}
         </div>
-        <div class="arch-restore">
+        <div class="arch-restore" style="display:flex;gap:6px;flex-shrink:0">
           <button class="btn btn-outline btn-sm" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="restoreByBtn(this)">Restore</button>
+          ${CAN_DELETE ? `<button class="btn btn-sm" style="border:1.5px solid #dc2626;color:#dc2626;background:white" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="deleteByBtn(this)" title="Permanently delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -345,6 +349,10 @@
     await load();
   }
 
+  const _archSess = getSession();
+  const _archRoles = (_archSess?.roles || [_archSess?.title || '']).filter(Boolean);
+  const CAN_DELETE = _archRoles.some(r => ['CEO', 'Head Admin'].includes(r));
+
   let _allGroups = [];
   let _activatingId = null;
 
@@ -354,6 +362,24 @@
 
   function restoreByBtn(btn) {
     restoreStudent(btn.dataset.sid, btn.dataset.name, btn.dataset.src);
+  }
+
+  function deleteByBtn(btn) {
+    deleteStudent(btn.dataset.sid, btn.dataset.name, btn.dataset.src);
+  }
+
+  async function deleteStudent(id, name, sourceType) {
+    if (!confirm(`Permanently delete ${name}? This cannot be undone and will remove all their data including payments and attendance.`)) return;
+    if (!confirm(`Are you sure? All records for ${name} will be deleted forever.`)) return;
+    try {
+      if (sourceType === 'lead') {
+        await apiDelete(`/api/leads/${id}`);
+      } else {
+        await apiDelete(`/api/students/${id}/permanent`);
+      }
+      showToast(name + ' permanently deleted.');
+      await load();
+    } catch(e) { showToast('Error deleting: ' + e.message, 'error'); }
   }
 
   async function restoreStudent(id, name, sourceType) {
