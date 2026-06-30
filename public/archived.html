@@ -204,7 +204,6 @@
       const col  = avatarColor(name);
       const dt   = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
       const src  = s.sourceType || 'student';
-      const safeName = name.replace(/'/g,"\\'");
       return `<div class="bl-card">
         <div class="bl-top">
           <div class="bl-avatar" style="background:${col}">${initials(name)}</div>
@@ -218,7 +217,7 @@
         ${s.archiveComment ? `<div class="bl-comment">${s.archiveComment}</div>` : ''}
         <div class="bl-footer">
           <span class="bl-date">${dt}</span>
-          <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" onclick="restoreStudent('${s.id}','${safeName}','${src}')">Restore</button>
+          <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="restoreByBtn(this)">Restore</button>
         </div>
       </div>`;
     }).join('');
@@ -253,7 +252,6 @@
       const dt    = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
       const phone = s.phone ? '+998 ' + s.phone : null;
       const src   = s.sourceType || 'student';
-      const safeName = name.replace(/'/g,"\\'");
       return `<div class="arch-card">
         <div class="arch-avatar" style="background:${col}">${initials(name)}</div>
         <div class="arch-info">
@@ -275,7 +273,7 @@
           ${s.archiveComment ? `<div class="arch-comment" title="${s.archiveComment.replace(/"/g,'&quot;')}">${s.archiveComment}</div>` : ''}
         </div>
         <div class="arch-restore">
-          <button class="btn btn-outline btn-sm" onclick="restoreStudent('${s.id}','${safeName}','${src}')">Restore</button>
+          <button class="btn btn-outline btn-sm" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="restoreByBtn(this)">Restore</button>
         </div>
       </div>`;
     }).join('');
@@ -293,7 +291,7 @@
     el.innerHTML = _reasons.map(r =>
       `<div class="reason-row">
         <span class="reason-row-label">${r.label}</span>
-        <button class="reason-row-del" onclick="deleteReason(${r.id},'${r.label.replace(/'/g,"\\'")}')">
+        <button class="reason-row-del" data-rid="${r.id}" onclick="deleteReason(this.dataset.rid, this.closest('.reason-row').querySelector('.reason-row-label').textContent)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>`
@@ -315,6 +313,10 @@
     if (!confirm(`Delete reason "${label}"?`)) return;
     await apiDelete('/api/archive-reasons/' + id);
     await load();
+  }
+
+  function restoreByBtn(btn) {
+    restoreStudent(btn.dataset.sid, btn.dataset.name, btn.dataset.src);
   }
 
   async function restoreStudent(id, name, sourceType) {

@@ -178,6 +178,14 @@
                   <div class="pc2-meta-label">Parent phone</div>
                   <a class="pc2-link" id="profParentPhone"></a>
                 </div>
+                <div id="profMotherRow" style="display:none">
+                  <div class="pc2-meta-label">Mother phone</div>
+                  <a class="pc2-link" id="profMotherPhone"></a>
+                </div>
+                <div id="profOtherRow" style="display:none">
+                  <div class="pc2-meta-label">Other phone</div>
+                  <a class="pc2-link" id="profOtherPhone"></a>
+                </div>
               </div>
             </div>
 
@@ -492,6 +500,12 @@
       const parentEl = document.getElementById('profParentPhone');
       if (s.phoneParent) { parentEl.textContent = '+998 '+s.phoneParent; parentEl.href = 'tel:+998'+s.phoneParent.replace(/\s/g,''); }
       document.getElementById('profParentRow').style.display = s.phoneParent ? '' : 'none';
+      const motherEl = document.getElementById('profMotherPhone');
+      if (s.phoneMother) { motherEl.textContent = '+998 '+s.phoneMother; motherEl.href = 'tel:+998'+s.phoneMother.replace(/\s/g,''); }
+      document.getElementById('profMotherRow').style.display = s.phoneMother ? '' : 'none';
+      const otherEl = document.getElementById('profOtherPhone');
+      if (s.phoneOther) { otherEl.textContent = '+998 '+s.phoneOther; otherEl.href = 'tel:+998'+s.phoneOther.replace(/\s/g,''); }
+      document.getElementById('profOtherRow').style.display = s.phoneOther ? '' : 'none';
       document.getElementById('profLevel').textContent   = s.level   || '—';
       document.getElementById('profExam').textContent    = s.exam    || '—';
       document.getElementById('profSchool').textContent  = s.school  || '—';
@@ -673,8 +687,11 @@
   function editInvoice(id) {
     const i = _invoices?.find(x => x.id === id);
     if (!i) return;
-    openPayModal();
-    document.getElementById('payAmount').value = i.total;
+    _editInvoiceId = id;
+    openPayModal('add');
+    document.getElementById('payModalTitle').textContent = 'Edit Payment';
+    document.getElementById('paySubmitBtn').textContent  = 'Save Changes';
+    document.getElementById('payAmount').value = Math.abs(Number(i.total));
     document.getElementById('payType').value = i.paymentType || 'Cash';
     document.querySelectorAll('.pay-type-btn').forEach(b => {
       b.classList.toggle('selected', b.dataset.type === (i.paymentType||'Cash'));
@@ -764,7 +781,9 @@
   }
 
   let _payMode = 'add';
+  let _editInvoiceId = null;
   function openPayModal(mode = 'add') {
+    _editInvoiceId = null;
     _payMode = mode;
     const isSubtract = mode === 'subtract';
     document.getElementById('payModalTitle').textContent = isSubtract ? 'Subtract Balance' : 'Add Payment';
@@ -801,10 +820,25 @@
       notes:       document.getElementById('payNotes').value.trim(),
       creator:     session?.name || null,
     };
-    await apiPost('/api/students/'+STUDENT_ID+'/payment', data);
-    logActivity(`Payment ${amount.toLocaleString()} for ${student?.firstName} ${student?.lastName}`, 'green');
+    if (_editInvoiceId) {
+      const inv = _invoices?.find(x => x.id === _editInvoiceId);
+      await apiPut('/api/invoices/'+_editInvoiceId, {
+        studentId:   STUDENT_ID,
+        groupId:     data.groupId,
+        desc:        data.desc,
+        total:       Math.abs(amount),
+        status:      inv?.status || 'Paid',
+        paymentType: data.paymentType,
+        notes:       data.notes,
+      });
+      logActivity(`Edited payment for ${student?.firstName} ${student?.lastName}`, '');
+      showToast('Payment updated!');
+    } else {
+      await apiPost('/api/students/'+STUDENT_ID+'/payment', data);
+      logActivity(`Payment ${amount.toLocaleString()} for ${student?.firstName} ${student?.lastName}`, 'green');
+      showToast('Payment added!');
+    }
     closeModal('payModal');
-    showToast('Payment added!');
     loadProfile();
   }
 

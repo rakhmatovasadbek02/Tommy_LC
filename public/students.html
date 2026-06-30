@@ -374,6 +374,8 @@
     document.getElementById('sLast').value               = s.lastName;
     document.getElementById('sPhoneStudent').value       = s.phone||'';
     document.getElementById('sPhoneFather').value        = s.phoneParent||'';
+    document.getElementById('sPhoneMother').value        = s.phoneMother||'';
+    document.getElementById('sPhoneOther').value         = s.phoneOther||'';
     document.getElementById('sStatus').value             = s.status||'Active';
     document.getElementById('sLevel').value              = s.level||'';
     document.getElementById('sExam').value               = s.exam||'';
@@ -400,12 +402,13 @@
       showToast('At least 2 phone numbers required.','error'); return;
     }
     document.getElementById('sPhoneError').style.display = 'none';
-    const parentPhone = phones[1] || phones[2] || phones[3] || null;
     const comment = document.getElementById('sNotes').value.trim();
     const data = {
       firstName: first, lastName: last,
-      phone:       phones[0] || null,
-      phoneParent: parentPhone,
+      phone:        phones[0] || null,
+      phoneParent:  phones[1] || null,
+      phoneMother:  phones[2] || null,
+      phoneOther:   phones[3] || null,
       status:   id ? document.getElementById('sStatus').value : 'Inactive',
       level:    document.getElementById('sLevel').value,
       exam:     document.getElementById('sExam').value.trim(),

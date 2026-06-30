@@ -302,6 +302,8 @@ async function initDB() {
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS balance_frozen BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS frozen_comment TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_parent TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_mother TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_other  TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`,
@@ -763,7 +765,7 @@ app.get('/api/students', async (req, res) => {
       const lc = lastComment[s.id];
       return {
         id: s.id, firstName: s.first_name, lastName: s.last_name,
-        phone: s.phone, phoneParent: s.phone_parent,
+        phone: s.phone, phoneParent: s.phone_parent, phoneMother: s.phone_mother, phoneOther: s.phone_other,
         level: s.level,
         status: enrolled.has(s.id) ? s.status : 'Inactive',
         balance: Number(s.balance || 0),
@@ -789,15 +791,15 @@ app.get('/api/students', async (req, res) => {
 
 app.post('/api/students', async (req, res) => {
   try {
-    const { firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address } = req.body;
+    const { firstName, lastName, phone, phoneParent, phoneMother, phoneOther, level, status, exam, examDate, notes, school, grade, address } = req.body;
     let id;
     do {
       id = String(Math.floor(10000 + Math.random() * 90000));
       var existing = await pool.query('SELECT 1 FROM students WHERE id=$1', [id]);
     } while (existing.rows.length > 0);
     await pool.query(
-      'INSERT INTO students(id,first_name,last_name,phone,phone_parent,level,status,exam,exam_date,notes,school,grade,address) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
-      [id, firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null]
+      'INSERT INTO students(id,first_name,last_name,phone,phone_parent,phone_mother,phone_other,level,status,exam,exam_date,notes,school,grade,address) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
+      [id, firstName, lastName, phone||null, phoneParent||null, phoneMother||null, phoneOther||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null]
     );
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
     await notifyRole('staff', 'new_student', 'New student enrolled',
@@ -808,10 +810,10 @@ app.post('/api/students', async (req, res) => {
 
 app.put('/api/students/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address, balance_frozen, frozen_comment } = req.body;
+    const { firstName, lastName, phone, phoneParent, phoneMother, phoneOther, level, status, exam, examDate, notes, school, grade, address, balance_frozen, frozen_comment } = req.body;
     await pool.query(
-      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,level=$5,status=$6,exam=$7,exam_date=$8,notes=$9,school=$10,grade=$11,address=$12,balance_frozen=$13,frozen_comment=$14 WHERE id=$15',
-      [firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, balance_frozen||false, frozen_comment||null, req.params.id]
+      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,phone_mother=$5,phone_other=$6,level=$7,status=$8,exam=$9,exam_date=$10,notes=$11,school=$12,grade=$13,address=$14,balance_frozen=$15,frozen_comment=$16 WHERE id=$17',
+      [firstName, lastName, phone||null, phoneParent||null, phoneMother||null, phoneOther||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, balance_frozen||false, frozen_comment||null, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -989,7 +991,7 @@ app.get('/api/students/:id', async (req, res) => {
     // Same rule as the list endpoint: a student not enrolled in any group shows as Inactive
     const enr = await pool.query('SELECT 1 FROM groups WHERE student_ids @> $1::jsonb LIMIT 1', [JSON.stringify([s.id])]);
     res.json({ id: s.id, firstName: s.first_name, lastName: s.last_name,
-      phone: s.phone, phoneParent: s.phone_parent,
+      phone: s.phone, phoneParent: s.phone_parent, phoneMother: s.phone_mother, phoneOther: s.phone_other,
       level: s.level, status: enr.rows.length ? s.status : 'Inactive', balance: Number(s.balance||0),
       exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
       school: s.school, grade: s.grade, address: s.address });
