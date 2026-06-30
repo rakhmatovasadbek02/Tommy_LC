@@ -767,7 +767,7 @@ app.get('/api/students', async (req, res) => {
         id: s.id, firstName: s.first_name, lastName: s.last_name,
         phone: s.phone, phoneParent: s.phone_parent, phoneMother: s.phone_mother, phoneOther: s.phone_other,
         level: s.level,
-        status: enrolled.has(s.id) ? s.status : 'Inactive',
+        status: enrolled.has(s.id) ? (s.status === 'Frozen' ? 'Frozen' : 'Active') : 'Inactive',
         balance: Number(s.balance || 0),
         balance_frozen: s.balance_frozen || false,
         frozen_comment: s.frozen_comment || null,
@@ -992,7 +992,7 @@ app.get('/api/students/:id', async (req, res) => {
     const enr = await pool.query('SELECT 1 FROM groups WHERE student_ids @> $1::jsonb LIMIT 1', [JSON.stringify([s.id])]);
     res.json({ id: s.id, firstName: s.first_name, lastName: s.last_name,
       phone: s.phone, phoneParent: s.phone_parent, phoneMother: s.phone_mother, phoneOther: s.phone_other,
-      level: s.level, status: enr.rows.length ? s.status : 'Inactive', balance: Number(s.balance||0),
+      level: s.level, status: enr.rows.length ? (s.status === 'Frozen' ? 'Frozen' : 'Active') : 'Inactive', balance: Number(s.balance||0),
       exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
       school: s.school, grade: s.grade, address: s.address });
   } catch(e) { res.status(500).json({ error: e.message }); }
