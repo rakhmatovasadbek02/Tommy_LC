@@ -1,6 +1,9 @@
 // ══════════════════════════════════════════
 // Tommy LC CRM — Shared Utilities (PostgreSQL)
 // ══════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
 
 const API = '';
 
