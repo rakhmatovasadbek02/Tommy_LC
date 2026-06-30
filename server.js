@@ -298,6 +298,8 @@ async function initDB() {
     `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS password TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS sub_container TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS balance NUMERIC DEFAULT 0`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS balance_frozen BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS frozen_comment TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_parent TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
@@ -764,6 +766,8 @@ app.get('/api/students', async (req, res) => {
         level: s.level,
         status: enrolled.has(s.id) ? s.status : 'Inactive',
         balance: Number(s.balance || 0),
+        balance_frozen: s.balance_frozen || false,
+        frozen_comment: s.frozen_comment || null,
         exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
         school: s.school, grade: s.grade, address: s.address,
         groups: (studentGroups[s.id] || []).map(g => ({
@@ -803,10 +807,10 @@ app.post('/api/students', async (req, res) => {
 
 app.put('/api/students/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address } = req.body;
+    const { firstName, lastName, phone, phoneParent, level, status, exam, examDate, notes, school, grade, address, balance_frozen, frozen_comment } = req.body;
     await pool.query(
-      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,level=$5,status=$6,exam=$7,exam_date=$8,notes=$9,school=$10,grade=$11,address=$12 WHERE id=$13',
-      [firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, req.params.id]
+      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,level=$5,status=$6,exam=$7,exam_date=$8,notes=$9,school=$10,grade=$11,address=$12,balance_frozen=$13,frozen_comment=$14 WHERE id=$15',
+      [firstName, lastName, phone||null, phoneParent||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, balance_frozen||false, frozen_comment||null, req.params.id]
     );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

@@ -36,8 +36,9 @@ min-width: 56px;
 .student-num { font-size: 12px; color: var(--muted); min-width: 22px; text-align: right; }
 .student-dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
 .student-dot.debt { background: #dc2626; }
-.student-dot.frozen { background: #94a3b8; }
+.student-dot.frozen { background: #60a5fa; }
 .student-list-name { flex: 1; font-weight: 500; font-size: 13px; }
+.student-list-name.is-frozen { background: #dbeafe; color: #1d4ed8; border-radius: 5px; padding: 2px 8px; font-weight: 600; }
 .student-phone { font-size: 12px; color: #6366f1; font-weight: 500; }
 /* Three-dot menu */
 .stu-menu-btn { width: 28px; height: 28px; border: none; background: none; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-shrink: 0; transition: background 0.1s; }
@@ -472,13 +473,13 @@ const trialReg = sorted.filter(s => s.status === 'Trial');
 const menuIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>`;
 
 el.innerHTML = active.map((s,i) => {
-const frozen = s.status === 'Inactive';
+const frozen = s.status === 'Frozen';
 const dotClass = frozen ? 'frozen' : (s.balance < 0 ? 'debt' : '');
 return `
 <div class="student-list-item" ${_isTeacher ? '' : `onclick="window.location.href='student-profile.html?id=${s.id}'" style="cursor:pointer"`}>
   <span class="student-num">${i+1}.</span>
   <span class="student-dot${dotClass ? ' '+dotClass : ''}"></span>
-  <span class="student-list-name">${s.firstName} ${s.lastName}${frozen ? ' <span style="font-size:10px;color:#94a3b8;font-weight:700">FROZEN</span>' : ''}</span>
+  <span class="student-list-name${frozen ? ' is-frozen' : ''}">${s.firstName} ${s.lastName}</span>
   <span class="student-phone">${fmtPhone(s.phone)}</span>
   <button class="stu-menu-btn" onclick="event.stopPropagation();toggleStudentMenu('${s.id}',event)">${menuIcon}</button>
   <div class="stu-dropdown" id="smenu-${s.id}">
@@ -897,9 +898,18 @@ async function makeStudentFrozen(id) {
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
   const s = students.find(s => s.id === id);
   if (!s) return;
-  const freeze = s.status !== 'Inactive';
-  await apiPut('/api/students/'+id, { ...s, status: freeze ? 'Inactive' : 'Active' });
-  s.status = freeze ? 'Inactive' : 'Active';
+  const freeze = s.status !== 'Frozen';
+  if (freeze) {
+    const comment = prompt(`Reason for freezing ${s.firstName} ${s.lastName}:`);
+    if (comment === null) return;
+    await apiPut('/api/students/'+id, { ...s, status: 'Frozen', balance_frozen: true, frozen_comment: comment });
+    s.status = 'Frozen'; s.balance_frozen = true; s.frozen_comment = comment;
+    const sess = getSession();
+    if (comment) await apiPost('/api/students/'+id+'/comments', { text: `Frozen: ${comment}`, actor: sess?.name||'Staff' });
+  } else {
+    await apiPut('/api/students/'+id, { ...s, status: 'Active', balance_frozen: false, frozen_comment: null });
+    s.status = 'Active'; s.balance_frozen = false; s.frozen_comment = null;
+  }
   renderStudentList();
   logActivity(`${freeze ? 'Frozen' : 'Unfrozen'} student: ${s.firstName} ${s.lastName}`, '');
   showToast(freeze ? `${s.firstName} frozen.` : `${s.firstName} unfrozen.`);
