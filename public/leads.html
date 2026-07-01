@@ -559,8 +559,12 @@ let leads = [], groups = [];
 let trialLeadId = null, activateLeadId = null;
 let _dragId = null;
 
+let _wasDragged = false;
+
 function dragStart(event, leadId) {
   _dragId = leadId;
+  _wasDragged = true;
+  event.dataTransfer.setData('text/plain', leadId);
   event.dataTransfer.effectAllowed = 'move';
   setTimeout(() => {
     const el = document.querySelector('[data-drag-id="' + leadId + '"]');
@@ -570,6 +574,7 @@ function dragStart(event, leadId) {
 function dragEnd(event) {
   event.currentTarget.classList.remove('dragging');
   document.querySelectorAll('.drop-zone.drag-over').forEach(el => el.classList.remove('drag-over'));
+  setTimeout(() => { _wasDragged = false; }, 50);
 }
 function dragOver(event) {
   event.preventDefault();
@@ -1069,6 +1074,7 @@ async function deleteLeadCall(id) {
 }
 
 function showDetail(id) {
+  if (_wasDragged) return;
   const l = leads.find(l => l.id === id); if (!l) return;
   _detailLeadId = id;
   const group = groups.find(g => g.id === l.groupId);
