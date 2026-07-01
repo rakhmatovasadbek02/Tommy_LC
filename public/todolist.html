@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reminders — TommyLC CRM</title>
+  <title>Todolist — TommyLC CRM</title>
   <link rel="stylesheet" href="shared.css">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#990000">
@@ -15,10 +15,12 @@
     .main { height:100vh; max-width:none !important; width:calc(100vw - var(--nav-w)); overflow:hidden; display:flex; flex-direction:column; }
     .topbar { flex-shrink:0; }
     .tasks-wrap { display:flex; flex:1; min-height:0; overflow:hidden; }
-    .tasks-sidebar { width:210px; flex-shrink:0; border-right:1px solid var(--border); background:var(--white); overflow-y:auto; padding:18px 0; }
+    .tasks-sidebar { width:200px; flex-shrink:0; border-right:1px solid var(--border); background:var(--white); overflow-y:auto; padding:18px 0; }
     .tasks-main { flex:1; min-width:0; overflow-y:auto; padding:24px 28px; }
     .app-footer { display:none !important; }
-    @media(max-width:900px){ .kanban { grid-template-columns:repeat(2,1fr); } }
+    @media(max-width:900px){
+      .kanban { grid-template-columns:repeat(2,1fr); }
+    }
     @media(max-width:640px){
       .main{width:100vw;}
       .tasks-sidebar{display:none;}
@@ -28,11 +30,11 @@
       .stat-card { min-width:calc(50% - 6px); flex:1 1 calc(50% - 6px); }
       .stat-val { font-size:18px; }
       .task-card { padding:10px 11px; }
+      .task-meta { gap:4px; }
     }
 
     /* Sidebar */
     .filter-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--text-muted); padding:0 18px; margin-bottom:6px; }
-    .filter-label:not(:first-child) { margin-top:16px; }
     .filter-item { display:flex; align-items:center; gap:10px; padding:9px 14px; margin:0 6px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--text); transition:background .12s; }
     .filter-item:hover { background:var(--bg); }
     .filter-item.active { background:rgba(192,57,43,.09); color:var(--primary); font-weight:600; }
@@ -43,6 +45,7 @@
     .stats-row { display:flex; gap:12px; margin-bottom:20px; }
     .stat-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:14px 18px; flex:1; display:flex; align-items:center; gap:14px; }
     .stat-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:17px; }
+    .stat-text {}
     .stat-val { font-size:20px; font-weight:800; line-height:1; }
     .stat-lbl { font-size:11px; color:var(--text-muted); margin-top:3px; font-weight:500; }
 
@@ -68,35 +71,58 @@
     .kanban-col-body { padding:10px; display:flex; flex-direction:column; gap:8px; min-height:80px; }
 
     /* Task cards */
-    .task-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 13px; cursor:pointer; transition:box-shadow .15s, transform .1s; position:relative; }
+    .task-card { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 13px; transition:box-shadow .15s, transform .1s; position:relative; }
     .task-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.09); transform:translateY(-1px); }
+    /* Priority-based card colors */
     .task-card.pri-high    { background:#fff5f5; border-color:#fca5a5; border-left:3px solid #c0392b; }
     .task-card.pri-medium  { background:#fffbf0; border-color:#fcd34d; border-left:3px solid #e67e22; }
     .task-card.pri-low     { background:#f0fdf4; border-color:#86efac; border-left:3px solid #27ae60; }
+    /* Overdue overrides card color */
     .task-card.status-overdue { background:#fff0f0 !important; border-color:#fca5a5 !important; border-left:3px solid #c0392b !important; }
     .task-card.status-completed { opacity:.6; filter:grayscale(.3); }
+    .task-top { display:flex; align-items:flex-start; gap:8px; }
+    .task-body { flex:1; min-width:0; }
     .task-title { font-size:13px; font-weight:600; color:var(--text); line-height:1.45; }
     .task-title.done-text { text-decoration:line-through; color:var(--text-muted); }
     .task-note { font-size:11.5px; color:var(--text-muted); margin-top:4px; line-height:1.5; }
+    .task-meta { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; align-items:center; }
     .pill { padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:600; }
+    .pill-high   { background:#fde8e8; color:#c0392b; }
+    .pill-medium { background:#fef3cd; color:#b7791f; }
+    .pill-low    { background:#e8f5e9; color:#27ae60; }
     .pill-due    { background:#f0f4ff; color:#3b5bdb; }
     .pill-due.overdue { background:#fde8e8; color:#c0392b; }
     .pill-person { background:#f5f0ff; color:#6f42c1; }
-    .pill-assignee { background:#e8f5e9; color:#27ae60; }
     .task-footer { display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-top:9px; border-top:1px solid var(--border); gap:6px; }
     .task-footer-left { display:flex; gap:5px; flex-wrap:wrap; }
     .task-footer-right { display:flex; gap:5px; flex-shrink:0; }
+
+    /* Progress button */
+    .progress-btn { border:none; border-radius:6px; padding:4px 11px; font-size:11px; font-weight:700; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:4px; }
+    .btn-start { background:#fff3e0; color:#e67e22; }
+    .btn-start:hover { background:#e67e22; color:#fff; }
+    .btn-done  { background:#e8f5e9; color:#27ae60; }
+    .btn-done:hover  { background:#27ae60; color:#fff; }
+
+    /* Edit/Delete */
+    .task-actions { display:flex; gap:5px; }
     .task-btn { border:1px solid var(--border); background:var(--white); color:var(--text-muted); border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer; transition:all .12s; }
     .task-btn:hover { background:var(--bg); color:var(--text); }
     .task-btn.danger:hover { background:#fde8e8; border-color:#fbb; color:#c0392b; }
 
-    /* Countdown timer */
+    /* Countdown timer pill */
     .task-timer { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:20px; font-size:10px; font-weight:700; }
     .task-timer.timer-ok     { background:#eef2ff; color:#3b5bdb; }
     .task-timer.timer-soon   { background:#fff3e0; color:#e67e22; }
     .task-timer.timer-urgent { background:#fde8e8; color:#c0392b; animation:pulse .9s infinite alternate; }
     .task-timer.timer-over   { background:#fde8e8; color:#c0392b; }
     @keyframes pulse { from{opacity:1} to{opacity:.55} }
+
+    /* Drag and drop */
+    .task-card { cursor:pointer; }
+    .task-card[draggable="true"] { cursor:grab; }
+    .task-card[draggable="true"]:active { cursor:grabbing; }
+    .task-card.dragging { opacity:.3; transform:scale(.98); }
 
     /* Task detail panel */
     .detail-overlay { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,.35); align-items:center; justify-content:center; }
@@ -121,14 +147,31 @@
     .detail-badge.high   { background:#fde8e8; color:#c0392b; }
     .detail-badge.medium { background:#fef3cd; color:#b7791f; }
     .detail-badge.low    { background:#e8f5e9; color:#27ae60; }
+    .kanban-col.drag-over { background:#f0f4ff; border-color:#a5b4fc; }
+    .kanban-col.drag-over .kanban-col-header { background:#eef2ff; }
+    .kanban-col.drag-blocked { background:#fff8f8; border-color:#fca5a5; }
 
     .col-empty { text-align:center; padding:24px 12px; color:var(--text-muted); font-size:12px; opacity:.6; }
-    .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
 
-    .tasks-header { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
-    .tasks-header h2 { font-size:18px; font-weight:800; flex:1; margin:0; }
+    .empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+    .empty-state svg { display:block; margin:0 auto 14px; opacity:.25; }
+
+    /* Print section */
+    .print-toggle { display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:5px 12px;border-radius:7px;border:1px dashed var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--text-muted);transition:all .14s; }
+    .print-toggle:hover,.print-toggle.active { border-color:#3b5bdb;background:#eef2ff;color:#3b5bdb; }
+    .print-section { display:none;margin-top:10px;padding:14px;background:#f8f9ff;border:1px solid #c7d2fe;border-radius:10px; }
+    .print-section.open { display:block; }
+    .print-grid { display:grid;grid-template-columns:1fr 90px 90px 80px;gap:10px; }
+
+    /* Modal */
+    .usd { position:relative; }
+    .usd-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--white); border:1px solid var(--border); border-radius:8px; max-height:200px; overflow-y:auto; z-index:300; box-shadow:0 4px 12px rgba(0,0,0,.1); display:none; }
+    .usd-item { padding:9px 14px; cursor:pointer; font-size:13px; }
+    .usd-item:hover { background:var(--bg); }
     .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media(max-width:520px){ .form-row{grid-template-columns:1fr;} }
+    .tasks-header { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+    .tasks-header h2 { font-size:18px; font-weight:800; flex:1; margin:0; }
   </style>
 </head>
 <body>
@@ -136,7 +179,7 @@
   <aside class="sidebar"></aside>
   <div class="main">
     <div class="topbar">
-      <div class="page-title">Reminders</div>
+      <div class="page-title">Todolist</div>
       <div class="topbar-right">
         <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ New Task</button>
       </div>
@@ -146,19 +189,21 @@
       <!-- Sidebar -->
       <div class="tasks-sidebar">
         <div class="filter-label">View</div>
-        <div class="filter-item active" data-filter="all" onclick="setFilter('all',this)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          All Staff <span class="filter-count" id="fc-all">0</span>
+        <div class="filter-item active" data-filter="inbox" onclick="setFilter('inbox',this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+          My Tasks <span class="filter-count" id="fc-inbox">0</span>
         </div>
-        <div class="filter-label" style="margin-top:14px">By Member</div>
-        <div id="memberFilters"></div>
+        <div class="filter-item" data-filter="assigned" onclick="setFilter('assigned',this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Assigned by Me <span class="filter-count" id="fc-assigned">0</span>
+        </div>
       </div>
 
       <!-- Main -->
       <div class="tasks-main">
         <div class="stats-row" id="statsRow"></div>
         <div class="tasks-header">
-          <h2 id="viewTitle">All Staff Tasks</h2>
+          <h2 id="viewTitle">My Tasks</h2>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="text" class="form-control" id="searchInput" placeholder="Search…" style="max-width:180px;font-size:13px" oninput="renderList()">
             <select id="filterPriority" onchange="renderList()" style="width:auto;padding:7px 12px;font-size:13px">
@@ -193,7 +238,39 @@
       <input type="hidden" id="tmId">
       <div class="form-group">
         <label>Title *</label>
-        <input type="text" id="tmTitle" class="form-control" placeholder="What needs to be done?">
+        <input type="text" id="tmTitle" class="form-control" placeholder="What needs to be done?" oninput="this.dataset.autofilled=''">
+        <button type="button" class="print-toggle" id="printToggle" onclick="togglePrintSection()">
+          🖨️ Print
+        </button>
+        <div class="print-section" id="printSection">
+          <div class="print-grid">
+            <div class="form-group" style="margin:0">
+              <label style="font-size:11px">Level</label>
+              <select id="prLevel" class="form-control" onchange="buildPrintTitle()">
+                <option value="">Select…</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:11px">Number</label>
+              <select id="prFileNum" class="form-control" onchange="onPrintNumChange()">
+                <option value="">—</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0" id="prLetterWrap">
+              <label style="font-size:11px">Letter</label>
+              <select id="prFileLetter" class="form-control" onchange="buildPrintTitle()">
+                <option value="">—</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label style="font-size:11px">Amount</label>
+              <input type="number" id="prAmount" class="form-control" min="1" placeholder="30" oninput="buildPrintTitle()">
+            </div>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>Assign To *</label>
@@ -211,8 +288,12 @@
         <div class="form-group">
           <label>Due Time *</label>
           <div style="display:flex;gap:6px">
-            <select id="tmHour" class="form-control" style="flex:1"><option value="">HH</option></select>
-            <select id="tmMinute" class="form-control" style="flex:1"><option value="">MM</option></select>
+            <select id="tmHour" class="form-control" style="flex:1">
+              <option value="">HH</option>
+            </select>
+            <select id="tmMinute" class="form-control" style="flex:1">
+              <option value="">MM</option>
+            </select>
           </div>
         </div>
       </div>
@@ -262,37 +343,31 @@
 
 <script src="shared.js"></script>
 <script>
-requireAuth('manreminders');
-renderSidebar('manreminders');
+requireAuth('reminders');
+renderSidebar('reminders');
 
 const me = getSession();
 const myRoles = (me.roles || [me.title || '']).map(r => String(r).trim().toLowerCase());
 const isCEO = myRoles.includes('ceo');
+const isAdminRole = myRoles.some(r => ['admin','head admin','manager'].includes(r));
 
 let ALL_TASKS = [];
 let ALL_USERS = [];
-let CURRENT_FILTER = 'all'; // 'all' or a user id
+let CURRENT_FILTER = 'inbox';
 
 const STATUS_ORDER = ['pending','in_process','completed','overdue'];
 const STATUS_LABEL = { pending:'Pending', in_process:'In Process', completed:'Completed', overdue:'Overdue' };
-const STATUS_BAR_COLOR = { pending:'#3b5bdb', in_process:'#e67e22', completed:'#27ae60', overdue:'#c0392b' };
-
-// Populate hour/minute selects
-(function(){
-  const h = document.getElementById('tmHour');
-  const m = document.getElementById('tmMinute');
-  for (let i=0;i<24;i++) { const o=document.createElement('option'); o.value=String(i).padStart(2,'0'); o.textContent=String(i).padStart(2,'0'); h.appendChild(o); }
-  for (let i=0;i<60;i+=5) { const o=document.createElement('option'); o.value=String(i).padStart(2,'0'); o.textContent=String(i).padStart(2,'0'); m.appendChild(o); }
-})();
+const STATUS_NEXT  = { pending:'in_process', in_process:'completed' };
+const STATUS_BTN   = { pending:['btn-start','Mark In Process'], in_process:['btn-done','Mark Completed'] };
 
 async function init() {
   const [tasks, users] = await Promise.all([
-    apiGet('/api/reminders/all'),
+    apiGet('/api/reminders'),
     apiGet('/api/members').catch(() => []),
   ]);
+  initPrintSection();
   ALL_TASKS = tasks || [];
   ALL_USERS = users || [];
-
   // Populate assign select
   const sel = document.getElementById('tmAssignId');
   ALL_USERS.forEach(u => {
@@ -301,67 +376,26 @@ async function init() {
     o.textContent = u.name + (u.title ? ` — ${u.title}` : '');
     sel.appendChild(o);
   });
-
-  buildMemberFilters();
+  updateCounts();
   renderStats();
   renderList();
 }
 
-function filteredTasks() {
-  if (CURRENT_FILTER === 'all') return ALL_TASKS;
-  if (CURRENT_FILTER === 'administration') return ALL_TASKS.filter(t => t.assignedToId === 'administration');
-  return ALL_TASKS.filter(t => t.assignedToId === CURRENT_FILTER);
-}
+function myTasks()       { return ALL_TASKS.filter(t => t.assignedToId === me.id || (isAdminRole && t.assignedToId === 'administration')); }
+function assignedByMe()  { return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && t.assignedToId !== 'administration'); }
 
-function buildMemberFilters() {
-  // Count tasks per user (non-completed)
-  const counts = {};
-  ALL_TASKS.forEach(t => {
-    if (t.status === 'completed') return;
-    const key = t.assignedToId || 'unknown';
-    counts[key] = (counts[key] || 0) + 1;
-  });
-
-  document.getElementById('fc-all').textContent = ALL_TASKS.filter(t => t.status !== 'completed').length;
-
-  // Collect unique assignees from tasks
-  const seen = new Set();
-  const people = [];
-  ALL_TASKS.forEach(t => {
-    const key = t.assignedToId;
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    people.push({ id: key, name: t.assignedToName || key });
-  });
-  people.sort((a,b) => a.name.localeCompare(b.name));
-
-  const container = document.getElementById('memberFilters');
-  container.innerHTML = people.map(p => `
-    <div class="filter-item" data-filter="${esc(p.id)}" onclick="setFilter('${esc(p.id)}',this)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${esc(p.name)}</span>
-      <span class="filter-count">${counts[p.id] || 0}</span>
-    </div>`).join('');
-}
-
-function setFilter(filter, el) {
-  CURRENT_FILTER = filter;
-  document.querySelectorAll('.filter-item').forEach(f => f.classList.remove('active'));
-  el.classList.add('active');
-  const name = filter === 'all' ? 'All Staff Tasks'
-    : ALL_TASKS.find(t => t.assignedToId === filter)?.assignedToName || filter;
-  document.getElementById('viewTitle').textContent = name;
-  renderStats();
-  renderList();
+function updateCounts() {
+  document.getElementById('fc-inbox').textContent    = myTasks().filter(t => t.status !== 'completed').length;
+  document.getElementById('fc-assigned').textContent = assignedByMe().length;
 }
 
 function renderStats() {
-  const items = filteredTasks();
+  const inbox = myTasks();
   const stats = [
-    { val: items.filter(t=>t.status==='pending').length,    lbl:'Pending',    color:'#3b5bdb', bg:'#eef2ff', icon:'⏳' },
-    { val: items.filter(t=>t.status==='in_process').length, lbl:'In Process', color:'#e67e22', bg:'#fff3e0', icon:'🔄' },
-    { val: items.filter(t=>t.status==='completed').length,  lbl:'Completed',  color:'#27ae60', bg:'#e8f5e9', icon:'✅' },
-    { val: items.filter(t=>t.status==='overdue').length,    lbl:'Overdue',    color:'#c0392b', bg:'#fde8e8', icon:'🚨' },
+    { val: inbox.filter(t=>t.status==='pending').length,    lbl:'Pending',    color:'#3b5bdb', bg:'#eef2ff', icon:'⏳' },
+    { val: inbox.filter(t=>t.status==='in_process').length, lbl:'In Process', color:'#e67e22', bg:'#fff3e0', icon:'🔄' },
+    { val: inbox.filter(t=>t.status==='completed').length,  lbl:'Completed',  color:'#27ae60', bg:'#e8f5e9', icon:'✅' },
+    { val: inbox.filter(t=>t.status==='overdue').length,    lbl:'Overdue',    color:'#c0392b', bg:'#fde8e8', icon:'🚨' },
   ];
   document.getElementById('statsRow').innerHTML = stats.map(s =>
     `<div class="stat-card">
@@ -374,17 +408,25 @@ function renderStats() {
   ).join('');
 }
 
+function setFilter(filter, el) {
+  CURRENT_FILTER = filter;
+  document.querySelectorAll('.filter-item').forEach(f => f.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('viewTitle').textContent = filter === 'inbox' ? 'My Tasks' : 'Assigned by Me';
+  renderList();
+}
+
 function renderList() {
   const q  = (document.getElementById('searchInput')?.value || '').toLowerCase();
   const fp = document.getElementById('filterPriority')?.value || '';
   const fd = document.getElementById('filterDue')?.value || '';
-  let items = filteredTasks();
+  let items = CURRENT_FILTER === 'inbox' ? myTasks() : assignedByMe();
   if (q)  items = items.filter(t => t.title.toLowerCase().includes(q) || (t.note||'').toLowerCase().includes(q));
   if (fp) items = items.filter(t => t.priority === fp);
   if (fd) {
     const now = new Date();
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    const weekEnd  = new Date(todayEnd); weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
+    const todayEnd  = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const weekEnd   = new Date(todayEnd); weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()));
     items = items.filter(t => {
       if (!t.dueDate) return false;
       const d = new Date(t.dueDate);
@@ -395,46 +437,66 @@ function renderList() {
     });
   }
 
-  const PRIO_ORDER = { high:0, medium:1, low:2 };
+  // Group by status
+  const groups = STATUS_ORDER.map(s => ({ status: s, tasks: items.filter(t => t.status === s) })).filter(g => g.tasks.length);
+
   const el = document.getElementById('taskList');
+  const COL_COLORS = { pending:'#3b5bdb', in_process:'#e67e22', completed:'#27ae60', overdue:'#c0392b' };
+  const PRIO_ORDER = { high: 0, medium: 1, low: 2 };
   el.innerHTML = `<div class="kanban">${STATUS_ORDER.map(s => {
     let tasks = items.filter(t => t.status === s);
     if (s === 'pending') tasks = [...tasks].sort((a,b) => (PRIO_ORDER[a.priority]??1) - (PRIO_ORDER[b.priority]??1));
-    return `<div class="kanban-col col-${s}">
+    return `<div class="kanban-col col-${s}" data-col="${s}">
       <div class="kanban-col-header">
         <span class="col-dot"></span>
         <span class="kanban-col-title">${STATUS_LABEL[s]}</span>
         <span class="kanban-col-count">${tasks.length}</span>
       </div>
       <div class="kanban-col-body">
-        ${tasks.length ? tasks.map(t => cardHTML(t)).join('') : `<div class="col-empty">No tasks</div>`}
+        ${tasks.length ? tasks.map(t => cardHTML(t)).join('') : `<div class="col-empty">No tasks here</div>`}
       </div>
     </div>`;
   }).join('')}</div>`;
+  initDrag();
   tickTimers();
 }
 
 function cardHTML(t) {
+  const isAssignee = t.assignedToId === me.id || (t.assignedToId === 'administration' && isAdminRole);
   const canEdit   = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const canDelete = isCEO || (t.createdById === me.id && t.status !== 'overdue');
-  const dueLabel  = t.dueDate ? fmtDate(t.dueDate) + (t.dueTime ? ' · ' + t.dueTime.slice(0,5) : '') : '';
+  const dueLabel  = t.dueDate
+    ? fmtDate(t.dueDate) + (t.dueTime ? ' · ' + t.dueTime.slice(0,5) : '')
+    : (t.dueTime ? t.dueTime.slice(0,5) : '');
   const isOverdueDue = t.status === 'overdue';
+
+  const isAdminTaskCard = t.assignedToId === 'administration';
+  const isSelf = t.assignedToId === t.createdById;
+  const personLabel = isAdminTaskCard
+    ? (CURRENT_FILTER === 'inbox' ? `From: ${t.createdByName||''}` : '🏢 Administration')
+    : isSelf ? null
+    : CURRENT_FILTER === 'inbox'
+      ? `From: ${t.createdByName||''}`
+      : `To: ${t.assignedToName||''}`;
+
+  // Draggable: only assignee on non-overdue, non-completed tasks
+  const canDrag = isAssignee && t.status !== 'overdue' && t.status !== 'completed';
+
   const PRIO_COLORS = { high:'#c0392b', medium:'#e67e22', low:'#27ae60' };
   const prioColor = PRIO_COLORS[t.priority] || '#999';
 
+  // Build ISO deadline for timer
   let dueIso = '';
   if (t.dueDate) {
     const timeStr = t.dueTime ? t.dueTime.slice(0,5) : '23:59';
     dueIso = t.dueDate.slice(0,10) + 'T' + timeStr + ':00';
   }
-  const timerHtml = (dueIso && t.status !== 'completed')
+  const showTimer = dueIso && t.status !== 'completed';
+  const timerHtml = showTimer
     ? `<span class="task-timer" data-due="${dueIso}">${timerText(dueIso)}</span>`
     : '';
 
-  const assigneeLabel = t.assignedToId === 'administration' ? '🏢 Administration' : (t.assignedToName || '');
-  const creatorLabel  = t.createdByName || '';
-
-  return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" onclick="showTaskDetail('${t.id}')">
+  return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" data-status="${t.status}" ${canDrag ? 'draggable="true"' : ''} onclick="showTaskDetail('${t.id}')">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
       <div class="task-title${t.status==='completed'?' done-text':''}">${esc(t.title)}</div>
       <span style="font-size:10px;font-weight:700;color:${prioColor};white-space:nowrap;flex-shrink:0;margin-top:2px">${cap(t.priority)}</span>
@@ -442,11 +504,10 @@ function cardHTML(t) {
     ${t.note ? `<div class="task-note">${esc(t.note)}</div>` : ''}
     ${timerHtml ? `<div style="margin-top:7px">${timerHtml}</div>` : ''}
     <div class="task-footer" style="margin-top:8px">
-      <div class="task-footer-left" style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px">
-        ${assigneeLabel ? `<span class="pill pill-assignee" style="font-size:10px">→ ${esc(assigneeLabel)}</span>` : ''}
-        ${creatorLabel  ? `<span class="pill pill-person"   style="font-size:10px">From: ${esc(creatorLabel)}</span>` : ''}
+      <div class="task-footer-left" style="flex:1;min-width:0">
         ${dueLabel ? `<span class="pill pill-due${isOverdueDue?' overdue':''}" style="font-size:10px">📅 ${dueLabel}</span>` : ''}
         ${t.repeatEvery ? `<span class="pill" style="font-size:10px;background:#f0fdf4;color:#16a34a">🔁 ${t.repeatEvery}</span>` : ''}
+        ${personLabel ? `<span class="pill pill-person" style="font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(personLabel)}</span>` : ''}
       </div>
       <div class="task-footer-right">
         ${canEdit   ? `<button class="task-btn" onclick="event.stopPropagation();editTask('${t.id}')">Edit</button>` : ''}
@@ -464,43 +525,34 @@ function fmtDate(d) {
   return `${String(dt.getUTCDate()).padStart(2,'0')}.${String(dt.getUTCMonth()+1).padStart(2,'0')}.${dt.getUTCFullYear()}`;
 }
 
-function timerText(isoStr) {
-  const diff = new Date(isoStr) - Date.now();
-  if (diff <= 0) return '⏰ Overdue';
-  const totalMin = Math.floor(diff / 60000);
-  const d = Math.floor(totalMin / 1440);
-  const h = Math.floor((totalMin % 1440) / 60);
-  const m = totalMin % 60;
-  if (d > 0) return `⏳ ${d}d ${h}h left`;
-  if (h > 0) return `⏳ ${h}h ${m}m left`;
-  return `⚡ ${m}m left`;
+async function advanceStatus(id, newStatus) {
+  try {
+    await apiPut(`/api/reminders/${id}/status`, { status: newStatus });
+    const t = ALL_TASKS.find(x => x.id === id);
+    if (t) t.status = newStatus;
+    updateCounts(); renderStats(); renderList(); refreshReminderCount();
+  } catch(e) { showToast(e.message || 'Error', 'error'); }
 }
-function timerClass(isoStr) {
-  const diff = new Date(isoStr) - Date.now();
-  if (diff <= 0) return 'timer-over';
-  const min = diff / 60000;
-  if (min < 60) return 'timer-urgent';
-  if (min < 180) return 'timer-soon';
-  return 'timer-ok';
-}
-function tickTimers() {
-  document.querySelectorAll('.task-timer[data-due]').forEach(el => {
-    el.textContent = timerText(el.dataset.due);
-    el.className = 'task-timer ' + timerClass(el.dataset.due);
-  });
-}
-setInterval(tickTimers, 30000);
 
 async function deleteTask(id) {
   if (!confirm('Delete this task?')) return;
   try {
     await apiDelete(`/api/reminders/${id}`);
     ALL_TASKS = ALL_TASKS.filter(x => x.id !== id);
-    buildMemberFilters(); renderStats(); renderList();
+    updateCounts(); renderStats(); renderList(); refreshReminderCount();
     showToast('Task deleted');
   } catch(e) { showToast(e.message || 'Cannot delete', 'error'); }
 }
 
+// Populate hour/minute selects once
+(function(){
+  const h = document.getElementById('tmHour');
+  const m = document.getElementById('tmMinute');
+  for (let i=0;i<24;i++) { const o=document.createElement('option'); o.value=String(i).padStart(2,'0'); o.textContent=String(i).padStart(2,'0'); h.appendChild(o); }
+  for (let i=0;i<60;i+=5) { const o=document.createElement('option'); o.value=String(i).padStart(2,'0'); o.textContent=String(i).padStart(2,'0'); m.appendChild(o); }
+})();
+
+// Modal
 function openTaskModal(task) {
   document.getElementById('tmId').value = task?.id || '';
   document.getElementById('tmTitle').value = task?.title || '';
@@ -515,7 +567,17 @@ function openTaskModal(task) {
   document.getElementById('taskModalTitle').textContent = task ? 'Edit Task' : 'New Task';
   document.getElementById('taskModal').classList.add('open');
 }
-function closeTaskModal() { document.getElementById('taskModal').classList.remove('open'); }
+function closeTaskModal() {
+  document.getElementById('taskModal').classList.remove('open');
+  document.getElementById('printSection').classList.remove('open');
+  document.getElementById('printToggle').classList.remove('active');
+  document.getElementById('prLevel').value = '';
+  document.getElementById('prFileNum').value = '';
+  document.getElementById('prFileLetter').value = '';
+  document.getElementById('prAmount').value = '';
+  document.getElementById('tmTitle').dataset.autofilled = '';
+}
+
 function editTask(id) { const t = ALL_TASKS.find(x => x.id === id); if (t) openTaskModal(t); }
 
 async function saveTask() {
@@ -527,53 +589,229 @@ async function saveTask() {
   const minute       = document.getElementById('tmMinute').value;
   const priority     = document.getElementById('tmPriority').value;
   const dueTime      = (hour && minute) ? `${hour}:${minute}` : '';
+
   if (!title)        return showToast('Please enter a title', 'error');
   if (!assignedToId) return showToast('Please select a member', 'error');
   if (!dueDate)      return showToast('Please set a due date', 'error');
   if (!dueTime)      return showToast('Please set a due time', 'error');
   if (!priority)     return showToast('Please select a priority', 'error');
-  const body = { title, note: document.getElementById('tmNote').value.trim() || null, dueDate, dueTime, priority, assignedToId, repeatEvery: document.getElementById('tmRepeat').value || null };
+
+  const body = {
+    title,
+    note: document.getElementById('tmNote').value.trim() || null,
+    dueDate,
+    dueTime,
+    priority,
+    assignedToId,
+    repeatEvery: document.getElementById('tmRepeat').value || null,
+  };
   try {
-    if (id) { await apiPut(`/api/reminders/${id}`, body); showToast('Task updated'); }
-    else     { await apiPost('/api/reminders', { ...body, id: 'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,6) }); showToast('Task created'); }
+    if (id) {
+      await apiPut(`/api/reminders/${id}`, body);
+      showToast('Task updated');
+    } else {
+      await apiPost('/api/reminders', { ...body, id: 'rem_'+Date.now()+'_'+Math.random().toString(36).slice(2,6) });
+      showToast('Task created');
+      if (assignedToId !== me.id && assignedToId !== 'administration') {
+        CURRENT_FILTER = 'assigned';
+        document.querySelectorAll('.filter-item').forEach(el => el.classList.remove('active'));
+        document.querySelector('[data-filter="assigned"]')?.classList.add('active');
+      }
+    }
     closeTaskModal();
-    ALL_TASKS = await apiGet('/api/reminders/all');
-    buildMemberFilters(); renderStats(); renderList();
+    ALL_TASKS = await apiGet('/api/reminders');
+    updateCounts(); renderStats(); renderList(); refreshReminderCount();
   } catch(e) { showToast(e.message || 'Error saving', 'error'); }
 }
+
+// Countdown timer helpers
+function timerText(isoStr) {
+  const diff = new Date(isoStr) - Date.now();
+  if (diff <= 0) return '⏰ Overdue';
+  const totalMin = Math.floor(diff / 60000);
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const m = totalMin % 60;
+  if (d > 0) return `⏳ ${d}d ${h}h left`;
+  if (h > 0) return `⏳ ${h}h ${m}m left`;
+  return `⚡ ${m}m left`;
+}
+
+function timerClass(isoStr) {
+  const diff = new Date(isoStr) - Date.now();
+  if (diff <= 0) return 'timer-over';
+  const min = diff / 60000;
+  if (min < 60) return 'timer-urgent';
+  if (min < 180) return 'timer-soon';
+  return 'timer-ok';
+}
+
+function tickTimers() {
+  document.querySelectorAll('.task-timer[data-due]').forEach(el => {
+    const iso = el.dataset.due;
+    el.textContent = timerText(iso);
+    el.className = 'task-timer ' + timerClass(iso);
+  });
+}
+setInterval(tickTimers, 30000); // refresh every 30s
+
+// Print section
+const FILE_NUMS = [...Array.from({length:12}, (_,i) => String(i+1)), '1-6', '7-12', 'Final'];
+const PRINT_LEVELS = ['Beginner', 'Elementary', 'Pre-Intermediate', 'Intermediate'];
+
+function initPrintSection() {
+  const prFileNum = document.getElementById('prFileNum');
+  FILE_NUMS.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; prFileNum.appendChild(o); });
+  const prLevel = document.getElementById('prLevel');
+  PRINT_LEVELS.forEach(l => { const o = document.createElement('option'); o.value = l; o.textContent = l; prLevel.appendChild(o); });
+}
+
+function onPrintNumChange() {
+  const num = document.getElementById('prFileNum').value;
+  const letterWrap = document.getElementById('prLetterWrap');
+  const letterSel = document.getElementById('prFileLetter');
+  const noLetter = ['1-6', '7-12', 'Final'].includes(num) || !num;
+  letterWrap.style.opacity = noLetter ? '0.35' : '1';
+  letterWrap.style.pointerEvents = noLetter ? 'none' : '';
+  if (noLetter) letterSel.value = '';
+  buildPrintTitle();
+}
+
+function togglePrintSection() {
+  const sec = document.getElementById('printSection');
+  const btn = document.getElementById('printToggle');
+  const open = sec.classList.toggle('open');
+  btn.classList.toggle('active', open);
+  if (!open) {
+    document.getElementById('prLevel').value = '';
+    document.getElementById('prFileNum').value = '';
+    document.getElementById('prFileLetter').value = '';
+    document.getElementById('prAmount').value = '';
+    // Only clear title if it was auto-generated
+    if (document.getElementById('tmTitle').dataset.autofilled === 'true') {
+      document.getElementById('tmTitle').value = '';
+      document.getElementById('tmTitle').dataset.autofilled = '';
+    }
+  }
+}
+
+function buildPrintTitle() {
+  const level  = document.getElementById('prLevel').value;
+  const num    = document.getElementById('prFileNum').value;
+  const letter = document.getElementById('prFileLetter').value;
+  const amount = document.getElementById('prAmount').value;
+  if (!num && !amount) return;
+  const fileStr = num ? (letter ? `${num}${letter}` : num) : '';
+  const parts = ['Print'];
+  if (fileStr) parts.push(`File Test ${fileStr}`);
+  if (level)   parts.push(`for ${level}`);
+  if (amount)  parts.push(`× ${amount}`);
+  const title = document.getElementById('tmTitle');
+  title.value = parts.join(' ');
+  title.dataset.autofilled = 'true';
+}
+
+// Task detail panel
+const STATUS_BAR_COLOR = { pending:'#3b5bdb', in_process:'#e67e22', completed:'#27ae60', overdue:'#c0392b' };
 
 function showTaskDetail(id) {
   const t = ALL_TASKS.find(x => x.id === id);
   if (!t) return;
+
   document.getElementById('detailTitle').textContent = t.title;
   document.getElementById('detailBar').style.background = STATUS_BAR_COLOR[t.status] || '#ccc';
-  const dueStr = t.dueDate ? fmtDate(t.dueDate) + (t.dueTime ? ' at ' + t.dueTime.slice(0,5) : '') : (t.dueTime ? t.dueTime.slice(0,5) : '—');
+
+  const isSelf = t.assignedToId === t.createdById;
+  const dueStr = t.dueDate
+    ? fmtDate(t.dueDate) + (t.dueTime ? ' at ' + t.dueTime.slice(0,5) : '')
+    : (t.dueTime ? t.dueTime.slice(0,5) : '—');
+
   const rows = [
-    { lbl:'Status',      val:`<span class="detail-badge ${t.status}">${STATUS_LABEL[t.status]}</span>` },
-    { lbl:'Priority',    val:`<span class="detail-badge ${t.priority}">${cap(t.priority)}</span>` },
-    { lbl:'Assigned to', val: esc(t.assignedToId === 'administration' ? '🏢 Administration' : (t.assignedToName||'—')) },
-    { lbl:'Created by',  val: esc(t.createdByName||'—') },
+    { lbl:'Status',    val:`<span class="detail-badge ${t.status}">${STATUS_LABEL[t.status]}</span>` },
+    { lbl:'Priority',  val:`<span class="detail-badge ${t.priority}">${cap(t.priority)}</span>` },
+    { lbl:'Assigned to', val: esc(t.assignedToName || '—') },
+    { lbl:'Created by',  val: esc(t.createdByName  || '—') + (isSelf ? ' <span style="color:var(--text-muted);font-size:11px">(self)</span>' : '') },
     { lbl:'Due',         val: dueStr },
     { lbl:'Repeat',      val: t.repeatEvery ? `🔁 ${t.repeatEvery}` : '—' },
     { lbl:'Created',     val: fmtDate(t.createdAt) },
   ];
+
   document.getElementById('detailBody').innerHTML =
-    rows.map(r => `<div class="detail-row"><span class="detail-lbl">${r.lbl}</span><span class="detail-val">${r.val}</span></div>`).join('') +
+    rows.map(r => `<div class="detail-row">
+      <span class="detail-lbl">${r.lbl}</span>
+      <span class="detail-val">${r.val}</span>
+    </div>`).join('') +
     (t.note ? `<div><div class="detail-lbl" style="margin-bottom:6px">Note</div><div class="detail-note">${esc(t.note)}</div></div>` : '');
+
   const canEdit   = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const canDelete = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   document.getElementById('detailFooter').innerHTML =
     (canEdit   ? `<button class="btn btn-secondary btn-sm" onclick="closeDetailPanel();editTask('${t.id}')">Edit</button>` : '') +
     (canDelete ? `<button class="btn btn-sm" style="background:#fde8e8;color:#c0392b;border:1px solid #fca5a5" onclick="closeDetailPanel();deleteTask('${t.id}')">Delete</button>` : '');
+
   if (!canEdit && !canDelete) document.getElementById('detailFooter').style.display = 'none';
   else document.getElementById('detailFooter').style.display = '';
+
   document.getElementById('detailOverlay').classList.add('open');
 }
+
 function closeDetailPanel() { document.getElementById('detailOverlay').classList.remove('open'); }
 function closeDetail(e) { if (e.target === document.getElementById('detailOverlay')) closeDetailPanel(); }
 
+// Status order index for forward-only enforcement
+const STATUS_IDX = { pending:0, in_process:1, completed:2, overdue:3 };
+
+function initDrag() {
+  let dragId = null;
+  let dragStatus = null;
+
+  document.querySelectorAll('.task-card[draggable="true"]').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragId = card.dataset.id;
+      dragStatus = card.dataset.status;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over','drag-blocked'));
+    });
+  });
+
+  document.querySelectorAll('.kanban-col').forEach(col => {
+    const colStatus = col.dataset.col;
+
+    col.addEventListener('dragover', e => {
+      if (!dragId) return;
+      e.preventDefault();
+      const forward = STATUS_IDX[colStatus] > STATUS_IDX[dragStatus];
+      const same = colStatus === dragStatus;
+      const blocked = colStatus === 'overdue' || (!forward && !same);
+      col.classList.toggle('drag-over', !blocked && !same);
+      col.classList.toggle('drag-blocked', blocked);
+      e.dataTransfer.dropEffect = blocked ? 'none' : 'move';
+    });
+
+    col.addEventListener('dragleave', e => {
+      if (!e.relatedTarget || !col.contains(e.relatedTarget)) {
+        col.classList.remove('drag-over','drag-blocked');
+      }
+    });
+
+    col.addEventListener('drop', async e => {
+      e.preventDefault();
+      col.classList.remove('drag-over','drag-blocked');
+      if (!dragId) return;
+      const forward = STATUS_IDX[colStatus] > STATUS_IDX[dragStatus];
+      if (!forward || colStatus === 'overdue') return;
+      await advanceStatus(dragId, colStatus);
+      dragId = null; dragStatus = null;
+    });
+  });
+}
+
 init();
-setupLive(['reminders'], async () => { ALL_TASKS = await apiGet('/api/reminders/all'); buildMemberFilters(); renderStats(); renderList(); });
+setupLive(['reminders'], async () => { ALL_TASKS = await apiGet('/api/reminders'); updateCounts(); renderStats(); renderList(); refreshReminderCount(); });
 </script>
 </body>
 </html>

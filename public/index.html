@@ -718,6 +718,7 @@ try { await apiDelete('/api/support/'+id); await loadSupport(); showToast('Delet
 catch(e) { showToast(e.message||'Error.','error'); }
 }
 init();
+setupLive(['students','leads','groups','finance','attendance','support'], () => init());
 </script>
 </body>
 </html>

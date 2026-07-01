@@ -447,6 +447,7 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
   loadTimetable();
 
   load();
+  setupLive(['support','attendance'], () => { load(); loadTimetable(); });
 </script>
 </body>
 </html>

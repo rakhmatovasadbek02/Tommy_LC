@@ -329,6 +329,7 @@
 
   if (!canManage) document.querySelector('.topbar-right').style.display='none';
   load();
+  setupLive(['users'], () => load());
 </script>
 </body>
 </html>

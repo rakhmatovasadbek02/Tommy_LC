@@ -1119,6 +1119,7 @@ function checkLeadBlacklist() {
 }
 
 load();
+setupLive(['leads','students'], () => load());
 
 /* ── Lead archive modal ── */
 let _archiveLeadId = null;

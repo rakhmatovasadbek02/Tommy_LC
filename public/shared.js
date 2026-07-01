@@ -311,7 +311,7 @@ function initials(name) {
 }
 
 // Page permissions (page = see + manage), plus the finance view-only modifier.
-const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived','reminders','statistics'];
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived','reminders','manreminders','statistics'];
 const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Sidebar/page feature keys that differ from permission keys.
 const PERM_ALIAS = { payments:'finance', settings:'staff' };
@@ -443,7 +443,8 @@ function renderSidebar(activePage) {
    { feature:'dashboard', href:'index.html',      iconKey:'dashboard', label: hasBothRoles ? 'Teaching' : 'Dashboard' },
    { feature:'leads',     href:'leads.html',      iconKey:'leads',     label:'Leads'      },
    { feature:'support',   href:'support.html',    iconKey:'support',   label:'Support'    },
-   { feature:'reminders', href:'reminders.html',  iconKey:'reminders', label:'To Do List' },
+   { feature:'reminders',    href:'todolist.html',   iconKey:'reminders', label:'Todolist'   },
+   { feature:'manreminders', href:'reminders.html',  iconKey:'reminders', label:'Reminders'  },
    { feature:'students',  href:'students.html',   iconKey:'students',  label:'Students'   },
    { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
    { feature:'payments',  href:'finance.html',    iconKey:'payments',  label:'Finance'    },
@@ -658,6 +659,33 @@ function refreshNotifCount() {
 }
 
 function refreshReminderCount() { refreshNotifCount(); }
+
+// Live updates via SSE. Call once per page:
+//   setupLive(['students','finance'], () => loadData())
+// Returns the EventSource so you can close it if needed.
+function setupLive(types, cb) {
+  const session = getSession();
+  if (!session?.token) return null;
+  let src;
+  let retryMs = 2000;
+  function connect() {
+    src = new EventSource('/api/events?token=' + encodeURIComponent(session.token));
+    src.onmessage = e => {
+      try {
+        const d = JSON.parse(e.data);
+        if (types.includes(d.type)) cb(d);
+      } catch {}
+    };
+    src.onerror = () => {
+      src.close();
+      setTimeout(connect, retryMs);
+      retryMs = Math.min(retryMs * 2, 30000);
+    };
+    src.onopen = () => { retryMs = 2000; };
+  }
+  connect();
+  return { close: () => src && src.close() };
+}
 
 function injectFooter() {
  const main = document.querySelector('.main');

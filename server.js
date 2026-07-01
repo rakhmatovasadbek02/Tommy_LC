@@ -9,6 +9,15 @@ const compression = require('compression');
 const app  = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
+// SSE live-update clients
+const sseClients = new Set();
+function broadcast(type) {
+  const msg = `data: ${JSON.stringify({ type })}\n\n`;
+  for (const res of sseClients) {
+    try { res.write(msg); } catch { sseClients.delete(res); }
+  }
+}
+
 app.use(compression());
 app.use(cors());
 app.use(express.json());
@@ -23,9 +32,9 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
-  'CEO':        [...PAGE_PERMISSIONS, 'statistics'],
+  'CEO':        [...PAGE_PERMISSIONS, 'statistics', 'manreminders'],
   'Head Admin': ['dashboard','leads','students','groups','teachers','staff','archived','reminders'],
-  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders'],
+  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders','manreminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
   'Teacher':    ['dashboard','groups','reminders'],
   'Support Teacher': ['dashboard','support','reminders'],
@@ -366,6 +375,17 @@ async function initDB() {
     }
   } catch(e) { console.warn('Statistics permission migration skipped:', e.message); }
 
+  // Grant 'manreminders' to existing CEO and Manager users.
+  try {
+    const mgrs = await pool.query(`SELECT id, permissions FROM users WHERE title IN ('CEO','Manager') OR roles @> '["CEO"]'::jsonb OR roles @> '["Manager"]'::jsonb`);
+    for (const u of mgrs.rows) {
+      const perms = Array.isArray(u.permissions) ? u.permissions : [];
+      if (!perms.includes('manreminders')) {
+        await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify([...perms,'manreminders']), u.id]);
+      }
+    }
+  } catch(e) { console.warn('manreminders permission migration skipped:', e.message); }
+
   // Strip 'finance' and 'finance_view_only' from all Head Admin accounts.
   try {
     const headAdmins = await pool.query(`SELECT id, permissions FROM users WHERE title='Head Admin' OR roles @> '["Head Admin"]'::jsonb`);
@@ -577,7 +597,7 @@ app.use('/api', async (req, res, next) => {
   try {
     if (req.path.startsWith('/auth/')) return next();
     const hdr = req.headers.authorization || '';
-    const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || '');
+    const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
     const userId = token && verifyToken(token);
     if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     const r = await pool.query('SELECT id, first_name, last_name, role, title, roles, permissions FROM users WHERE id=$1', [userId]);
@@ -608,6 +628,18 @@ app.use('/api', async (req, res, next) => {
     }
     next();
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  sseClients.add(res);
+  const hb = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch { clearInterval(hb); sseClients.delete(res); }
+  }, 25000);
+  req.on('close', () => { clearInterval(hb); sseClients.delete(res); });
 });
 
 /* AUTH */
@@ -694,6 +726,7 @@ app.post('/api/users', async (req, res) => {
       'INSERT INTO users(id,first_name,last_name,phone,password,role,title,roles,avatar,permissions,must_change_password,support_odd_start,support_odd_end,support_even_start,support_even_end) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12,$13,$14)',
       [id, firstName, lastName, phone, password, title, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd]
     );
+    broadcast('users');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -725,6 +758,7 @@ app.put('/api/users/:id', async (req, res) => {
         [firstName, lastName, phone, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
       );
     }
+    broadcast('users');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -737,6 +771,7 @@ app.delete('/api/users/:id', async (req, res) => {
       if (!headAdminCanTarget(targetRoles)) return res.status(403).json({ error: 'Head Admin can only delete Teacher, Support Teacher, or Admin accounts.' });
     }
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
+    broadcast('users');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -804,6 +839,7 @@ app.post('/api/students', async (req, res) => {
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
     await notifyRole('staff', 'new_student', 'New student enrolled',
       `${firstName} ${lastName} was added by ${actor}`, 'students.html', req.user?.id);
+    broadcast('students');
     res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -815,6 +851,7 @@ app.put('/api/students/:id', async (req, res) => {
       'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,phone_mother=$5,phone_other=$6,level=$7,status=$8,exam=$9,exam_date=$10,notes=$11,school=$12,grade=$13,address=$14,balance_frozen=$15,frozen_comment=$16 WHERE id=$17',
       [firstName, lastName, phone||null, phoneParent||null, phoneMother||null, phoneOther||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, balance_frozen||false, frozen_comment||null, req.params.id]
     );
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -839,6 +876,7 @@ app.delete('/api/students/:id', async (req, res) => {
       const updated = (g.student_ids || []).filter(id => id !== sid);
       await pool.query('UPDATE groups SET student_ids=$1 WHERE id=$2', [JSON.stringify(updated), g.id]);
     }
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -961,6 +999,7 @@ app.delete('/api/students/:id/permanent', async (req, res) => {
     await pool.query('DELETE FROM invoices WHERE student_id=$1', [sid]);
     await pool.query('DELETE FROM attendance WHERE student_id=$1', [sid]);
     await pool.query('DELETE FROM students WHERE id=$1', [sid]);
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -971,6 +1010,7 @@ app.put('/api/students/:id/restore', async (req, res) => {
       `UPDATE students SET archived=FALSE, archive_reason=NULL, archive_comment=NULL, archived_at=NULL, pre_archive_status=NULL, status='Inactive' WHERE id=$1`,
       [req.params.id]
     );
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1074,9 +1114,11 @@ app.post('/api/students/:id/activate', async (req, res) => {
       const newBal = Number(stuRes.rows[0]?.balance || 0) - amount;
       await pool.query('UPDATE students SET balance=$1 WHERE id=$2', [newBal, studentId]);
 
+      broadcast('students');
       return res.json({ ok: true, amount, remaining });
     }
 
+    broadcast('students');
     res.json({ ok: true, amount: 0 });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1100,6 +1142,8 @@ app.post('/api/students/:id/payment', async (req, res) => {
     );
     const balRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
     const newBalance = Number(balRes.rows[0]?.balance || 0);
+    broadcast('students');
+    broadcast('finance');
     res.json({ ok: true, newBalance });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1115,12 +1159,14 @@ app.post('/api/students/:id/comments', async (req, res) => {
   try {
     const { text, actor } = req.body;
     await pool.query('INSERT INTO student_comments(student_id,text,actor) VALUES($1,$2,$3)', [req.params.id, text, actor||null]);
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/students/comments/:commentId', async (req, res) => {
   try {
     await pool.query('DELETE FROM student_comments WHERE id=$1', [req.params.commentId]);
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1136,12 +1182,14 @@ app.post('/api/students/:id/calls', async (req, res) => {
   try {
     const { note, actor } = req.body;
     await pool.query('INSERT INTO student_calls(student_id,note,actor) VALUES($1,$2,$3)', [req.params.id, note, actor||null]);
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/students/calls/:callId', async (req, res) => {
   try {
     await pool.query('DELETE FROM student_calls WHERE id=$1', [req.params.callId]);
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1201,6 +1249,7 @@ app.post('/api/teachers', async (req, res) => {
       "INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password) VALUES($1,$2,$3,$4,$5,'Teacher','Teacher',$6,$7,TRUE)",
       [id, firstName, lastName, phone, password, avatar, JSON.stringify(permsForRole('Teacher'))]
     );
+    broadcast('users');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1228,6 +1277,7 @@ app.put('/api/teachers/:id', async (req, res) => {
     if (oldName && oldName !== newName) {
       await pool.query('UPDATE groups SET teacher=$1 WHERE teacher=$2', [newName, oldName]);
     }
+    broadcast('users');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1240,6 +1290,7 @@ app.delete('/api/teachers/:id', async (req, res) => {
       await pool.query('UPDATE groups SET teacher=NULL WHERE teacher=$1', [name]);
     }
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
+    broadcast('users');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1273,6 +1324,7 @@ app.post('/api/groups', async (req, res) => {
       'INSERT INTO groups(id,name,teacher,room,level,lang,max_students,sched_type,custom_days,time,duration,start_date,notes,student_ids,current_unit,price) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
       [id, name, teacher||null, room||null, level||null, lang||'UZ', maxStudents||null, schedType||'odd', JSON.stringify(customDays||[]), time||null, duration||90, startDate||null, notes||null, JSON.stringify(studentIds||[]), currentUnit||'1A', price||0]
     );
+    broadcast('groups');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1284,6 +1336,7 @@ app.put('/api/groups/:id', async (req, res) => {
       'UPDATE groups SET name=$1,teacher=$2,room=$3,level=$4,lang=$5,max_students=$6,sched_type=$7,custom_days=$8,time=$9,duration=$10,start_date=$11,notes=$12,student_ids=$13,current_unit=$14,price=$15 WHERE id=$16',
       [name, teacher||null, room||null, level||null, lang||'UZ', maxStudents||null, schedType||'odd', JSON.stringify(customDays||[]), time||null, duration||90, startDate||null, notes||null, JSON.stringify(studentIds||[]), currentUnit||'1A', price||0, req.params.id]
     );
+    broadcast('groups');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1291,6 +1344,7 @@ app.put('/api/groups/:id', async (req, res) => {
 app.delete('/api/groups/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM groups WHERE id=$1', [req.params.id]);
+    broadcast('groups');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1309,6 +1363,7 @@ app.post('/api/groups/:id/comments', async (req, res) => {
   try {
     const { text, actor } = req.body;
     await pool.query('INSERT INTO group_comments(group_id,text,actor) VALUES($1,$2,$3)', [req.params.id, text, actor||null]);
+    broadcast('groups');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1316,6 +1371,7 @@ app.post('/api/groups/:id/comments', async (req, res) => {
 app.delete('/api/groups/comments/:commentId', async (req, res) => {
   try {
     await pool.query('DELETE FROM group_comments WHERE id=$1', [req.params.commentId]);
+    broadcast('groups');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1370,6 +1426,8 @@ app.patch('/api/groups/:id/students', async (req, res) => {
         }
       }
     }
+    broadcast('groups');
+    broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1378,6 +1436,7 @@ app.patch('/api/groups/:id/unit', async (req, res) => {
   try {
     const { unit } = req.body;
     await pool.query('UPDATE groups SET current_unit=$1 WHERE id=$2', [unit, req.params.id]);
+    broadcast('groups');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1453,6 +1512,7 @@ app.post('/api/invoices', async (req, res) => {
     if (studentId && (status||'Pending') === 'Paid' && paymentType !== 'Auto') {
       await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
     }
+    broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1479,6 +1539,7 @@ app.put('/api/invoices/:id', async (req, res) => {
         await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
       }
     }
+    broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1487,6 +1548,7 @@ app.patch('/api/invoices/:id/status', async (req, res) => {
   try {
     const { status, paymentType } = req.body;
     await pool.query('UPDATE invoices SET status=$1,payment_type=$2 WHERE id=$3', [status, paymentType||'Cash', req.params.id]);
+    broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1503,6 +1565,7 @@ app.delete('/api/invoices/:id', async (req, res) => {
       }
     }
     await pool.query('DELETE FROM invoices WHERE id=$1', [req.params.id]);
+    broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1522,6 +1585,7 @@ app.post('/api/spendings', async (req, res) => {
       'INSERT INTO spendings(id,amount,category,description,month) VALUES($1,$2,$3,$4,$5)',
       [id, Number(amount)||0, category||null, description||null, month||null]
     );
+    broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1533,6 +1597,7 @@ app.put('/api/spendings/:id', async (req, res) => {
       'UPDATE spendings SET amount=$1,category=$2,description=$3,month=$4 WHERE id=$5',
       [Number(amount)||0, category||null, description||null, month||null, req.params.id]
     );
+    broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1540,6 +1605,7 @@ app.put('/api/spendings/:id', async (req, res) => {
 app.delete('/api/spendings/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM spendings WHERE id=$1', [req.params.id]);
+    broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1622,6 +1688,7 @@ app.post('/api/support', async (req, res) => {
       'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme) VALUES($1,$2,$3,$4,$5,$6,$7)',
       [id, date, time, dur, teacher, studentId, theme.trim()]
     );
+    broadcast('support');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1631,7 +1698,7 @@ app.delete('/api/support/:id', async (req, res) => {
   const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
   if (!userRoles.some(r => adminRoles.includes(r)))
     return res.status(403).json({ error: 'Only administration can delete support sessions.' });
-  try { await pool.query('DELETE FROM support_sessions WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
+  try { await pool.query('DELETE FROM support_sessions WHERE id=$1', [req.params.id]); broadcast('support'); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1665,6 +1732,7 @@ app.put('/api/support/:id/attend', async (req, res) => {
         }
       }
     }
+    broadcast('support');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1852,6 +1920,7 @@ app.post('/api/attendance/:groupId/:date', async (req, res) => {
         [req.params.groupId, req.params.date, r.studentId, r.status]
       );
     }
+    broadcast('attendance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1882,6 +1951,7 @@ app.post('/api/leads', async (req, res) => {
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
     await notifyRole('staff', 'new_lead', 'New lead registered',
       `${firstName} ${lastName} registered by ${actor}`, 'leads.html', req.user?.id);
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1895,6 +1965,7 @@ app.put('/api/leads/:id', async (req, res) => {
       [firstName, lastName, phoneStudent||null, phoneFather||null, phoneMother||null, phoneOther||null,
        currentLevel||null, testResult||null, status||'Registration', groupId||null, isTrial||false, notes||null, req.body.subContainer||null, req.params.id]
     );
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1909,6 +1980,7 @@ app.post('/api/leads/:id/to-trial', async (req, res) => {
       `UPDATE leads SET status='Trial', group_id=$1, is_trial=TRUE WHERE id=$2`,
       [groupId, leadId]
     );
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1932,6 +2004,7 @@ app.get('/api/groups/:id/trial-leads', async (req, res) => {
 app.post('/api/leads/:id/to-payment', async (req, res) => {
   try {
     await pool.query(`UPDATE leads SET status='Payment' WHERE id=$1`, [req.params.id]);
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1972,6 +2045,8 @@ app.post('/api/leads/:id/convert', async (req, res) => {
         }
       }
     }
+    broadcast('leads');
+    broadcast('students');
     res.json({ ok: true, studentId });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1985,6 +2060,7 @@ app.delete('/api/leads/:id', async (req, res) => {
       `UPDATE leads SET archived=TRUE, archive_reason=$1, archive_comment=$2, archived_at=NOW(), pre_archive_status=$3 WHERE id=$4`,
       [reason||null, comment||null, preStatus, req.params.id]
     );
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1993,6 +2069,7 @@ app.delete('/api/leads/:id/permanent', async (req, res) => {
   try {
     const id = req.params.id;
     await pool.query('DELETE FROM leads WHERE id=$1', [id]);
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2005,6 +2082,7 @@ app.put('/api/leads/:id/restore', async (req, res) => {
       `UPDATE leads SET archived=FALSE, archive_reason=NULL, archive_comment=NULL, archived_at=NULL, pre_archive_status=NULL, status=$1 WHERE id=$2`,
       [status, req.params.id]
     );
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2038,12 +2116,14 @@ app.post('/api/leads/:id/calls', async (req, res) => {
   try {
     const { note, actor } = req.body;
     await pool.query('INSERT INTO lead_calls(lead_id,note,actor) VALUES($1,$2,$3)', [req.params.id, note, actor||null]);
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/leads/calls/:callId', async (req, res) => {
   try {
     await pool.query('DELETE FROM lead_calls WHERE id=$1', [req.params.callId]);
+    broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2157,6 +2237,41 @@ app.get('/api/reminders/count', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/reminders/all', async (req, res) => {
+  try {
+    const me = req.user;
+    const roles = (me.roles||[me.title||'']).map(r=>String(r).trim().toLowerCase());
+    if (!roles.some(r=>['ceo','manager','head admin'].includes(r)))
+      return res.status(403).json({ error: 'Access denied.' });
+    await pool.query(`
+      UPDATE reminders SET status='overdue'
+      WHERE status IN ('pending','in_process') AND due_date IS NOT NULL
+        AND (due_date::text || ' ' || COALESCE(due_time::text,'23:59:00'))::timestamp
+            < NOW() AT TIME ZONE 'Asia/Tashkent'
+    `).catch(()=>{});
+    const { rows } = await pool.query(
+      `SELECT r.*,
+        cu.first_name||' '||cu.last_name AS created_by_name,
+        CASE WHEN r.assigned_to_id='administration' THEN 'Administration'
+             ELSE au.first_name||' '||au.last_name END AS assigned_to_name
+       FROM reminders r
+       LEFT JOIN users cu ON cu.id = r.created_by_id
+       LEFT JOIN users au ON au.id = r.assigned_to_id
+       ORDER BY
+         CASE r.status WHEN 'overdue' THEN 0 WHEN 'pending' THEN 1 WHEN 'in_process' THEN 2 ELSE 3 END,
+         r.due_date ASC NULLS LAST, r.created_at DESC`
+    );
+    res.json(rows.map(r => ({
+      id: r.id, title: r.title, note: r.note,
+      dueDate: r.due_date, dueTime: r.due_time, priority: r.priority,
+      status: r.status || 'pending', createdAt: r.created_at,
+      createdById: r.created_by_id, createdByName: r.created_by_name,
+      assignedToId: r.assigned_to_id, assignedToName: r.assigned_to_name,
+      repeatEvery: r.repeat_every || null,
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/reminders', async (req, res) => {
   try {
     const me = req.user;
@@ -2179,6 +2294,7 @@ app.post('/api/reminders', async (req, res) => {
       await createNotif(finalAssignee, 'task_assigned', 'New task assigned to you',
         `"${title}" assigned by ${me.first_name} ${me.last_name}`, 'reminders.html');
     }
+    broadcast('reminders');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
