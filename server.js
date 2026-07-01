@@ -386,16 +386,16 @@ async function initDB() {
     }
   } catch(e) { console.warn('manreminders permission migration skipped:', e.message); }
 
-  // Strip 'finance' and 'finance_view_only' from all Head Admin accounts.
+  // Strip 'finance' and 'finance_view_only' from all Head Admin accounts; ensure 'staff' is present.
   try {
     const headAdmins = await pool.query(`SELECT id, permissions FROM users WHERE title='Head Admin' OR roles @> '["Head Admin"]'::jsonb`);
     for (const u of headAdmins.rows) {
-      const perms = Array.isArray(u.permissions) ? u.permissions : [];
-      if (perms.includes('finance') || perms.includes('finance_view_only')) {
-        await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms.filter(p => p !== 'finance' && p !== 'finance_view_only')), u.id]);
-      }
+      let perms = Array.isArray(u.permissions) ? u.permissions : [];
+      perms = perms.filter(p => p !== 'finance' && p !== 'finance_view_only');
+      if (!perms.includes('staff')) perms.push('staff');
+      await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms), u.id]);
     }
-  } catch(e) { console.warn('Head Admin finance-permission strip skipped:', e.message); }
+  } catch(e) { console.warn('Head Admin permission migration skipped:', e.message); }
 
   // Strip 'students' permission from all Teacher accounts (teachers access students via group page only).
   try {
@@ -2349,6 +2349,7 @@ app.put('/api/reminders/:id/status', async (req, res) => {
         );
       }
     }
+    broadcast('reminders');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2368,6 +2369,7 @@ app.put('/api/reminders/:id', async (req, res) => {
       `UPDATE reminders SET title=$1,note=$2,due_date=$3,due_time=$4,priority=$5,assigned_to_id=$6,repeat_every=$7 WHERE id=$8`,
       [title, note||null, dueDate||null, dueTime||null, priority||'medium', assignedToId, repeatEvery||null, req.params.id]
     );
+    broadcast('reminders');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2382,6 +2384,7 @@ app.delete('/api/reminders/:id', async (req, res) => {
     if (rows[0].status === 'overdue' && !isCEO) return res.status(403).json({ error: 'Overdue tasks can only be deleted by CEO.' });
     if (rows[0].created_by_id !== me.id && !isCEO) return res.status(403).json({ error: 'Not allowed.' });
     await pool.query(`DELETE FROM reminders WHERE id=$1`, [req.params.id]);
+    broadcast('reminders');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

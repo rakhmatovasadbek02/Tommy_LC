@@ -466,7 +466,7 @@ async function showAbsentModal() {
       window._groups   || [],
     ]);
     window._students = window._students || allStudents;
-    const absentIds = attRows.filter(r => r.status === 'absent').map(r => r.student_id);
+    const absentIds = attRows.filter(r => r.status === 'absent').map(r => r.studentId);
     const groupByStudentId = {};
     (window._groups||[]).forEach(g => (g.studentIds||[]).forEach(sid => { groupByStudentId[sid] = g.name; }));
     const absent = (window._students||[]).filter(s => absentIds.includes(s.id));
