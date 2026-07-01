@@ -1596,24 +1596,15 @@ app.put('/api/invoices/:id', async (req, res) => {
       [studentId, groupId||null, level||null, month||null, desc||null,
        total||0, dueDate||null, status||'Pending', paymentType||'Cash', notes||null, req.params.id]
     );
-    // Keep student balances in sync: undo the old amount, apply the new one
-    if (prev) {
-      const isCharge = prev.payment_type === 'Auto' || (prev.description||'').toLowerCase().startsWith('activation');
-      if (isCharge && prev.status !== 'Cancelled') {
-        // Auto/activation invoice: balance was already deducted — apply the difference
-        const diff = (Number(total)||0) - (Number(prev.total)||0);
-        if (diff !== 0 && (prev.student_id || studentId)) {
-          await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [diff, prev.student_id || studentId]);
-        }
-      } else if (!isCharge) {
-        const wasPaid = prev.status === 'Paid';
-        const isPaid  = (status||'Pending') === 'Paid' && paymentType !== 'Auto';
-        if (wasPaid && prev.student_id) {
-          await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(prev.total)||0, prev.student_id]);
-        }
-        if (isPaid && studentId) {
-          await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
-        }
+    // Keep student balances in sync for manual (non-Auto) invoices only
+    if (prev && prev.payment_type !== 'Auto') {
+      const wasPaid = prev.status === 'Paid';
+      const isPaid  = (status||'Pending') === 'Paid' && paymentType !== 'Auto';
+      if (wasPaid && prev.student_id) {
+        await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(prev.total)||0, prev.student_id]);
+      }
+      if (isPaid && studentId) {
+        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
       }
     }
     if (prev?.student_id) {
