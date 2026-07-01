@@ -96,7 +96,7 @@
     // Populate actor dropdown
     const actors = [...new Set(_allItems.map(a => a.actor).filter(Boolean))].sort();
     const aSel = document.getElementById('filterActor');
-    actors.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; aSel.appendChild(o); });
+    actors.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = reverseName(a); aSel.appendChild(o); });
     renderFeed();
   }
 
@@ -143,7 +143,7 @@
         <div class="action-body">
           <div class="action-text">${a.text}</div>
           <div class="action-meta">
-            ${a.actor ? `<span class="action-actor">${a.actor}</span>` : ''}
+            ${a.actor ? `<span class="action-actor">${reverseName(a.actor)}</span>` : ''}
             ${a.role  ? `<span class="action-role" style="background:${rc.bg};color:${rc.color}">${a.role}</span>` : ''}
             <span class="action-time">${a.time}</span>
           </div>

@@ -309,8 +309,8 @@
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="form-group"><label>First Name *</label><input type="text" id="eFirst"></div>
         <div class="form-group"><label>Last Name *</label><input type="text" id="eLast"></div>
+        <div class="form-group"><label>First Name *</label><input type="text" id="eFirst"></div>
       </div>
       <div class="form-group">
         <label>Phone Numbers</label>
@@ -488,7 +488,7 @@
       student = s;
       studentGroups = grps;
 
-      const name = s.firstName+' '+s.lastName;
+      const name = s.lastName+' '+s.firstName;
       document.title = name+' — TommyLC CRM';
       document.getElementById('pageTitle').textContent = name;
       document.getElementById('loadingMsg').style.display = 'none';
@@ -548,7 +548,7 @@
         <div class="group-detail">
           <div class="group-detail-name">${g.level||''} ${g.time?'('+g.time+')':''}</div>
           <div class="group-detail-sub">
-            ${g.teacher?`<span>👤 ${g.teacher}</span>`:''}
+            ${g.teacher?`<span>👤 ${reverseName(g.teacher)}</span>`:''}
             ${g.room?`<span>🏫 ${g.room}</span>`:''}
             ${g.schedType?`<span>📅 ${SCHED[g.schedType]||g.schedType}</span>`:''}
             ${g.startDate?`<span>📆 From ${fmtDate(g.startDate)}</span>`:''}
@@ -599,9 +599,9 @@
     if (!cmts.length) { el.innerHTML='<div class="empty-feed">No comments yet.</div>'; return; }
     el.innerHTML = cmts.map(c => `
       <div class="feed-item">
-        <div class="feed-avatar">${(c.actor||'?').charAt(0).toUpperCase()}</div>
+        <div class="feed-avatar">${reverseName(c.actor||'?').charAt(0).toUpperCase()}</div>
         <div class="feed-body">
-          <span class="feed-actor">${c.actor||'Unknown'}</span>
+          <span class="feed-actor">${reverseName(c.actor)||'Unknown'}</span>
           <span class="feed-time">${fmtDateTime(c.created_at)}</span>
           <div class="feed-text">${c.text}</div>
         </div>
@@ -616,7 +616,7 @@
       <div class="feed-item">
         <div class="feed-avatar" style="background:#0e7490">📞</div>
         <div class="feed-body">
-          <span class="feed-actor">${c.actor||'Unknown'}</span>
+          <span class="feed-actor">${reverseName(c.actor)||'Unknown'}</span>
           <span class="feed-time">${fmtDateTime(c.created_at)}</span>
           <div class="feed-text">${c.note}</div>
         </div>
@@ -675,7 +675,7 @@
         }
 
         // Creator
-        const creatorHtml = `${i.creator ? `<strong>${i.creator}</strong> · ` : ''}${fmtDateTime(i.createdAt)}`;
+        const creatorHtml = `${i.creator ? `<strong>${reverseName(i.creator)}</strong> · ` : ''}${fmtDateTime(i.createdAt)}`;
 
         return `<div class="pay-card">
           <div class="pay-card-icon ${(sys||sub)?'neg':'pos'}">${(sys||sub) ? IC.arrowDown : IC.arrowUp}</div>
@@ -723,7 +723,7 @@
   async function removeInvoice(id) {
     if (!confirm('Remove this payment?')) return;
     await apiDelete('/api/invoices/'+id);
-    logActivity(`Removed invoice for ${student?.firstName} ${student?.lastName}`, 'red');
+    logActivity(`Removed invoice for ${student?.lastName} ${student?.firstName}`, 'red');
     loadProfile();
     showToast('Removed.');
   }
@@ -802,7 +802,7 @@
           <div class="hist-icon" style="background:${cfg.bg}">${cfg.icon}</div>
           <div class="hist-body">
             <div class="hist-action">${cfg.label}</div>
-            <div class="hist-meta">${r.actor||'System'}${r.actorRole?' · '+r.actorRole:''} · ${ts}</div>
+            <div class="hist-meta">${reverseName(r.actor)||'System'}${r.actorRole?' · '+r.actorRole:''} · ${ts}</div>
             ${detailHTML}
           </div>
         </div>`;
@@ -929,12 +929,12 @@
         paymentType: data.paymentType,
         notes:       data.notes,
       });
-      logActivity(`Edited payment for ${student?.firstName} ${student?.lastName}`, '');
+      logActivity(`Edited payment for ${student?.lastName} ${student?.firstName}`, '');
       showToast('Payment updated!');
       _historyLoaded = false;
     } else {
       await apiPost('/api/students/'+STUDENT_ID+'/payment', data);
-      logActivity(`Payment ${amount.toLocaleString()} for ${student?.firstName} ${student?.lastName}`, 'green');
+      logActivity(`Payment ${amount.toLocaleString()} for ${student?.lastName} ${student?.firstName}`, 'green');
       showToast('Payment added!');
       _historyLoaded = false;
     }
@@ -944,7 +944,7 @@
 
   async function openArchiveModal() {
     document.getElementById('archiveStudentName').textContent =
-      student ? `${student.firstName} ${student.lastName}` : '';
+      student ? `${student.lastName} ${student.firstName}` : '';
     document.getElementById('archiveCommentGroup').style.display = 'none';
     document.getElementById('archiveComment').value = '';
     const sel = document.getElementById('archiveReason');
@@ -975,7 +975,7 @@
     if (isBlacklist && !comment) { showToast('Please enter a blacklist comment.', 'error'); return; }
     try {
       await apiDelete('/api/students/' + STUDENT_ID, { reason, comment: comment||null });
-      logActivity(`Archived student: ${student?.firstName} ${student?.lastName} — ${reason}${isBlacklist?' [BLACKLISTED]':''}`, 'red');
+      logActivity(`Archived student: ${student?.lastName} ${student?.firstName} — ${reason}${isBlacklist?' [BLACKLISTED]':''}`, 'red');
       closeModal('archiveModal');
       showToast('Student archived.');
       setTimeout(() => location.replace('students.html'), 800);

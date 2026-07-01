@@ -220,7 +220,7 @@
           <tbody>${(st.teacherStats||[]).map(t=>{
             const pct = t.total ? Math.round(t.held/t.total*100) : 0;
             return `<tr>
-              <td style="font-weight:600">${t.name}</td>
+              <td style="font-weight:600">${reverseName(t.name)}</td>
               <td>${t.total}</td>
               <td>${t.held}</td>
               <td><div style="display:flex;align-items:center;gap:8px">
@@ -245,7 +245,7 @@
           <div class="session-time">${s.time}</div>
           <div class="session-info">
             <div class="session-name">${s.studentName}</div>
-            <div class="session-meta">${s.duration} min${data.isAdmin ? ` · ${s.teacher}` : ''}</div>
+            <div class="session-meta">${s.duration} min${data.isAdmin ? ` · ${reverseName(s.teacher)}` : ''}</div>
           </div>
           <div class="session-actions">
             ${attended === null || attended === undefined ? `
@@ -272,7 +272,7 @@
         return `<tr>
           <td style="color:var(--muted)">${d}</td>
           <td style="font-weight:600">${s.time}</td>
-          <td>${s.teacher}</td>
+          <td>${reverseName(s.teacher)}</td>
           <td style="font-weight:600">${s.studentName}</td>
           <td style="color:var(--muted)">${s.duration} min</td>
           <td style="color:var(--muted)">${s.theme||'—'}</td>
@@ -365,7 +365,7 @@ ${slots.map(s=>{
 ${starting.map(p=>{
   const span=slots.filter(s2=>s2>=p.st && s2<p.en).length;
   const stu=(window._supportStudents||[]).find(x=>x.id===p.studentId);
-  const sName=stu?stu.firstName+' '+stu.lastName:'Student';
+  const sName=stu?stu.lastName+' '+stu.firstName:'Student';
   return `<div style="position:absolute;top:2px;left:2px;width:${span*COL_W-4}px;bottom:2px;background:${tCol};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
 <div style="font-weight:800;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sName}</div>
 <div style="font-size:10px;opacity:0.9;white-space:nowrap">${p.time} · ${p.duration}m</div>
@@ -385,7 +385,7 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
     if(!ql){box.style.display='none';return;}
     const res=list.filter(s=>(s.firstName+' '+s.lastName).toLowerCase().includes(ql)||(s.phone||'').includes(ql)).slice(0,12);
     if(!res.length){box.style.display='none';return;}
-    box.innerHTML=res.map(s=>{const n=(s.firstName+' '+s.lastName).replace(/"/g,'&quot;');return `<div class="sp-result" onclick="spPickStudent('${s.id}','${n}')"><div class="avatar" style="width:28px;height:28px;font-size:11px;background:${avatarColor(n)}">${initials(n)}</div><div><div style="font-size:13px;font-weight:600">${n}</div><div style="font-size:11px;color:var(--muted)">${s.phone||''}${s.level?' · '+s.level:''}</div></div></div>`;}).join('');
+    box.innerHTML=res.map(s=>{const n=(s.lastName+' '+s.firstName).replace(/"/g,'&quot;');return `<div class="sp-result" onclick="spPickStudent('${s.id}','${n}')"><div class="avatar" style="width:28px;height:28px;font-size:11px;background:${avatarColor(n)}">${initials(n)}</div><div><div style="font-size:13px;font-weight:600">${n}</div><div style="font-size:11px;color:var(--muted)">${s.phone||''}${s.level?' · '+s.level:''}</div></div></div>`;}).join('');
     box.style.display='block';
   }
   function spPickStudent(id,name){
@@ -396,7 +396,7 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
     if(grp){
       document.getElementById('spGroupName').textContent=grp.name||'—';
       document.getElementById('spGroupLevel').textContent=grp.level||'—';
-      document.getElementById('spGroupTeacher').textContent=grp.teacher||'—';
+      document.getElementById('spGroupTeacher').textContent=grp.teacher?reverseName(grp.teacher):'—';
       document.getElementById('spGroupUnit').textContent=grp.currentUnit||grp.current_unit||'—';
     }
     document.getElementById('spStudentResults').style.display='none';
@@ -420,7 +420,7 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
     document.getElementById('spGroupInfo').style.display='none';
     _spDur=30; document.querySelectorAll('#spDurSeg button').forEach((b,i)=>b.classList.toggle('active',i===0));
     const onlyWorking=(window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
-    document.getElementById('spTeacher').innerHTML='<option value="">— Select —</option>'+onlyWorking.map(t=>`<option>${t.name}</option>`).join('');
+    document.getElementById('spTeacher').innerHTML='<option value="">— Select —</option>'+onlyWorking.map(t=>`<option value="${t.name}">${reverseName(t.name)}</option>`).join('');
     const pre=(prefillTeacher&&typeof prefillTeacher==='string')?prefillTeacher:'';
     if(pre)document.getElementById('spTeacher').value=pre;
     supBuildTimes(pre,(prefillTime&&typeof prefillTime==='string')?prefillTime:'09:00');

@@ -150,8 +150,8 @@
       <input type="hidden" id="editStudentId">
       <div id="blacklistWarning" style="display:none;margin-bottom:12px;padding:12px 14px;background:#fff5f5;border:1.5px solid #fca5a5;border-radius:8px"></div>
       <div class="form-row">
-        <div class="form-group"><label>First Name *</label><input type="text" id="sFirst" placeholder="John" oninput="checkBlacklist()"></div>
         <div class="form-group"><label>Last Name *</label><input type="text" id="sLast" placeholder="Smith" oninput="checkBlacklist()"></div>
+        <div class="form-group"><label>First Name *</label><input type="text" id="sFirst" placeholder="John" oninput="checkBlacklist()"></div>
       </div>
       <div class="form-group">
         <label>Phone Numbers <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">(at least 2 required)</span></label>
@@ -272,7 +272,7 @@
     allGroups.forEach(g => { const o=document.createElement('option'); o.value=g.id; o.textContent=g.name; gSel.appendChild(o); });
     const tSel = document.getElementById('filterTeacher');
     tSel.innerHTML = '<option value="">All Teachers</option>';
-    allTeachers.forEach(t => { const o=document.createElement('option'); o.value=t; o.textContent=t; tSel.appendChild(o); });
+    allTeachers.forEach(t => { const o=document.createElement('option'); o.value=t; o.textContent=reverseName(t); tSel.appendChild(o); });
     renderStudents();
   }
 
@@ -317,7 +317,7 @@
       return;
     }
     tbody.innerHTML = filtered.map((s, i) => {
-      const name = s.firstName+' '+s.lastName;
+      const name = s.lastName+' '+s.firstName;
       const col  = avatarColor(name);
       const balClass = s.balance > 0 ? 'pos' : s.balance < 0 ? 'neg' : 'zero';
       const balStr = s.balance !== 0 ? s.balance.toLocaleString() : '0';
@@ -325,7 +325,7 @@
         `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="text-decoration:none"><div class="group-pill"><span class="group-pill-name">${g.name}</span><span class="group-pill-sub">${g.level||''}${g.time?' ('+g.time+')':''}</span></div></a>`
       ).join('') || '<span style="color:var(--muted);font-size:12px">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
-      const teacherHTML = teachers.length ? teachers.map(t=>`<div>${t}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
+      const teacherHTML = teachers.length ? teachers.map(t=>`<div>${reverseName(t)}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
       const dates = (s.groups||[]).filter(g=>g.startDate).map(g => {
         const d = new Date(g.startDate);
         return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
@@ -333,7 +333,7 @@
       const dateHTML = dates.length ? dates.map(d=>`<div>${d}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
       const lc = s.lastComment;
       const commentHTML = lc
-        ? `<div class="st-comment-text">${lc.text}</div><div class="st-comment-meta">${lc.time}${lc.actor?' • '+lc.actor:''}</div>`
+        ? `<div class="st-comment-text">${lc.text}</div><div class="st-comment-meta">${lc.time}${lc.actor?' • '+reverseName(lc.actor):''}</div>`
         : `<span style="color:var(--muted);font-size:12px">—</span>`;
       return `<tr onclick="location.href='student-profile.html?id=${s.id}'">
         <td class="col-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${selectedIds.has(s.id)?'checked':''}></td>
@@ -434,7 +434,7 @@
   async function deleteStudent(id) {
     const s = students.find(s=>s.id===id);
     _archiveId = id;
-    document.getElementById('archiveStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+    document.getElementById('archiveStudentName').textContent = s ? s.lastName+' '+s.firstName : '';
     document.getElementById('archiveCommentGroup').style.display = 'none';
     document.getElementById('archiveComment').value = '';
     // Fetch fresh reasons every time
@@ -467,7 +467,7 @@
     const s = students.find(s=>s.id===_archiveId);
     try {
       await apiDelete('/api/students/'+_archiveId, { reason, comment: comment||null });
-      logActivity(`Archived student: ${s?.firstName} ${s?.lastName} — ${reason}${isBlacklist?' [BLACKLISTED]':''}`, 'red');
+      logActivity(`Archived student: ${s?.lastName} ${s?.firstName} — ${reason}${isBlacklist?' [BLACKLISTED]':''}`, 'red');
       closeModal('archiveModal');
       await load();
       showToast('Student archived.');

@@ -373,7 +373,7 @@ async function init() {
   ALL_USERS.forEach(u => {
     const o = document.createElement('option');
     o.value = u.id;
-    o.textContent = u.name + (u.title ? ` — ${u.title}` : '');
+    o.textContent = reverseName(u.name) + (u.title ? ` — ${u.title}` : '');
     sel.appendChild(o);
   });
   updateCounts();
@@ -473,11 +473,11 @@ function cardHTML(t) {
   const isAdminTaskCard = t.assignedToId === 'administration';
   const isSelf = t.assignedToId === t.createdById;
   const personLabel = isAdminTaskCard
-    ? (CURRENT_FILTER === 'inbox' ? `From: ${t.createdByName||''}` : '🏢 Administration')
+    ? (CURRENT_FILTER === 'inbox' ? `From: ${reverseName(t.createdByName)||''}` : '🏢 Administration')
     : isSelf ? null
     : CURRENT_FILTER === 'inbox'
-      ? `From: ${t.createdByName||''}`
-      : `To: ${t.assignedToName||''}`;
+      ? `From: ${reverseName(t.createdByName)||''}`
+      : `To: ${reverseName(t.assignedToName)||''}`;
 
   // Draggable: only assignee on non-overdue, non-completed tasks
   const canDrag = isAssignee && t.status !== 'overdue' && t.status !== 'completed';
@@ -729,8 +729,8 @@ function showTaskDetail(id) {
   const rows = [
     { lbl:'Status',    val:`<span class="detail-badge ${t.status}">${STATUS_LABEL[t.status]}</span>` },
     { lbl:'Priority',  val:`<span class="detail-badge ${t.priority}">${cap(t.priority)}</span>` },
-    { lbl:'Assigned to', val: esc(t.assignedToName || '—') },
-    { lbl:'Created by',  val: esc(t.createdByName  || '—') + (isSelf ? ' <span style="color:var(--text-muted);font-size:11px">(self)</span>' : '') },
+    { lbl:'Assigned to', val: esc(reverseName(t.assignedToName) || '—') },
+    { lbl:'Created by',  val: esc(reverseName(t.createdByName)  || '—') + (isSelf ? ' <span style="color:var(--text-muted);font-size:11px">(self)</span>' : '') },
     { lbl:'Due',         val: dueStr },
     { lbl:'Repeat',      val: t.repeatEvery ? `🔁 ${t.repeatEvery}` : '—' },
     { lbl:'Created',     val: fmtDate(t.createdAt) },

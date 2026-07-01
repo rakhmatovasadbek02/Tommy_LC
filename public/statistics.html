@@ -323,10 +323,10 @@ function render(d) {
     </tr>`;
   }
   const tRows = (ST.teachers||[]).length
-    ? ST.teachers.map(t=>staffRow(t.name,`${t.groups}g · ${t.students}s`,t.attendanceRate)).join('')
+    ? ST.teachers.map(t=>staffRow(reverseName(t.name),`${t.groups}g · ${t.students}s`,t.attendanceRate)).join('')
     : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px 0;font-size:13px">No teacher data</td></tr>`;
   const sRows = (ST.support||[]).length
-    ? ST.support.map(t=>staffRow(t.name,`${t.total} sessions`,t.rate)).join('')
+    ? ST.support.map(t=>staffRow(reverseName(t.name),`${t.total} sessions`,t.rate)).join('')
     : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px 0;font-size:13px">No session data</td></tr>`;
 
   /* ── Archive ── */

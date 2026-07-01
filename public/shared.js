@@ -295,6 +295,14 @@ function initI18n(){ try{ translateAll(document.body); startI18nObserver(); }cat
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initI18n); else initI18n();
 
 function formatCurrency(n) { return '$' + Number(n || 0).toFixed(2); }
+// Reorders a stored "First Last" string to "Last First" for display only.
+// Underlying strings (teacher/session matching keys) must stay "First Last".
+function reverseName(name) {
+  if (!name) return name;
+  const parts = String(name).trim().split(' ');
+  if (parts.length < 2) return name;
+  return parts.slice(1).join(' ') + ' ' + parts[0];
+}
 function formatDate(iso) {
  if (!iso) return '—';
  return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
@@ -490,7 +498,7 @@ function renderSidebar(activePage) {
  <div class="user-pill" style="margin-bottom:10px">
  <div class="user-avatar" style="background:${meta.color}">${session.avatar||initials(session.name)}</div>
  <div class="user-info">
- <div class="user-name">${session.name}</div>
+ <div class="user-name">${reverseName(session.name)}</div>
  <div class="user-role"><span class="badge ${meta.badge}" style="font-size:9px;padding:1px 7px">${roleLabel}</span></div>
  </div>
  </div>

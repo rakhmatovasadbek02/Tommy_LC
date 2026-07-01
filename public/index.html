@@ -311,7 +311,7 @@ const SBADGE = { Active:'#1E6B45', Trial:'#A05C00', Lead:'#1D4ED8', Inactive:'#6
 dd.innerHTML = !results.length
 ? `<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">No students found</div>`
 : results.map(s => {
-const name = s.firstName+' '+s.lastName;
+const name = s.lastName+' '+s.firstName;
 const col = avatarColor(name);
 return `<div onclick="window.location.href='student-profile.html?id=${s.id}'"
 style="display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background 0.1s;"
@@ -438,7 +438,7 @@ ${cls.level?`<span style="font-size:10px;color:${textCol};opacity:0.85;margin-le
 ${cls.currentUnit?`<span style="font-size:9px;font-weight:700;color:${c};background:${textCol};padding:1px 5px;border-radius:3px;white-space:nowrap">${cls.currentUnit}</span>`:''}
 </div>
 <div style="grid-column:1/3;grid-row:2;display:flex;align-items:center;overflow:hidden">
-<span style="font-size:10px;color:${textCol};opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.teacher||'No teacher'}</span>
+<span style="font-size:10px;color:${textCol};opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.teacher ? reverseName(cls.teacher) : 'No teacher'}</span>
 </div>
 <div style="grid-column:1;grid-row:3">
 <span style="font-size:9px;color:${textCol};opacity:0.85;white-space:nowrap"> ${cls.time}–${minToTime(cEnd)}</span>
@@ -484,7 +484,7 @@ async function showAbsentModal() {
 }
 
 function absentCardHTML(s, absentGroupId) {
-  const name = s.firstName + ' ' + s.lastName;
+  const name = s.lastName + ' ' + s.firstName;
   const col  = avatarColor(name);
   const bal  = Number(s.balance || 0);
   const balColor = bal < 0 ? '#c0392b' : '#27ae60';
@@ -496,7 +496,7 @@ function absentCardHTML(s, absentGroupId) {
     const isAbsent = g.id === absentGroupId;
     return `<div style="background:${isAbsent?'#fff5f5':'#f8f9ff'};border:1px solid ${isAbsent?'#fca5a5':'#e0e7ff'};border-radius:8px;padding:8px 12px">
       <div style="font-size:12px;font-weight:700;color:var(--text)">${g.name}${isAbsent?' <span style="color:#c0392b;font-size:10px">(absent today)</span>':''}</div>
-      ${g.teacher ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${g.teacher}${g.time?' · '+g.time:''}</div>` : ''}
+      ${g.teacher ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${reverseName(g.teacher)}${g.time?' · '+g.time:''}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -691,7 +691,7 @@ ${starting.map(p=>{
 const span = slots.filter(s2=>s2>=p.st && s2<p.en).length;
 const w = span*COL_W-4;
 const stu = (window._supportStudents||[]).find(x=>x.id===p.studentId);
-const sName = stu ? stu.firstName+' '+stu.lastName : 'Student';
+const sName = stu ? stu.lastName+' '+stu.firstName : 'Student';
 return `<div style="position:absolute;top:2px;left:2px;width:${w}px;bottom:2px;background:${tCol};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
 <div style="font-weight:800;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sName}</div>
 <div style="font-size:10px;opacity:0.9;white-space:nowrap">${p.time} · ${p.duration}m</div>
@@ -712,7 +712,7 @@ const ql = (q||'').toLowerCase().trim();
 if (!ql) { document.getElementById('spStudentResults').style.display='none'; return; }
 const res = list.filter(s=>(s.firstName+' '+s.lastName).toLowerCase().includes(ql)||(s.phone||'').includes(ql)).slice(0,12);
 if (!res.length) { box.style.display='none'; return; }
-box.innerHTML = res.map(s=>{const n=(s.firstName+' '+s.lastName).replace(/"/g,'&quot;');return `<div class="sp-result" onclick="spPickStudent('${s.id}', &quot;${n}&quot;)"><div class="avatar" style="width:28px;height:28px;font-size:11px;background:${avatarColor(n)}">${initials(n)}</div><div><div style="font-size:13px;font-weight:600">${n}</div><div style="font-size:11px;color:var(--muted)">${s.phone||''}${s.level?' · '+s.level:''}</div></div></div>`;}).join('');
+box.innerHTML = res.map(s=>{const n=(s.lastName+' '+s.firstName).replace(/"/g,'&quot;');return `<div class="sp-result" onclick="spPickStudent('${s.id}', &quot;${n}&quot;)"><div class="avatar" style="width:28px;height:28px;font-size:11px;background:${avatarColor(n)}">${initials(n)}</div><div><div style="font-size:13px;font-weight:600">${n}</div><div style="font-size:11px;color:var(--muted)">${s.phone||''}${s.level?' · '+s.level:''}</div></div></div>`;}).join('');
 box.style.display='block';
 }
 function spPickStudent(id, name){
@@ -724,7 +724,7 @@ document.getElementById('spGroupInfo').style.display = grp ? '' : 'none';
 if (grp) {
   document.getElementById('spGroupName').textContent = grp.name || '—';
   document.getElementById('spGroupLevel').textContent = grp.level || '—';
-  document.getElementById('spGroupTeacher').textContent = grp.teacher || '—';
+  document.getElementById('spGroupTeacher').textContent = grp.teacher ? reverseName(grp.teacher) : '—';
   document.getElementById('spGroupUnit').textContent = grp.currentUnit || grp.current_unit || '—';
 }
 document.getElementById('spStudentResults').style.display='none';
@@ -749,7 +749,7 @@ if (!window._supportGroups) { try { window._supportGroups = await apiGet('/api/g
 document.getElementById('spGroupInfo').style.display='none';
 _spDur = 30; document.querySelectorAll('#spDurSeg button').forEach((b,i)=>b.classList.toggle('active', i===0));
 const onlyWorking = (window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
-document.getElementById('spTeacher').innerHTML = '<option value="">— Select —</option>' + onlyWorking.map(t=>`<option>${t.name}</option>`).join('');
+document.getElementById('spTeacher').innerHTML = '<option value="">— Select —</option>' + onlyWorking.map(t=>`<option value="${t.name}">${reverseName(t.name)}</option>`).join('');
 const pre = (prefillTeacher && typeof prefillTeacher==='string') ? prefillTeacher : '';
 if (pre) document.getElementById('spTeacher').value = pre;
 supBuildTimes(pre, (prefillTime && typeof prefillTime==='string') ? prefillTime : '09:00');

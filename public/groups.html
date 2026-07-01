@@ -190,7 +190,7 @@ apiGet('/api/leads').catch(()=>[]), apiGet('/api/levels').catch(()=>[])
 ]);
 if(isTeacher()||isSupportTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';document.getElementById('levelsBtn').style.display='none';}
 const tSel=document.getElementById('filterTeacher');
-[...new Set(groups.map(g=>g.teacher).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;tSel.appendChild(o);});
+[...new Set(groups.map(g=>g.teacher).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=reverseName(t);tSel.appendChild(o);});
 renderGroups();
 }
 function renderGroups() {
@@ -227,7 +227,7 @@ return `<div class="group-card">
 ${g.lang?`<span style="font-size:20px">${LANG_FLAG[g.lang]||''}</span>`:''}
 </div>
 <div class="group-meta">
-<span>${g.teacher || 'No teacher'}</span>
+<span>${g.teacher ? reverseName(g.teacher) : 'No teacher'}</span>
 ${g.room?`<span> ${g.room}</span>`:''}
 ${g.time?`<span> ${g.time}${endTime?'–'+endTime:''}</span>`:''}
 <span> From ${formatDate(g.startDate)}</span>
@@ -331,7 +331,7 @@ await load(); showToast('Deleted.','error');
 }
 async function populateSelects() {
 const tSel=document.getElementById('gTeacher');
-tSel.innerHTML='<option value="">— Select teacher —</option>'+teachers.map(t=>`<option value="${t.firstName} ${t.lastName}">${t.firstName} ${t.lastName}</option>`).join('');
+tSel.innerHTML='<option value="">— Select teacher —</option>'+teachers.map(t=>`<option value="${t.firstName} ${t.lastName}">${t.lastName} ${t.firstName}</option>`).join('');
 const rSel=document.getElementById('gRoom');
 rSel.disabled=false;rSel.innerHTML='<option value="">— Select room —</option>'+FIXED_ROOMS.map(r=>`<option value="${r}">${r}</option>`).join('');
 }

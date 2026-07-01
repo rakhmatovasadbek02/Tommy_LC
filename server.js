@@ -876,8 +876,9 @@ app.post('/api/students', async (req, res) => {
     );
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
     await logStudentHistory(id, actor, req.user?.title||req.user?.role, 'created', { firstName, lastName, phone: phone||null, level: level||null });
+    const actorDisplay = req.user ? req.user.last_name+' '+req.user.first_name : 'Someone';
     await notifyRole('staff', 'new_student', 'New student enrolled',
-      `${firstName} ${lastName} was added by ${actor}`, 'students.html', req.user?.id);
+      `${lastName} ${firstName} was added by ${actorDisplay}`, 'students.html', req.user?.id);
     broadcast('students');
     res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1034,7 +1035,7 @@ app.get('/api/students/blacklist-check', async (req, res) => {
     const all = [...students, ...leads];
     res.json(all.map(s => ({
       id: s.id,
-      name: s.first_name + ' ' + s.last_name,
+      name: s.last_name + ' ' + s.first_name,
       phone: s.phone,
       reason: s.archive_reason,
       comment: s.archive_comment,
@@ -1917,7 +1918,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       return {
         id: s.id, time: s.time, duration: s.duration,
         studentId: s.student_id,
-        studentName: stu ? stu.first_name + ' ' + stu.last_name : '?',
+        studentName: stu ? stu.last_name + ' ' + stu.first_name : '?',
         teacher: s.teacher,
         attended: s.attended,
         theme: s.theme,
@@ -1929,7 +1930,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       return {
         id: s.id, date: s.date, time: s.time, duration: s.duration,
         teacher: s.teacher,
-        studentName: stu ? stu.first_name + ' ' + stu.last_name : '?',
+        studentName: stu ? stu.last_name + ' ' + stu.first_name : '?',
         attended: s.attended,
         theme: s.theme,
       };
@@ -1985,7 +1986,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       const finedStudents = fineR.rows.map(f => {
         const stu = stuMap.get(f.student_id);
         return {
-          name: stu ? stu.first_name+' '+stu.last_name : '?',
+          name: stu ? stu.last_name+' '+stu.first_name : '?',
           studentId: f.student_id,
           blockedUntil: f.blocked_until,
         };
@@ -2103,9 +2104,9 @@ app.post('/api/leads', async (req, res) => {
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Registration')`,
       [id, firstName, lastName, phoneStudent||null, phoneFather||null, phoneMother||null, phoneOther||null, currentLevel||null, testResult||null, notes||null]
     );
-    const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
+    const actor = req.user ? req.user.last_name+' '+req.user.first_name : 'Someone';
     await notifyRole('staff', 'new_lead', 'New lead registered',
-      `${firstName} ${lastName} registered by ${actor}`, 'leads.html', req.user?.id);
+      `${lastName} ${firstName} registered by ${actor}`, 'leads.html', req.user?.id);
     broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2444,10 +2445,10 @@ app.post('/api/reminders', async (req, res) => {
         [me.id]
       ).catch(()=>({rows:[]}));
       for (const u of admins) await createNotif(u.id, 'task_assigned', 'New task for Administration',
-        `"${title}" assigned by ${me.first_name} ${me.last_name}`, 'reminders.html');
+        `"${title}" assigned by ${me.last_name} ${me.first_name}`, 'reminders.html');
     } else if (finalAssignee !== me.id) {
       await createNotif(finalAssignee, 'task_assigned', 'New task assigned to you',
-        `"${title}" assigned by ${me.first_name} ${me.last_name}`, 'reminders.html');
+        `"${title}" assigned by ${me.last_name} ${me.first_name}`, 'reminders.html');
     }
     broadcast('reminders');
     res.json({ ok: true });
@@ -2485,7 +2486,7 @@ app.put('/api/reminders/:id/status', async (req, res) => {
     if (tr.length && tr[0].created_by_id !== me.id) {
       const statusLabel = { in_process:'In Process', completed:'Completed' }[status] || status;
       await createNotif(tr[0].created_by_id, 'task_status', 'Task status updated',
-        `"${tr[0].title}" marked as ${statusLabel} by ${me.first_name} ${me.last_name}`, 'reminders.html');
+        `"${tr[0].title}" marked as ${statusLabel} by ${me.last_name} ${me.first_name}`, 'reminders.html');
     }
     // Spawn next occurrence if recurring and just completed
     if (status === 'completed' && tr.length && tr[0].repeat_every && tr[0].due_date) {

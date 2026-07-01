@@ -230,7 +230,7 @@
       return;
     }
     el.innerHTML = bl.map(s => {
-      const name = s.firstName + ' ' + s.lastName;
+      const name = s.lastName + ' ' + s.firstName;
       const col  = avatarColor(name);
       const dt   = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
       const src  = s.sourceType || 'student';
@@ -280,7 +280,7 @@
       return;
     }
     wrap.innerHTML = list.map(s => {
-      const name  = s.firstName + ' ' + s.lastName;
+      const name  = s.lastName + ' ' + s.firstName;
       const col   = avatarColor(name);
       const dt    = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
       const phone = s.phone ? '+998 ' + s.phone : null;

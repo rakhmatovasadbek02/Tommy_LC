@@ -442,7 +442,7 @@ try {
 } catch(e) { trialStudents = []; }
 selectedUnit = group.currentUnit || '1A';
 document.getElementById('pageTitle').textContent =
-[group.name, group.level, group.teacher].filter(Boolean).join(' · ');
+[group.name, group.level, group.teacher ? reverseName(group.teacher) : null].filter(Boolean).join(' · ');
 document.getElementById('unitBadgeVal').textContent = selectedUnit;
 document.getElementById('loadingState').style.display = 'none';
 document.getElementById('groupLayout').style.display = 'grid';
@@ -465,7 +465,7 @@ return `${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0
 const price = group.price ? Number(group.price).toLocaleString('uz-UZ')+' UZS' : null;
 document.getElementById('groupInfoText').innerHTML = `
 <div class="gi-row"><span class="gi-label">Course:</span><span class="gi-val">${group.level||'—'}</span></div>
-<div class="gi-row"><span class="gi-label">Teacher:</span><span class="gi-val">${group.teacher||'—'}</span></div>
+<div class="gi-row"><span class="gi-label">Teacher:</span><span class="gi-val">${group.teacher ? reverseName(group.teacher) : '—'}</span></div>
 <div class="gi-row"><span class="gi-label">Schedule:</span><span class="gi-val">${SCHED[group.schedType]||'—'}</span></div>
 <div class="gi-row"><span class="gi-label">Time:</span><span class="gi-val">${group.time||'—'}${endTime?' – '+endTime:''}</span></div>
 <div class="gi-row"><span class="gi-label">Room:</span><span class="gi-val">${group.room||'—'}</span></div>
@@ -504,7 +504,7 @@ return `
 <div class="student-list-item" ${_isTeacher ? '' : `onclick="window.location.href='student-profile.html?id=${s.id}'" style="cursor:pointer"`}>
   <span class="student-num">${i+1}.</span>
   <span class="student-dot${dotClass ? ' '+dotClass : ''}"></span>
-  <span class="student-list-name${frozen ? ' is-frozen' : ''}">${s.firstName} ${s.lastName}</span>
+  <span class="student-list-name${frozen ? ' is-frozen' : ''}">${s.lastName} ${s.firstName}</span>
   <span class="student-phone">${fmtPhone(s.phone)}</span>
   <button class="stu-menu-btn" onclick="event.stopPropagation();toggleStudentMenu('${s.id}',event)">${menuIcon}</button>
   <div class="stu-dropdown" id="smenu-${s.id}">
@@ -540,7 +540,7 @@ el.innerHTML += trialReg.map((s,i) => `
 <div class="student-list-item trial-student">
 <span class="student-num">${active.length+i+1}.</span>
 <span class="student-dot trial"></span>
-<span class="student-list-name is-trial">${s.firstName} ${s.lastName}</span>
+<span class="student-list-name is-trial">${s.lastName} ${s.firstName}</span>
 <span class="trial-badge">Trial</span>
 <button class="btn-activate-sm" onclick="event.stopPropagation();activateEnrolledStudent('${s.id}')">Activate</button>
 </div>`).join('');
@@ -550,7 +550,7 @@ el.innerHTML += trialStudents.map((s,i) => `
 <div class="student-list-item trial-student">
 <span class="student-num">${active.length+trialReg.length+i+1}.</span>
 <span class="student-dot trial"></span>
-<span class="student-list-name" style="color:#777">${s.firstName} ${s.lastName}</span>
+<span class="student-list-name" style="color:#777">${s.lastName} ${s.firstName}</span>
 <span class="trial-badge">Lead Trial</span>
 </div>`).join('');
 }
@@ -643,7 +643,7 @@ return `<th class="${isToday?'today-col':''}" style="min-width:46px">${d}</th>`;
 </tr></thead>`;
 let tbody = '<tbody>';
 sorted.forEach(s => {
-const name = s.firstName+' '+s.lastName;
+const name = s.lastName+' '+s.firstName;
 tbody += `<tr>
 <td class="name-col">
 <div class="att-name-cell">
@@ -662,7 +662,7 @@ return attCell(ds, s.id, status);
 if (trialStudents.length) {
 tbody += `<tr><td colspan="${days.length+1}" style="padding:6px 16px;background:#f0f0f0;font-size:11px;font-weight:700;color:#888;letter-spacing:0.5px;text-transform:uppercase;">Trial Students</td></tr>`;
 trialStudents.forEach(s => {
-const name = s.firstName+' '+s.lastName;
+const name = s.lastName+' '+s.firstName;
 tbody += `<tr class="att-trial-row">
 <td class="name-col">
 <div class="att-name-cell">
@@ -801,7 +801,7 @@ el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);fo
 return;
 }
 el.innerHTML = results.map(s => {
-const name = s.firstName+' '+s.lastName;
+const name = s.lastName+' '+s.firstName;
 const already = enrolled.has(s.id);
 return `<div class="student-search-result ${already?'already':''}" onclick="${already?'':'addStudentToGroup(\''+s.id+'\')'}">
 <div style="width:32px;height:32px;border-radius:50%;background:${avatarColor(name)};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0">${initials(name)}</div>
@@ -860,7 +860,7 @@ function activateEnrolledStudent(studentId) {
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
   _activatingStudentId = studentId;
   const s = students.find(s=>s.id===studentId) || allStudents.find(s=>s.id===studentId);
-  const name = s ? s.firstName+' '+s.lastName : 'Student';
+  const name = s ? s.lastName+' '+s.firstName : 'Student';
   document.getElementById('actStudentName').textContent = name;
   const { amount, remaining } = calcActivation();
   const hasPrice = Math.abs(Number(group.price||0)) > 0;
@@ -883,7 +883,7 @@ async function confirmActivation() {
     if (s) { s.status = 'Active'; s.balance = (Number(s.balance)||0) - Math.abs(result.amount||0); }
     renderStudentList();
     renderAttendance();
-    const name = s ? s.firstName+' '+s.lastName : 'Student';
+    const name = s ? s.lastName+' '+s.firstName : 'Student';
     logActivity(`Activated student ${name} in ${group.name}`, 'green');
     showToast(result.amount > 0 ? `${name} activated! −${result.amount.toLocaleString()} UZS` : `${name} activated!`);
   } catch(e) { showToast('Error: '+e.message, 'error'); }
@@ -913,7 +913,7 @@ async function makeStudentFrozen(id) {
   if (!s) return;
   const freeze = s.status !== 'Frozen';
   if (freeze) {
-    const comment = prompt(`Reason for freezing ${s.firstName} ${s.lastName}:`);
+    const comment = prompt(`Reason for freezing ${s.lastName} ${s.firstName}:`);
     if (comment === null) return;
     await apiPut('/api/students/'+id, { ...s, status: 'Frozen', balance_frozen: true, frozen_comment: comment });
     s.status = 'Frozen'; s.balance_frozen = true; s.frozen_comment = comment;
@@ -924,7 +924,7 @@ async function makeStudentFrozen(id) {
     s.status = 'Active'; s.balance_frozen = false; s.frozen_comment = null;
   }
   renderStudentList();
-  logActivity(`${freeze ? 'Frozen' : 'Unfrozen'} student: ${s.firstName} ${s.lastName}`, '');
+  logActivity(`${freeze ? 'Frozen' : 'Unfrozen'} student: ${s.lastName} ${s.firstName}`, '');
   showToast(freeze ? `${s.firstName} frozen.` : `${s.firstName} unfrozen.`);
 }
 
@@ -933,7 +933,7 @@ function openQuickPayment(id) {
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
   _qpStudentId = id;
   const s = students.find(s => s.id === id);
-  document.getElementById('qpStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+  document.getElementById('qpStudentName').textContent = s ? s.lastName+' '+s.firstName : '';
   document.getElementById('qpAmount').value = '';
   document.querySelectorAll('.qp-type-btn').forEach((b,i) => b.classList.toggle('selected', i===0));
   document.getElementById('qpType').value = 'Cash';
@@ -951,7 +951,7 @@ async function submitQuickPayment() {
   s && (s.balance = (Number(s.balance)||0) + amount);
   renderStudentList();
   closeModal('quickPayModal');
-  logActivity(`Payment ${amount.toLocaleString()} for ${s?.firstName} ${s?.lastName}`, 'green');
+  logActivity(`Payment ${amount.toLocaleString()} for ${s?.lastName} ${s?.firstName}`, 'green');
   showToast('Payment added!');
 }
 function selectQpType(btn, type) {
@@ -965,7 +965,7 @@ function openQuickNote(id) {
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
   _qnStudentId = id;
   const s = students.find(s => s.id === id);
-  document.getElementById('qnStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+  document.getElementById('qnStudentName').textContent = s ? s.lastName+' '+s.firstName : '';
   document.getElementById('qnText').value = '';
   openModal('quickNoteModal');
 }
@@ -976,7 +976,7 @@ async function submitQuickNote() {
   const s = students.find(s => s.id === _qnStudentId);
   await apiPost('/api/students/'+_qnStudentId+'/comments', { text, actor: session?.name||'Unknown' });
   closeModal('quickNoteModal');
-  logActivity(`Note added for ${s?.firstName} ${s?.lastName}`, '');
+  logActivity(`Note added for ${s?.lastName} ${s?.firstName}`, '');
   showToast('Note added!');
 }
 
@@ -985,7 +985,7 @@ async function openMoveToGroup(id) {
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
   _mvStudentId = id;
   const s = students.find(s => s.id === id);
-  document.getElementById('mvStudentName').textContent = s ? s.firstName+' '+s.lastName : '';
+  document.getElementById('mvStudentName').textContent = s ? s.lastName+' '+s.firstName : '';
   const allGrps = await apiGet('/api/groups');
   const sel = document.getElementById('mvGroupSelect');
   sel.innerHTML = '<option value="">— Select group —</option>' +
@@ -1013,21 +1013,21 @@ async function submitMoveToGroup() {
   renderStudentList();
   renderAttendance();
   closeModal('moveGroupModal');
-  logActivity(`Moved ${s?.firstName} ${s?.lastName} to ${target?.name||targetId}`, '');
+  logActivity(`Moved ${s?.lastName} ${s?.firstName} to ${target?.name||targetId}`, '');
   showToast(`${s?.firstName} moved to ${target?.name||'new group'}.`);
 }
 
 async function removeStudentFromGroup(id) {
   document.querySelectorAll('.stu-dropdown.open').forEach(d => d.classList.remove('open'));
   const s = students.find(s => s.id === id);
-  if (!confirm(`Remove ${s?.firstName} ${s?.lastName} from this group?`)) return;
+  if (!confirm(`Remove ${s?.lastName} ${s?.firstName} from this group?`)) return;
   const newIds = (group.studentIds||[]).filter(i => i !== id);
   await apiPatch('/api/groups/'+groupId+'/students', { studentIds: newIds });
   group.studentIds = newIds;
   students = students.filter(s => s.id !== id);
   renderStudentList();
   renderAttendance();
-  logActivity(`Removed ${s?.firstName} ${s?.lastName} from ${group.name}`, 'red');
+  logActivity(`Removed ${s?.lastName} ${s?.firstName} from ${group.name}`, 'red');
   showToast('Student removed from group.');
 }
 

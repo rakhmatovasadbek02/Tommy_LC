@@ -555,7 +555,7 @@
     }
 
     el.innerHTML = rows.map(r => {
-      const name = r.stu.firstName+' '+r.stu.lastName;
+      const name = r.stu.lastName+' '+r.stu.firstName;
       const col  = LEVEL_COLORS[r.group.level] || '#666';
       return `<div class="deb-row">
         <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px">${initials(name)}</div>
@@ -666,7 +666,7 @@
 
     el.innerHTML = filtered.map(i => {
       const stu  = students.find(s=>s.id===i.studentId);
-      const name = stu ? stu.firstName+' '+stu.lastName : 'Unknown';
+      const name = stu ? stu.lastName+' '+stu.firstName : 'Unknown';
       const grp  = groups.find(g=>g.id===i.groupId);
       const col  = LEVEL_COLORS[i.level] || '#666';
       const d    = new Date(i.createdAt);
@@ -684,7 +684,7 @@
         </div>
         <span class="month-chip">${monthLabel(i.month)}</span>
         <span class="badge ${i.paymentType==='Click'?'badge-click':'badge-cash'}">${i.paymentType==='Click'?'📱':'💵'} ${i.paymentType||'Cash'}</span>
-        <div class="inv-when">${when}${i.creator ? `<br>by ${i.creator}` : ''}</div>
+        <div class="inv-when">${when}${i.creator ? `<br>by ${reverseName(i.creator)}` : ''}</div>
         <div class="inv-amount">${fmt(i.total)}</div>
         <div class="inv-actions">
           ${FIN_MANAGE?`<button class="btn btn-ghost btn-sm" onclick="editInvoice('${i.id}')">${IC.edit}</button>
@@ -720,7 +720,7 @@
     }
 
     el.innerHTML = debtors.map(s => {
-      const name = s.firstName+' '+s.lastName;
+      const name = s.lastName+' '+s.firstName;
       const bal  = Number(s.balance||0);
       const myGroups = groups.filter(g=>(g.studentIds||[]).includes(s.id)).map(g=>g.name).join(', ');
       return `<div class="deb-row">
@@ -749,7 +749,7 @@
     const rows = currentTab==='debtors'
       ? [['Student','Phone','Groups','Debt (UZS)'],
          ...students.filter(s=>Number(s.balance||0)<0).map(s=>[
-           s.firstName+' '+s.lastName, s.phone||'',
+           s.lastName+' '+s.firstName, s.phone||'',
            groups.filter(g=>(g.studentIds||[]).includes(s.id)).map(g=>g.name).join('; '),
            Math.abs(Number(s.balance||0))
          ])]
@@ -759,9 +759,9 @@
            const grp = groups.find(g=>g.id===i.groupId);
            return [
              new Date(i.createdAt).toISOString().split('T')[0],
-             stu ? stu.firstName+' '+stu.lastName : 'Unknown',
+             stu ? stu.lastName+' '+stu.firstName : 'Unknown',
              grp?.name||'', i.level||'', i.month||'',
-             i.paymentType||'Cash', Number(i.total||0), i.creator||'', (i.notes||'').replace(/\n/g,' ')
+             i.paymentType||'Cash', Number(i.total||0), reverseName(i.creator)||'', (i.notes||'').replace(/\n/g,' ')
            ];
          })];
     const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -900,7 +900,7 @@
     const sel = document.getElementById('invStudent');
     sel.innerHTML = '<option value="">— Select student —</option>' +
       students.filter(s=>s.status==='Active'||s.status==='Trial').map(s=>
-        `<option value="${s.id}">${s.firstName} ${s.lastName}</option>`
+        `<option value="${s.id}">${s.lastName} ${s.firstName}</option>`
       ).join('');
   }
 
@@ -925,7 +925,7 @@
     );
 
     let rows = students.filter(s=>s.status==='Active').map(s => {
-      const name    = s.firstName+' '+s.lastName;
+      const name    = s.lastName+' '+s.firstName;
       const grps    = groups.filter(g=>(g.studentIds||[]).includes(s.id));
       const paid    = paidIds.has(s.id);
       const bal     = Number(s.balance||0);
