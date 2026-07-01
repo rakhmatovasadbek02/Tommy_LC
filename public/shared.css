@@ -128,6 +128,11 @@ input[type=number] { -moz-appearance: textfield; }
  background: rgba(255,255,255,0.13);
  font-weight: 600;
 }
+.nav-link .label {
+ overflow: hidden;
+ white-space: nowrap;
+ text-overflow: ellipsis;
+}
 .nav-link .icon {
  width: 18px;
  height: 18px;
@@ -535,7 +540,7 @@ textarea { resize: vertical; min-height: 88px; }
  .sidebar { overflow: visible; }
  .sidebar-brand .brand-name,
  .sidebar-brand .brand-sub,
- .nav-link span:not(.icon),
+ .nav-link .label,
  .sidebar-footer .user-info,
  .sidebar-footer button span { display: none; }
  .sidebar-brand { justify-content: center; padding: 16px 0; }
@@ -653,3 +658,32 @@ textarea { resize: vertical; min-height: 88px; }
  .day-tab { flex: 1; text-align: center; font-size: 12px; padding: 7px 6px; }
  .topbar-right .btn-sm { padding: 5px 8px; font-size: 11px; }
 }
+/* ══════════════════════════════════════
+ STUDENT HOVER CARD
+══════════════════════════════════════ */
+.student-hover-card {
+ position: fixed;
+ z-index: 3000;
+ width: 260px;
+ background: var(--white);
+ border: 1px solid var(--border);
+ border-radius: var(--radius);
+ box-shadow: var(--shadow-lg);
+ padding: 14px 16px;
+ font-size: 13px;
+ color: var(--text);
+ animation: shcFade 0.12s ease-out;
+}
+@keyframes shcFade { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:translateY(0); } }
+.shc-name { font-weight: 800; font-size: 14px; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+.shc-id { font-weight: 500; font-size: 11px; color: var(--muted); }
+.shc-status { font-size: 12px; font-weight: 600; margin-top: 3px; }
+.shc-debtor-badge { display:inline-block; margin-top:6px; background: var(--crimson-deep); color:#fff; font-weight:700; font-size:11px; padding:3px 10px; border-radius:6px; }
+.shc-divider { border: none; border-top: 1px solid var(--border); margin: 9px 0; }
+.shc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-bottom: 2px; }
+.shc-balance.pos { color: #16a34a; font-weight: 700; }
+.shc-balance.neg { color: var(--crimson-deep); font-weight: 700; }
+.shc-note { font-size: 12px; margin-top: 1px; }
+.shc-note-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.shc-link { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--crimson); text-decoration: none; }
+.shc-link:hover { text-decoration: underline; }

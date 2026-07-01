@@ -1930,6 +1930,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       return {
         id: s.id, date: s.date, time: s.time, duration: s.duration,
         teacher: s.teacher,
+        studentId: s.student_id,
         studentName: stu ? stu.last_name + ' ' + stu.first_name : '?',
         attended: s.attended,
         theme: s.theme,

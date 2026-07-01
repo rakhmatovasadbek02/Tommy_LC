@@ -560,7 +560,7 @@
       return `<div class="deb-row">
         <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px">${initials(name)}</div>
         <div>
-          <div class="inv-name"><a href="student-profile.html?id=${r.stu.id}">${name}</a></div>
+          <div class="inv-name"><a href="student-profile.html?id=${r.stu.id}" onmouseenter="showStudentHoverCard(this,'${r.stu.id}')" onmouseleave="hideStudentHoverCard()">${name}</a></div>
           <div class="inv-meta">${r.stu.phone||''}</div>
         </div>
         <div class="inv-meta">👥 ${r.group.name}${r.group.level?` <span style="color:${col};font-weight:700">${r.group.level}</span>`:''}</div>
@@ -675,7 +675,7 @@
       return `<div class="inv-row">
         <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px">${initials(name)}</div>
         <div>
-          <div class="inv-name"><a href="student-profile.html?id=${stu?.id}">${name}</a></div>
+          <div class="inv-name"><a href="student-profile.html?id=${stu?.id}" onmouseenter="showStudentHoverCard(this,'${stu?.id}')" onmouseleave="hideStudentHoverCard()">${name}</a></div>
           <div class="inv-meta">
             ${grp ? `<span>👥 <a href="group.html?id=${grp.id}">${grp.name}</a></span>` : ''}
             ${i.level ? `<span style="color:${col};font-weight:600">${i.level}</span>` : ''}
@@ -726,7 +726,7 @@
       return `<div class="deb-row">
         <div class="avatar" style="background:${avatarColor(name)};width:38px;height:38px;font-size:13px">${initials(name)}</div>
         <div>
-          <div class="inv-name"><a href="student-profile.html?id=${s.id}">${name}</a></div>
+          <div class="inv-name"><a href="student-profile.html?id=${s.id}" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()">${name}</a></div>
           <div class="inv-meta">${s.phone||''}</div>
         </div>
         <div class="deb-groups inv-meta">${myGroups ? '👥 '+myGroups : '<span style="color:var(--amber)">no group</span>'}</div>
@@ -1010,7 +1010,7 @@
       return `<div class="ha-row">
         <div class="avatar" style="background:${avatarColor(name)};width:36px;height:36px;font-size:12px;flex-shrink:0">${initials(name)}</div>
         <div class="ha-row-info">
-          <div class="ha-row-name"><a href="student-profile.html?id=${s.id}">${name}</a></div>
+          <div class="ha-row-name"><a href="student-profile.html?id=${s.id}" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()">${name}</a></div>
           <div class="ha-row-grps">${grpChips}</div>
         </div>
         <div class="ha-row-bal" style="color:${balColor}">

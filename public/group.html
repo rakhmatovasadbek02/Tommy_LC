@@ -504,7 +504,7 @@ return `
 <div class="student-list-item" ${_isTeacher ? '' : `onclick="window.location.href='student-profile.html?id=${s.id}'" style="cursor:pointer"`}>
   <span class="student-num">${i+1}.</span>
   <span class="student-dot${dotClass ? ' '+dotClass : ''}"></span>
-  <span class="student-list-name${frozen ? ' is-frozen' : ''}">${s.lastName} ${s.firstName}</span>
+  <span class="student-list-name${frozen ? ' is-frozen' : ''}" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()">${s.lastName} ${s.firstName}</span>
   <span class="student-phone">${fmtPhone(s.phone)}</span>
   <button class="stu-menu-btn" onclick="event.stopPropagation();toggleStudentMenu('${s.id}',event)">${menuIcon}</button>
   <div class="stu-dropdown" id="smenu-${s.id}">
@@ -540,7 +540,7 @@ el.innerHTML += trialReg.map((s,i) => `
 <div class="student-list-item trial-student">
 <span class="student-num">${active.length+i+1}.</span>
 <span class="student-dot trial"></span>
-<span class="student-list-name is-trial">${s.lastName} ${s.firstName}</span>
+<span class="student-list-name is-trial" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()">${s.lastName} ${s.firstName}</span>
 <span class="trial-badge">Trial</span>
 <button class="btn-activate-sm" onclick="event.stopPropagation();activateEnrolledStudent('${s.id}')">Activate</button>
 </div>`).join('');
@@ -648,7 +648,7 @@ tbody += `<tr>
 <td class="name-col">
 <div class="att-name-cell">
 <div class="att-avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
-<span ${_isTeacher ? '' : `style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'"`}>${name}</span>
+<span ${_isTeacher ? '' : `style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'"`} onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()">${name}</span>
 </div>
 </td>
 ${days.map(d => {

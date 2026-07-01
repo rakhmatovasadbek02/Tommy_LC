@@ -308,6 +308,72 @@ function formatDate(iso) {
  return new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
 }
 
+/* ── Student hover card ── */
+let _shcStudentsPromise = null;
+let _shcEl = null, _shcShowTimer = null, _shcHideTimer = null;
+function _shcEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function _shcLoadStudents() {
+  if (!_shcStudentsPromise) _shcStudentsPromise = apiGet('/api/students').catch(() => []);
+  return _shcStudentsPromise;
+}
+function showStudentHoverCard(el, studentId) {
+  clearTimeout(_shcHideTimer);
+  clearTimeout(_shcShowTimer);
+  _shcShowTimer = setTimeout(async () => {
+    const list = await _shcLoadStudents();
+    const s = list.find(x => x.id === studentId);
+    if (!s || !el.isConnected) return;
+    _renderStudentHoverCard(el, s);
+  }, 350);
+}
+function hideStudentHoverCard() {
+  clearTimeout(_shcShowTimer);
+  clearTimeout(_shcHideTimer);
+  _shcHideTimer = setTimeout(() => { _shcEl?.remove(); _shcEl = null; }, 150);
+}
+function _renderStudentHoverCard(el, s) {
+  _shcEl?.remove();
+  const name = `${s.lastName} ${s.firstName}`;
+  const statusColor = { Active:'#16a34a', Frozen:'#0891b2', Inactive:'#666' }[s.status] || '#666';
+  const isDebtor = Number(s.balance || 0) < 0;
+  const card = document.createElement('div');
+  card.className = 'student-hover-card';
+  card.addEventListener('mouseenter', () => clearTimeout(_shcHideTimer));
+  card.addEventListener('mouseleave', hideStudentHoverCard);
+  card.innerHTML = `
+    <div class="shc-name">${_shcEsc(name)} <span class="shc-id">(id: ${_shcEsc(s.id)})</span></div>
+    <div class="shc-status" style="color:${statusColor}">${_shcEsc(s.status)}</div>
+    ${isDebtor ? `<div class="shc-debtor-badge">Debtor</div>` : ''}
+    <hr class="shc-divider">
+    <div class="shc-label">Phone</div>
+    <div>${s.phone ? '+998 ' + _shcEsc(s.phone) : '—'}</div>
+    <hr class="shc-divider">
+    <div class="shc-label">Balance</div>
+    <div class="shc-balance ${isDebtor ? 'neg' : 'pos'}">${fmtCurrencyUZS(s.balance)}</div>
+    <hr class="shc-divider">
+    <div class="shc-label">Date added</div>
+    <div>${formatDate(s.createdAt)}</div>
+    ${s.lastComment ? `
+    <hr class="shc-divider">
+    <div class="shc-label">Note</div>
+    <div class="shc-note">${_shcEsc(s.lastComment.text)}</div>
+    <div class="shc-note-meta">${_shcEsc(s.lastComment.actor||'')} · ${_shcEsc(s.lastComment.time||'')}</div>` : ''}
+    <hr class="shc-divider">
+    <a href="student-profile.html?id=${s.id}" class="shc-link">Go to profile →</a>
+  `;
+  document.body.appendChild(card);
+  const r = el.getBoundingClientRect();
+  const cw = 260, ch = card.offsetHeight;
+  let left = r.right + 10;
+  if (left + cw > window.innerWidth - 8) left = Math.max(8, r.left - cw - 10);
+  let top = r.top;
+  if (top + ch > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ch - 8);
+  card.style.left = left + 'px';
+  card.style.top = top + 'px';
+  _shcEl = card;
+}
+function fmtCurrencyUZS(n) { return (Number(n||0) < 0 ? '−' : '') + Math.abs(Number(n||0)).toLocaleString('ru-RU') + ' UZS'; }
+
 const AVATAR_COLORS = ['#FF0000','#1D4ED8','#1E6B45','#7C3AED','#A05C00','#0891B2','#BE185D','#D97706'];
 function avatarColor(name) {
  let h = 0;
@@ -420,7 +486,8 @@ const NAV_ICONS = {
  settings: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41"/></svg>`,
  actions: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
  archived: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`,
- support: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+ support: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></svg>`,
+ todolist: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
  reminders: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
  statistics: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
 };
@@ -451,7 +518,7 @@ function renderSidebar(activePage) {
    { feature:'dashboard', href:'index.html',      iconKey:'dashboard', label: hasBothRoles ? 'Teaching' : 'Dashboard' },
    { feature:'leads',     href:'leads.html',      iconKey:'leads',     label:'Leads'      },
    { feature:'support',   href:'support.html',    iconKey:'support',   label:'Support'    },
-   { feature:'reminders',    href:'todolist.html',   iconKey:'reminders', label:'Todolist'   },
+   { feature:'reminders',    href:'todolist.html',   iconKey:'todolist',  label:'Todolist'   },
    { feature:'manreminders', href:'reminders.html',  iconKey:'reminders', label:'Reminders'  },
    { feature:'students',  href:'students.html',   iconKey:'students',  label:'Students'   },
    { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
@@ -476,7 +543,7 @@ function renderSidebar(activePage) {
      })
      .map(item => {
        const isActive = item.feature === activePage;
-       return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span>${item.label}</a>`;
+       return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span><span class="label">${item.label}</span></a>`;
      }).join('');
    if (!links) return '';
    return `<div class="nav-section">
@@ -503,7 +570,7 @@ function renderSidebar(activePage) {
  </div>
  </div>
  <button onclick="logout()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);color:rgba(255,255,255,0.50);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.14s;display:flex;align-items:center;justify-content:center;gap:7px;" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='rgba(255,255,255,0.88)'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.50)'">
- ${IC.logout} Sign Out
+ ${IC.logout} <span>Sign Out</span>
  </button>
  </div>`;
 

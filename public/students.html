@@ -341,7 +341,7 @@
           <div class="st-name-cell">
             <div class="st-avatar" style="background:${col}">${initials(name)}</div>
             <div style="min-width:0">
-              <div class="st-name"><a href="student-profile.html?id=${s.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none">${name}</a></div>
+              <div class="st-name"><a href="student-profile.html?id=${s.id}" onclick="event.stopPropagation()" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()" style="color:inherit;text-decoration:none">${name}</a></div>
             </div>
           </div>
         </td>
