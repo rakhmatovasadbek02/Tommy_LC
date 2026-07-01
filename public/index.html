@@ -652,7 +652,7 @@ if (SUPPORT_OWNER) teachers = teachers.filter(n=>n===SUPPORT_OWNER);
 teachers.sort();
 if (!teachers.length) {
 const anyTeachers = (window._supportTeachers||[]).length;
-grid.innerHTML = `<div style="padding:32px;text-align:center;color:var(--muted)"><p>${anyTeachers ? 'No support teachers work on this day.' : 'No support teachers yet — add one in Staff (role “Support Teacher”).'}</p></div>`;
+grid.innerHTML = `<div style=”padding:32px;text-align:center;color:var(--muted)”><p>${anyTeachers ? 'No support teachers work on this day.' : 'No support teachers yet — add one in Staff (role “Support Teacher”).'}</p></div>`;
 return;
 }
 let rangeStart = 9*60, rangeEnd = 18*60;
