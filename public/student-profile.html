@@ -702,8 +702,8 @@
   function editInvoice(id) {
     const i = _invoices?.find(x => x.id === id);
     if (!i) return;
-    _editInvoiceId = id;
     openPayModal(Number(i.total) < 0 ? 'subtract' : 'add');
+    _editInvoiceId = id;
     document.getElementById('payModalTitle').textContent = 'Edit Payment';
     document.getElementById('paySubmitBtn').textContent  = 'Save Changes';
     document.getElementById('payAmount').value = Math.abs(Number(i.total));
