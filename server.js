@@ -33,8 +33,8 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
   'CEO':        [...PAGE_PERMISSIONS, 'statistics', 'manreminders'],
-  'Head Admin': ['dashboard','leads','students','groups','teachers','staff','archived','reminders'],
-  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','reminders','manreminders'],
+  'Head Admin': ['dashboard','leads','students','groups','finance','finance_view_only','teachers','staff','archived','support','reminders','manreminders'],
+  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','support','reminders','manreminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
   'Teacher':    ['dashboard','groups','reminders'],
   'Support Teacher': ['dashboard','support','reminders'],
@@ -386,16 +386,32 @@ async function initDB() {
     }
   } catch(e) { console.warn('manreminders permission migration skipped:', e.message); }
 
-  // Strip 'finance' and 'finance_view_only' from all Head Admin accounts; ensure 'staff' is present.
+  // Sync Head Admin permissions: finance view-only, staff, support, manreminders — remove full finance write.
   try {
     const headAdmins = await pool.query(`SELECT id, permissions FROM users WHERE title='Head Admin' OR roles @> '["Head Admin"]'::jsonb`);
     for (const u of headAdmins.rows) {
       let perms = Array.isArray(u.permissions) ? u.permissions : [];
-      perms = perms.filter(p => p !== 'finance' && p !== 'finance_view_only');
-      if (!perms.includes('staff')) perms.push('staff');
+      // Remove actions/statistics (not for Head Admin); ensure finance is present but view-only
+      perms = perms.filter(p => !['actions','statistics'].includes(p));
+      for (const p of ['finance','finance_view_only','staff','support','manreminders','reminders']) {
+        if (!perms.includes(p)) perms.push(p);
+      }
       await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms), u.id]);
     }
   } catch(e) { console.warn('Head Admin permission migration skipped:', e.message); }
+
+  // Sync Manager permissions: ensure support and manreminders are present.
+  try {
+    const managers = await pool.query(`SELECT id, permissions FROM users WHERE title='Manager' OR roles @> '["Manager"]'::jsonb`);
+    for (const u of managers.rows) {
+      let perms = Array.isArray(u.permissions) ? u.permissions : [];
+      perms = perms.filter(p => !['actions','statistics'].includes(p));
+      for (const p of ['support','manreminders','reminders','finance','staff','archived']) {
+        if (!perms.includes(p)) perms.push(p);
+      }
+      await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms), u.id]);
+    }
+  } catch(e) { console.warn('Manager permission migration skipped:', e.message); }
 
   // Strip 'students' permission from all Teacher accounts (teachers access students via group page only).
   try {
