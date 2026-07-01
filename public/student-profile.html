@@ -703,7 +703,7 @@
     const i = _invoices?.find(x => x.id === id);
     if (!i) return;
     _editInvoiceId = id;
-    openPayModal('add');
+    openPayModal(Number(i.total) < 0 ? 'subtract' : 'add');
     document.getElementById('payModalTitle').textContent = 'Edit Payment';
     document.getElementById('paySubmitBtn').textContent  = 'Save Changes';
     document.getElementById('payAmount').value = Math.abs(Number(i.total));
@@ -917,7 +917,7 @@
         studentId:   STUDENT_ID,
         groupId:     data.groupId,
         desc:        data.desc,
-        total:       Math.abs(amount),
+        total:       amount,
         status:      inv?.status || 'Paid',
         paymentType: data.paymentType,
         notes:       data.notes,
