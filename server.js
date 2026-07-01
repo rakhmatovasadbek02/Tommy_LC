@@ -1596,15 +1596,20 @@ app.put('/api/invoices/:id', async (req, res) => {
       [studentId, groupId||null, level||null, month||null, desc||null,
        total||0, dueDate||null, status||'Pending', paymentType||'Cash', notes||null, req.params.id]
     );
-    // Keep student balances in sync for manual (non-Auto) invoices only
-    if (prev && prev.payment_type !== 'Auto') {
-      const wasPaid = prev.status === 'Paid';
-      const isPaid  = (status||'Pending') === 'Paid' && paymentType !== 'Auto';
-      if (wasPaid && prev.student_id) {
-        await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(prev.total)||0, prev.student_id]);
-      }
-      if (isPaid && studentId) {
-        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
+    // Sync balance: compute what the invoice contributed before vs after, apply the delta
+    if (prev && (prev.student_id || studentId)) {
+      const sid = prev.student_id || studentId;
+      const balanceContribution = (invTotal, invStatus, invPayType) => {
+        const t = Number(invTotal) || 0;
+        if (invPayType === 'Auto' && invStatus !== 'Cancelled') return -t; // charge deducted balance
+        if (invPayType !== 'Auto' && invStatus === 'Paid') return t;       // payment credited balance
+        return 0;
+      };
+      const oldContrib = balanceContribution(prev.total, prev.status, prev.payment_type);
+      const newContrib = balanceContribution(total, status||'Pending', paymentType||'Cash');
+      const delta = newContrib - oldContrib;
+      if (delta !== 0) {
+        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [delta, sid]);
       }
     }
     if (prev?.student_id) {
