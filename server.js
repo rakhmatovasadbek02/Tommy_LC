@@ -1149,8 +1149,11 @@ app.post('/api/students/:id/activate', async (req, res) => {
       let customDays = g.custom_days;
       if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
       const lessonDays = getLessonDays(g.sched_type, customDays);
-      const remaining = Math.max(0, countLessons(year, month, lessonDays, today));
-      const amount    = Math.round((monthlyPrice / 12) * remaining / 1000) * 1000;
+      const totalLessons = countLessons(year, month, lessonDays, 1);
+      const remaining    = Math.max(0, countLessons(year, month, lessonDays, today));
+      const amount       = totalLessons > 0
+        ? Math.round(monthlyPrice * remaining / totalLessons / 1000) * 1000
+        : monthlyPrice;
 
       // Record invoice + update balance
       const invId  = 'inv-' + Date.now();
@@ -1160,7 +1163,7 @@ app.post('/api/students/:id/activate', async (req, res) => {
         `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type)
          VALUES($1,$2,$3,$4,$5,$6,$7,'Pending','Auto')`,
         [invId, invNum, studentId, groupId, mStr,
-         `Activation – ${remaining} of 12 lessons (${g.name})`, amount]
+         `Activation – ${remaining} of ${totalLessons} lessons (${g.name})`, amount]
       );
 
       const stuRes = await pool.query('SELECT balance FROM students WHERE id=$1', [studentId]);
@@ -1593,15 +1596,24 @@ app.put('/api/invoices/:id', async (req, res) => {
       [studentId, groupId||null, level||null, month||null, desc||null,
        total||0, dueDate||null, status||'Pending', paymentType||'Cash', notes||null, req.params.id]
     );
-    // Keep student balances in sync: undo the old paid amount, apply the new one
+    // Keep student balances in sync: undo the old amount, apply the new one
     if (prev) {
-      const wasPaid = prev.status === 'Paid' && prev.payment_type !== 'Auto';
-      const isPaid  = (status||'Pending') === 'Paid' && paymentType !== 'Auto';
-      if (wasPaid && prev.student_id) {
-        await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(prev.total)||0, prev.student_id]);
-      }
-      if (isPaid && studentId) {
-        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
+      const isCharge = prev.payment_type === 'Auto' || (prev.description||'').toLowerCase().startsWith('activation');
+      if (isCharge && prev.status !== 'Cancelled') {
+        // Auto/activation invoice: balance was already deducted — apply the difference
+        const diff = (Number(total)||0) - (Number(prev.total)||0);
+        if (diff !== 0 && (prev.student_id || studentId)) {
+          await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [diff, prev.student_id || studentId]);
+        }
+      } else if (!isCharge) {
+        const wasPaid = prev.status === 'Paid';
+        const isPaid  = (status||'Pending') === 'Paid' && paymentType !== 'Auto';
+        if (wasPaid && prev.student_id) {
+          await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(prev.total)||0, prev.student_id]);
+        }
+        if (isPaid && studentId) {
+          await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
+        }
       }
     }
     if (prev?.student_id) {
@@ -1615,7 +1627,31 @@ app.put('/api/invoices/:id', async (req, res) => {
 app.patch('/api/invoices/:id/status', async (req, res) => {
   try {
     const { status, paymentType } = req.body;
+    const prevRes = await pool.query('SELECT * FROM invoices WHERE id=$1', [req.params.id]);
+    const inv = prevRes.rows[0];
     await pool.query('UPDATE invoices SET status=$1,payment_type=$2 WHERE id=$3', [status, paymentType||'Cash', req.params.id]);
+    if (inv && inv.student_id) {
+      const isCharge = inv.payment_type === 'Auto' || (inv.description||'').toLowerCase().startsWith('activation');
+      if (isCharge) {
+        // Auto/activation: balance was deducted when created, restored when Cancelled
+        const wasCancelled = inv.status === 'Cancelled';
+        const nowCancelled = status === 'Cancelled';
+        if (!wasCancelled && nowCancelled) {
+          await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+        } else if (wasCancelled && !nowCancelled) {
+          await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+        }
+      } else {
+        // Manual invoice: balance credited only when Paid
+        const wasPaid = inv.status === 'Paid';
+        const nowPaid = status === 'Paid';
+        if (!wasPaid && nowPaid) {
+          await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+        } else if (wasPaid && !nowPaid) {
+          await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+        }
+      }
+    }
     broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1625,12 +1661,17 @@ app.delete('/api/invoices/:id', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM invoices WHERE id=$1', [req.params.id]);
     const inv = rows[0];
-    if (inv) {
+    if (inv && inv.student_id) {
       const isCharge = inv.payment_type === 'Auto' || (inv.description||'').toLowerCase().startsWith('activation');
-      const delta = isCharge ? Number(inv.total) : -Number(inv.total);
-      if (inv.student_id) {
-        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [delta, inv.student_id]);
+      if (isCharge && inv.status !== 'Cancelled') {
+        // Auto/activation invoice deducted balance when created — restore it
+        await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+      } else if (!isCharge && inv.status === 'Paid') {
+        // Manual Paid invoice credited balance when paid — reverse it
+        await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
       }
+      // Pending non-Auto: balance was never touched, no adjustment needed
+      // Cancelled: balance was already restored when cancelled, no adjustment needed
     }
     if (inv?.student_id) {
       await logStudentHistory(inv.student_id, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'payment_deleted', { invoiceId: req.params.id, total: Number(inv.total)||0, description: inv.description||null });
