@@ -646,27 +646,31 @@
     const el = document.getElementById('invoicesList');
     if (!invs.length) { el.innerHTML='<div class="empty-feed">No payments recorded.</div>'; return; }
     const isSystem = i => i.paymentType === 'Auto' || (i.desc||'').toLowerCase().startsWith('activation');
+    const isSubtract = i => i.paymentType === 'Subtract';
     el.innerHTML = `<div class="pay-list">${invs.map(i => {
         const sys = isSystem(i);
+        const sub = isSubtract(i);
         const grp = studentGroups.find(g => g.id === i.groupId);
         const grpName = grp ? grp.name : (i.groupId ? i.groupId : '');
 
         // Amount
         const amt = Number(i.total);
-        const amtFmt = amt.toLocaleString('uz-UZ').replace(/\s/g, ' ');
-        const amtHtml = sys
-          ? `<span class="pay-card-amount neg">−${amtFmt}<span class="pay-card-amount-unit">UZS</span></span>`
-          : `<span class="pay-card-amount pos">+${amtFmt}<span class="pay-card-amount-unit">UZS</span></span>`;
+        const amtAbs = Math.abs(amt).toLocaleString('uz-UZ').replace(/\s/g, ' ');
+        const amtHtml = (sys || sub)
+          ? `<span class="pay-card-amount neg">−${amtAbs}<span class="pay-card-amount-unit">UZS</span></span>`
+          : `<span class="pay-card-amount pos">+${amtAbs}<span class="pay-card-amount-unit">UZS</span></span>`;
 
         // Meta (group, type, comment)
         let metaHtml = grpName ? `<span class="pay-grp-badge">${grpName}</span>` : '';
-        metaHtml += sys ? '<span class="type-badge-sys">system</span>' : '<span class="type-badge-pay">payment</span>';
+        if (sys) metaHtml += '<span class="type-badge-sys">system</span>';
+        else if (sub) metaHtml += '<span class="type-badge-sys" style="background:#fee2e2;color:#b91c1c">subtraction</span>';
+        else metaHtml += '<span class="type-badge-pay">payment</span>';
         if (sys) {
           const lesMatch = (i.desc||'').match(/(\d+)\s*of\s*(\d+)/i);
           if (lesMatch) metaHtml += `<span class="pay-comment-detail">${lesMatch[1]} les.</span>`;
           metaHtml += `<button class="pay-more-btn" onclick="toggleMore(this,'${i.id}')">more</button>
             <div id="more-${i.id}" style="display:none;width:100%;font-size:12px;color:var(--muted);margin-top:4px">${i.desc||''}</div>`;
-        } else {
+        } else if (!sub) {
           if (i.paymentType && i.paymentType !== 'Auto') metaHtml += `<span class="pay-comment-detail">${i.paymentType}</span>`;
         }
 
@@ -674,7 +678,7 @@
         const creatorHtml = `${i.creator ? `<strong>${i.creator}</strong> · ` : ''}${fmtDateTime(i.createdAt)}`;
 
         return `<div class="pay-card">
-          <div class="pay-card-icon ${sys?'neg':'pos'}">${sys ? IC.arrowDown : IC.arrowUp}</div>
+          <div class="pay-card-icon ${(sys||sub)?'neg':'pos'}">${(sys||sub) ? IC.arrowDown : IC.arrowUp}</div>
           <div class="pay-card-body">
             <div class="pay-card-top">
               ${amtHtml}
@@ -903,11 +907,12 @@
   async function submitPayment() {
     const raw = Number(document.getElementById('payAmount').value);
     if (!raw || raw <= 0) { showToast('Enter a valid amount.','error'); return; }
-    const amount = _payMode === 'subtract' ? -raw : raw;
+    const isSubtract = _payMode === 'subtract';
+    const amount = isSubtract ? -raw : raw;
     const session = getSession();
     const data = {
       amount,
-      paymentType: document.getElementById('payType').value,
+      paymentType: isSubtract ? 'Subtract' : document.getElementById('payType').value,
       groupId:     document.getElementById('payGroup').value||null,
       desc:        document.getElementById('payDesc').value.trim()||'Payment',
       notes:       document.getElementById('payNotes').value.trim(),

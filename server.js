@@ -1203,17 +1203,22 @@ app.post('/api/students/:id/payment', async (req, res) => {
   try {
     const { amount, paymentType, groupId, desc, notes, creator } = req.body;
     const num = Number(amount);
-    // Update balance
-    await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [num, req.params.id]);
+    const isSubtract = paymentType === 'Subtract' || num < 0;
+    const finalType = isSubtract ? 'Subtract' : (paymentType || 'Cash');
+    const finalTotal = isSubtract ? -Math.abs(num) : Math.abs(num);
+    // Subtract: deducts balance immediately (like Auto). Payment: credits balance.
+    await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [finalTotal, req.params.id]);
     // Create invoice
     const id = 'inv-' + Date.now();
     const number = 'INV-' + Date.now().toString().slice(-6);
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
     const month = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    // Subtract invoices are Pending (deducted on creation); payments are Paid.
+    const invoiceStatus = isSubtract ? 'Pending' : 'Paid';
     await pool.query(
       `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type,notes,creator)
-       VALUES($1,$2,$3,$4,$5,$6,$7,'Paid',$8,$9,$10)`,
-      [id, number, req.params.id, groupId||null, month, desc||'Payment', num, paymentType||'Cash', notes||null, creator||null]
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, number, req.params.id, groupId||null, month, desc||'Payment', finalTotal, invoiceStatus, finalType, notes||null, creator||null]
     );
     const balRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
     const newBalance = Number(balRes.rows[0]?.balance || 0);
@@ -1618,8 +1623,9 @@ app.put('/api/invoices/:id', async (req, res) => {
       const sid = prev.student_id || studentId;
       const balanceContribution = (invTotal, invStatus, invPayType) => {
         const t = Number(invTotal) || 0;
-        if (invPayType === 'Auto' && invStatus !== 'Cancelled') return -t; // charge deducted balance
-        if (invPayType !== 'Auto' && invStatus === 'Paid') return t;       // payment credited balance
+        if (invPayType === 'Auto' && invStatus !== 'Cancelled') return -t;     // Auto: positive total, deducts balance
+        if (invPayType === 'Subtract' && invStatus !== 'Cancelled') return t;  // Subtract: negative total, deducts balance
+        if (invPayType !== 'Auto' && invPayType !== 'Subtract' && invStatus === 'Paid') return t; // payment credits balance
         return 0;
       };
       const oldContrib = balanceContribution(prev.total, prev.status, prev.payment_type);
@@ -1644,15 +1650,21 @@ app.patch('/api/invoices/:id/status', async (req, res) => {
     const inv = prevRes.rows[0];
     await pool.query('UPDATE invoices SET status=$1,payment_type=$2 WHERE id=$3', [status, paymentType||'Cash', req.params.id]);
     if (inv && inv.student_id) {
-      const isCharge = inv.payment_type === 'Auto' || (inv.description||'').toLowerCase().startsWith('activation');
-      if (isCharge) {
-        // Auto/activation: balance was deducted when created, restored when Cancelled
+      const pt = inv.payment_type;
+      const isAutoCharge = pt === 'Auto' || (inv.description||'').toLowerCase().startsWith('activation');
+      const isSubtract = pt === 'Subtract';
+      if (isAutoCharge || isSubtract) {
+        // These types apply balance on creation; restore on Cancelled.
+        // Auto: positive total → created deducted balance (balance-=total), cancel restores (balance+=total)
+        // Subtract: negative total → created deducted balance (balance+=total), cancel restores (balance-=total)
         const wasCancelled = inv.status === 'Cancelled';
         const nowCancelled = status === 'Cancelled';
+        const restoreOp = isSubtract ? 'balance-$1' : 'balance+$1';
+        const reapplyOp = isSubtract ? 'balance+$1' : 'balance-$1';
         if (!wasCancelled && nowCancelled) {
-          await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+          await pool.query(`UPDATE students SET ${restoreOp} WHERE id=$2`, [Math.abs(Number(inv.total)), inv.student_id]);
         } else if (wasCancelled && !nowCancelled) {
-          await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+          await pool.query(`UPDATE students SET ${reapplyOp} WHERE id=$2`, [Math.abs(Number(inv.total)), inv.student_id]);
         }
       } else {
         // Manual invoice: balance credited only when Paid
@@ -1675,15 +1687,20 @@ app.delete('/api/invoices/:id', async (req, res) => {
     const { rows } = await pool.query('SELECT * FROM invoices WHERE id=$1', [req.params.id]);
     const inv = rows[0];
     if (inv && inv.student_id) {
-      const isCharge = inv.payment_type === 'Auto';
-      if (isCharge && inv.status !== 'Cancelled') {
-        // Auto charge deducted balance when created — restore it
+      const pt = inv.payment_type;
+      const isAutoCharge = pt === 'Auto';
+      const isSubtract = pt === 'Subtract';
+      if (isAutoCharge && inv.status !== 'Cancelled') {
+        // Auto charge deducted balance when created (balance-=total) — restore it
         await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
-      } else if (!isCharge && inv.status === 'Paid') {
+      } else if (isSubtract && inv.status !== 'Cancelled') {
+        // Subtract deducted balance when created (balance+=negative_total) — restore it
+        await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
+      } else if (!isAutoCharge && !isSubtract && inv.status === 'Paid') {
         // Manual Paid invoice credited balance — reverse it
         await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
       }
-      // Pending non-Auto: balance was never touched, no adjustment needed
+      // Pending non-charge: balance was never touched, no adjustment needed
       // Cancelled: balance was already restored when cancelled, no adjustment needed
     }
     if (inv?.student_id) {
