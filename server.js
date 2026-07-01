@@ -18,6 +18,16 @@ function broadcast(type) {
   }
 }
 
+async function logStudentHistory(studentId, actor, actorRole, action, details = {}) {
+  try {
+    const id = 'sh_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    await pool.query(
+      `INSERT INTO student_history(id, student_id, actor, actor_role, action, details) VALUES($1,$2,$3,$4,$5,$6)`,
+      [id, studentId, actor || 'System', actorRole || '', action, JSON.stringify(details)]
+    );
+  } catch(e) { console.warn('[history]', e.message); }
+}
+
 app.use(compression());
 app.use(cors());
 app.use(express.json());
@@ -294,6 +304,18 @@ async function initDB() {
       created_at  TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+
+  // student_history table (added as separate migration for safety)
+  await pool.query(`CREATE TABLE IF NOT EXISTS student_history (
+    id TEXT PRIMARY KEY,
+    student_id TEXT NOT NULL,
+    actor TEXT,
+    actor_role TEXT,
+    action TEXT NOT NULL,
+    details JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  )`).catch(() => {});
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_student_history_student ON student_history(student_id)`).catch(() => {});
 
   // Safe ALTER TABLE calls — only add missing columns
   const alters = [
@@ -853,6 +875,7 @@ app.post('/api/students', async (req, res) => {
       [id, firstName, lastName, phone||null, phoneParent||null, phoneMother||null, phoneOther||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null]
     );
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'Someone';
+    await logStudentHistory(id, actor, req.user?.title||req.user?.role, 'created', { firstName, lastName, phone: phone||null, level: level||null });
     await notifyRole('staff', 'new_student', 'New student enrolled',
       `${firstName} ${lastName} was added by ${actor}`, 'students.html', req.user?.id);
     broadcast('students');
@@ -863,10 +886,22 @@ app.post('/api/students', async (req, res) => {
 app.put('/api/students/:id', async (req, res) => {
   try {
     const { firstName, lastName, phone, phoneParent, phoneMother, phoneOther, level, status, exam, examDate, notes, school, grade, address, balance_frozen, frozen_comment } = req.body;
+    const { rows: old } = await pool.query('SELECT first_name,last_name,phone,phone_parent,phone_mother,phone_other,level,status,exam,exam_date,notes,school,grade,address,balance_frozen,frozen_comment FROM students WHERE id=$1', [req.params.id]);
+    const prev = old[0] || {};
     await pool.query(
       'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,phone_mother=$5,phone_other=$6,level=$7,status=$8,exam=$9,exam_date=$10,notes=$11,school=$12,grade=$13,address=$14,balance_frozen=$15,frozen_comment=$16 WHERE id=$17',
       [firstName, lastName, phone||null, phoneParent||null, phoneMother||null, phoneOther||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, balance_frozen||false, frozen_comment||null, req.params.id]
     );
+    const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'System';
+    const changes = {};
+    const fieldMap = { first_name:'firstName', last_name:'lastName', phone:'phone', phone_parent:'phoneParent', phone_mother:'phoneMother', phone_other:'phoneOther', level:'level', status:'status', exam:'exam', exam_date:'examDate', notes:'notes', school:'school', grade:'grade', address:'address', balance_frozen:'balanceFrozen', frozen_comment:'frozenComment' };
+    const newVals = { first_name:firstName, last_name:lastName, phone:phone||null, phone_parent:phoneParent||null, phone_mother:phoneMother||null, phone_other:phoneOther||null, level:level||null, status:status||'Active', exam:exam||null, exam_date:examDate||null, notes:notes||null, school:school||null, grade:grade||null, address:address||null, balance_frozen:balance_frozen||false, frozen_comment:frozen_comment||null };
+    for (const [col, key] of Object.entries(fieldMap)) {
+      const oldVal = prev[col] ?? null;
+      const newVal = newVals[col] ?? null;
+      if (String(oldVal||'') !== String(newVal||'')) changes[key] = { from: oldVal, to: newVal };
+    }
+    if (Object.keys(changes).length) await logStudentHistory(req.params.id, actor, req.user?.title||req.user?.role, 'profile_updated', changes);
     broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -892,6 +927,7 @@ app.delete('/api/students/:id', async (req, res) => {
       const updated = (g.student_ids || []).filter(id => id !== sid);
       await pool.query('UPDATE groups SET student_ids=$1 WHERE id=$2', [JSON.stringify(updated), g.id]);
     }
+    await logStudentHistory(sid, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'archived', { reason: reason||null, comment: comment||null });
     broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1026,6 +1062,7 @@ app.put('/api/students/:id/restore', async (req, res) => {
       `UPDATE students SET archived=FALSE, archive_reason=NULL, archive_comment=NULL, archived_at=NULL, pre_archive_status=NULL, status='Inactive' WHERE id=$1`,
       [req.params.id]
     );
+    await logStudentHistory(req.params.id, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'restored', {});
     broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1130,10 +1167,12 @@ app.post('/api/students/:id/activate', async (req, res) => {
       const newBal = Number(stuRes.rows[0]?.balance || 0) - amount;
       await pool.query('UPDATE students SET balance=$1 WHERE id=$2', [newBal, studentId]);
 
+      await logStudentHistory(studentId, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'activated', { groupId, groupName: g.name, charge: amount });
       broadcast('students');
       return res.json({ ok: true, amount, remaining });
     }
 
+    await logStudentHistory(studentId, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'activated', { groupId, charge: 0 });
     broadcast('students');
     res.json({ ok: true, amount: 0 });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1158,6 +1197,8 @@ app.post('/api/students/:id/payment', async (req, res) => {
     );
     const balRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
     const newBalance = Number(balRes.rows[0]?.balance || 0);
+    const { type: payType, desc: payDesc } = req.body;
+    await logStudentHistory(req.params.id, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'payment_added', { amount: num, type: payType, description: payDesc||null });
     broadcast('students');
     broadcast('finance');
     res.json({ ok: true, newBalance });
@@ -1175,13 +1216,17 @@ app.post('/api/students/:id/comments', async (req, res) => {
   try {
     const { text, actor } = req.body;
     await pool.query('INSERT INTO student_comments(student_id,text,actor) VALUES($1,$2,$3)', [req.params.id, text, actor||null]);
+    await logStudentHistory(req.params.id, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'comment_added', { text: req.body.text });
     broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.delete('/api/students/comments/:commentId', async (req, res) => {
   try {
+    const { rows: commentRows } = await pool.query('SELECT student_id, text FROM student_comments WHERE id=$1', [req.params.commentId]);
+    const comment = commentRows[0];
     await pool.query('DELETE FROM student_comments WHERE id=$1', [req.params.commentId]);
+    if (comment) await logStudentHistory(comment.student_id, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'comment_deleted', { text: comment.text });
     broadcast('students');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1442,6 +1487,10 @@ app.patch('/api/groups/:id/students', async (req, res) => {
         }
       }
     }
+    const actorName = req.user ? req.user.first_name+' '+req.user.last_name : 'System';
+    const actorRole = req.user?.title||req.user?.role;
+    for (const sid of added) await logStudentHistory(sid, actorName, actorRole, 'group_added', { groupId: req.params.id, groupName: groupName });
+    for (const sid of removed) await logStudentHistory(sid, actorName, actorRole, 'group_removed', { groupId: req.params.id, groupName: groupName });
     broadcast('groups');
     broadcast('students');
     res.json({ ok: true });
@@ -1555,6 +1604,9 @@ app.put('/api/invoices/:id', async (req, res) => {
         await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(total)||0, studentId]);
       }
     }
+    if (prev?.student_id) {
+      await logStudentHistory(prev.student_id, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'payment_edited', { invoiceId: req.params.id, total: Number(total)||0, description: desc||null });
+    }
     broadcast('finance');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1579,6 +1631,9 @@ app.delete('/api/invoices/:id', async (req, res) => {
       if (inv.student_id) {
         await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [delta, inv.student_id]);
       }
+    }
+    if (inv?.student_id) {
+      await logStudentHistory(inv.student_id, req.user ? req.user.first_name+' '+req.user.last_name : 'System', req.user?.title||req.user?.role, 'payment_deleted', { invoiceId: req.params.id, total: Number(inv.total)||0, description: inv.description||null });
     }
     await pool.query('DELETE FROM invoices WHERE id=$1', [req.params.id]);
     broadcast('finance');
@@ -1898,6 +1953,19 @@ app.get('/api/attendance/day/:date', async (req, res) => {
       [req.params.date]
     );
     res.json(rows.map(r => ({ groupId: r.group_id, studentId: r.student_id, status: r.status })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/students/:id/history', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM student_history WHERE student_id=$1 ORDER BY created_at DESC LIMIT 200`,
+      [req.params.id]
+    );
+    res.json(rows.map(r => ({
+      id: r.id, action: r.action, actor: r.actor, actorRole: r.actor_role,
+      details: r.details || {}, createdAt: r.created_at
+    })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

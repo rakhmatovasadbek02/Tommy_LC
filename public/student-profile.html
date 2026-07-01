@@ -84,6 +84,15 @@
     .feed-add { display:flex; gap:10px; margin-top:16px; }
     .feed-add textarea { flex:1; resize:none; height:70px; }
 
+    /* History tab */
+    .hist-item { display:flex; gap:12px; padding:11px 0; border-bottom:1px solid var(--border); }
+    .hist-item:last-child { border-bottom:none; }
+    .hist-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+    .hist-body { flex:1; min-width:0; }
+    .hist-action { font-size:13px; font-weight:600; color:var(--text); }
+    .hist-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+    .hist-details { font-size:12px; color:var(--muted); margin-top:4px; background:var(--bg); border-radius:6px; padding:6px 10px; }
+
     /* Payments list */
     .pay-list { display:flex; flex-direction:column; gap:10px; }
     .pay-card { display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border:1px solid var(--border); border-radius:12px; transition:border-color 0.15s,background 0.15s; }
@@ -234,6 +243,7 @@
             <button class="profile-tab" onclick="switchTab('attendance',this)">Attendance</button>
             <button class="profile-tab" onclick="switchTab('comments',this)">Comments</button>
             <button class="profile-tab" onclick="switchTab('calls',this)">Calls</button>
+            <button class="profile-tab" onclick="switchTab('history',this)">History</button>
           </div>
           <div style="padding:20px">
 
@@ -273,6 +283,11 @@
                 <textarea id="callInput" placeholder="Log a call — what was discussed, outcome…"></textarea>
                 <button class="btn btn-primary" style="align-self:flex-end" onclick="addCall()">Log Call</button>
               </div>
+            </div>
+
+            <!-- HISTORY -->
+            <div class="tab-panel" id="tab-history">
+              <div id="historyList"><div class="empty-feed">Loading…</div></div>
             </div>
 
           </div>
@@ -710,11 +725,85 @@
 
   let _invoices = [];
 
+  let _historyLoaded = false;
   function switchTab(name, btn) {
     document.querySelectorAll('.profile-tab').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-'+name).classList.add('active');
+    if (name === 'history' && !_historyLoaded) { _historyLoaded = true; loadHistory(); }
+  }
+
+  const HIST_ICONS = {
+    created:        { icon:'✨', bg:'#eef2ff', label:'Student created' },
+    profile_updated:{ icon:'✏️', bg:'#fef3c7', label:'Profile updated' },
+    archived:       { icon:'📦', bg:'#fde8e8', label:'Archived' },
+    restored:       { icon:'🔄', bg:'#e8f5e9', label:'Restored from archive' },
+    activated:      { icon:'🎉', bg:'#f0fdf4', label:'Activated' },
+    payment_added:  { icon:'💰', bg:'#e8f5e9', label:'Payment added' },
+    payment_edited: { icon:'🖊️', bg:'#fef3c7', label:'Payment edited' },
+    payment_deleted:{ icon:'🗑️', bg:'#fde8e8', label:'Payment removed' },
+    group_added:    { icon:'➕', bg:'#eef2ff', label:'Added to group' },
+    group_removed:  { icon:'➖', bg:'#fde8e8', label:'Removed from group' },
+    comment_added:  { icon:'💬', bg:'#f5f0ff', label:'Comment added' },
+    comment_deleted:{ icon:'🗑️', bg:'#fde8e8', label:'Comment deleted' },
+  };
+
+  const FIELD_LABELS = {
+    firstName:'First name', lastName:'Last name', phone:'Phone', phoneParent:'Parent phone',
+    phoneMother:'Mother phone', phoneOther:'Other phone', level:'Level', status:'Status',
+    exam:'Exam', examDate:'Exam date', notes:'Notes', school:'School', grade:'Grade',
+    address:'Address', balanceFrozen:'Balance frozen', frozenComment:'Frozen comment'
+  };
+
+  async function loadHistory() {
+    const el = document.getElementById('historyList');
+    try {
+      const rows = await apiGet('/api/students/' + STUDENT_ID + '/history');
+      if (!rows.length) { el.innerHTML = '<div class="empty-feed">No history yet.</div>'; return; }
+      el.innerHTML = rows.map(r => {
+        const cfg = HIST_ICONS[r.action] || { icon:'📋', bg:'#f3f4f6', label: r.action };
+        const d   = r.details || {};
+        const ts  = new Date(r.createdAt).toLocaleString('en-GB', {
+          timeZone:'Asia/Tashkent', day:'2-digit', month:'short', year:'numeric',
+          hour:'2-digit', minute:'2-digit', hour12:false
+        });
+
+        let detailHTML = '';
+        if (r.action === 'profile_updated') {
+          const lines = Object.entries(d).map(([k, v]) =>
+            `<div><b>${FIELD_LABELS[k]||k}:</b> ${v.from||'—'} → ${v.to||'—'}</div>`
+          );
+          if (lines.length) detailHTML = `<div class="hist-details">${lines.join('')}</div>`;
+        } else if (r.action === 'payment_added') {
+          detailHTML = `<div class="hist-details"><b>Amount:</b> ${d.amount?.toLocaleString('ru-RU')||'?'} UZS${d.type?' · '+d.type:''}${d.description?' · '+d.description:''}</div>`;
+        } else if (r.action === 'payment_edited') {
+          detailHTML = `<div class="hist-details"><b>New total:</b> ${d.total?.toLocaleString('ru-RU')||'?'} UZS${d.description?' · '+d.description:''}</div>`;
+        } else if (r.action === 'payment_deleted') {
+          detailHTML = `<div class="hist-details"><b>Removed:</b> ${d.total?.toLocaleString('ru-RU')||'?'} UZS${d.description?' · '+d.description:''}</div>`;
+        } else if (r.action === 'archived') {
+          detailHTML = `<div class="hist-details">${d.reason||''}${d.comment?' — '+d.comment:''}</div>`;
+        } else if (r.action === 'activated') {
+          const charge = d.charge ? d.charge.toLocaleString('ru-RU') + ' UZS charged' : 'no charge';
+          detailHTML = `<div class="hist-details">${d.groupName||d.groupId||''} · ${charge}</div>`;
+        } else if (r.action === 'group_added' || r.action === 'group_removed') {
+          detailHTML = `<div class="hist-details">${d.groupName||d.groupId||''}</div>`;
+        } else if (r.action === 'comment_added' || r.action === 'comment_deleted') {
+          if (d.text) detailHTML = `<div class="hist-details">"${d.text}"</div>`;
+        }
+
+        return `<div class="hist-item">
+          <div class="hist-icon" style="background:${cfg.bg}">${cfg.icon}</div>
+          <div class="hist-body">
+            <div class="hist-action">${cfg.label}</div>
+            <div class="hist-meta">${r.actor||'System'}${r.actorRole?' · '+r.actorRole:''} · ${ts}</div>
+            ${detailHTML}
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      el.innerHTML = '<div class="empty-feed">Failed to load history.</div>';
+    }
   }
 
   function switchTabByName(name) {
@@ -732,6 +821,7 @@
     const cmts = await apiGet('/api/students/'+STUDENT_ID+'/comments');
     renderComments(cmts);
     showToast('Comment added.');
+    _historyLoaded = false;
   }
 
   async function deleteComment(id) {
@@ -777,6 +867,7 @@
     logActivity(`Updated student: ${first} ${last}`, '');
     closeModal('editModal');
     showToast('Saved!');
+    _historyLoaded = false;
     loadProfile();
   }
 
@@ -833,10 +924,12 @@
       });
       logActivity(`Edited payment for ${student?.firstName} ${student?.lastName}`, '');
       showToast('Payment updated!');
+      _historyLoaded = false;
     } else {
       await apiPost('/api/students/'+STUDENT_ID+'/payment', data);
       logActivity(`Payment ${amount.toLocaleString()} for ${student?.firstName} ${student?.lastName}`, 'green');
       showToast('Payment added!');
+      _historyLoaded = false;
     }
     closeModal('payModal');
     loadProfile();
