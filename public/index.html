@@ -239,12 +239,12 @@ onblur="this.style.borderColor='var(--border)'">
 
 <!-- Absent Today Modal -->
 <div class="modal-overlay" id="absentModal">
-  <div class="modal" style="width:min(520px,96vw)">
+  <div class="modal" style="width:min(560px,96vw)">
     <div class="modal-header">
       <div class="modal-title">Absent Today</div>
       <button class="modal-close" onclick="closeModal('absentModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <div class="modal-body" id="absentList" style="max-height:420px;overflow-y:auto"></div>
+    <div class="modal-body" id="absentList" style="max-height:70vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
   </div>
 </div>
 <script src="shared.js"></script>
@@ -460,36 +460,102 @@ async function showAbsentModal() {
   el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">Loading…</div>';
   try {
     const today = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'})).toISOString().split('T')[0];
-    const [attRows, allStudents, allGroups] = await Promise.all([
+    const [attRows, allStudents] = await Promise.all([
       apiGet('/api/attendance/day/'+today),
-      window._students || apiGet('/api/students'),
-      window._groups   || [],
+      apiGet('/api/students'),
     ]);
-    window._students = window._students || allStudents;
-    const absentIds = attRows.filter(r => r.status === 'absent').map(r => r.studentId);
-    const groupByStudentId = {};
-    (window._groups||[]).forEach(g => (g.studentIds||[]).forEach(sid => { groupByStudentId[sid] = g.name; }));
-    const absent = (window._students||[]).filter(s => absentIds.includes(s.id));
+    window._students = allStudents;
+    const absentMap = {};
+    attRows.filter(r => r.status === 'absent').forEach(r => { absentMap[r.studentId] = r.groupId; });
+    const absent = allStudents.filter(s => absentMap[s.id] !== undefined);
     if (!absent.length) {
       el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">No absences recorded today.</div>';
       return;
     }
-    el.innerHTML = absent.map(s => {
-      const name = s.firstName+' '+s.lastName;
-      const col = avatarColor(name);
-      const grp = groupByStudentId[s.id] || '—';
-      return `<div onclick="window.location.href='student-profile.html?id=${s.id}'" style="display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:8px;transition:background .1s" onmouseover="this.style.background='var(--crimson-soft)'" onmouseout="this.style.background=''">
-        <div style="width:36px;height:36px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0">${initials(name)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:14px">${name}</div>
-          <div style="font-size:12px;color:var(--muted)">${grp}${s.phone?' · +998 '+s.phone:''}</div>
-        </div>
-        <span style="font-size:11px;font-weight:700;color:#c0392b;background:#fde8e8;padding:3px 9px;border-radius:20px">Absent</span>
-      </div>`;
-    }).join('');
+    el.innerHTML = '';
+    absent.forEach(s => {
+      const card = document.createElement('div');
+      card.innerHTML = absentCardHTML(s, absentMap[s.id]);
+      el.appendChild(card.firstElementChild);
+    });
   } catch(e) {
     el.innerHTML = '<div style="padding:24px;color:var(--muted)">Failed to load.</div>';
   }
+}
+
+function absentCardHTML(s, absentGroupId) {
+  const name = s.firstName + ' ' + s.lastName;
+  const col  = avatarColor(name);
+  const bal  = Number(s.balance || 0);
+  const balColor = bal < 0 ? '#c0392b' : '#27ae60';
+  const balBg    = bal < 0 ? '#fde8e8' : '#e8f5e9';
+  const balStr   = (bal < 0 ? '−' : '+') + Math.abs(bal).toLocaleString('ru-RU') + ' UZS';
+
+  const absentGroup = (s.groups || []).find(g => g.id === absentGroupId);
+  const groupsHTML = (s.groups || []).map(g => {
+    const isAbsent = g.id === absentGroupId;
+    return `<div style="background:${isAbsent?'#fff5f5':'#f8f9ff'};border:1px solid ${isAbsent?'#fca5a5':'#e0e7ff'};border-radius:8px;padding:8px 12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text)">${g.name}${isAbsent?' <span style="color:#c0392b;font-size:10px">(absent today)</span>':''}</div>
+      ${g.teacher ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${g.teacher}${g.time?' · '+g.time:''}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const lastCmtHTML = s.lastComment
+    ? `<div style="background:#fffbf0;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:12px">
+        <div style="color:var(--muted);margin-bottom:3px;font-size:11px">${s.lastComment.actor} · ${s.lastComment.time}</div>
+        <div style="color:var(--text)">${s.lastComment.text}</div>
+       </div>`
+    : `<div style="font-size:12px;color:var(--muted);font-style:italic">No comments yet</div>`;
+
+  return `<div style="border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--white)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:40px;height:40px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0">${initials(name)}</div>
+      <div style="flex:1;min-width:0">
+        <a href="student-profile.html?id=${s.id}" style="font-weight:700;font-size:14px;color:var(--text);text-decoration:none;display:block">${name}</a>
+        ${s.phone ? `<div style="font-size:12px;color:var(--muted)">+998 ${s.phone}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <span style="font-size:11px;font-weight:700;color:#c0392b;background:#fde8e8;padding:2px 9px;border-radius:20px">Absent</span>
+        <span style="font-size:11px;font-weight:700;color:${balColor};background:${balBg};padding:2px 9px;border-radius:20px">${balStr}</span>
+      </div>
+    </div>
+
+    ${s.groups && s.groups.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${groupsHTML}</div>` : ''}
+
+    <div style="margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px">Last Comment</div>
+      ${lastCmtHTML}
+    </div>
+
+    <div style="display:flex;gap:6px">
+      <input type="text" id="absent-cmt-${s.id}" class="form-control" placeholder="Add comment…" style="font-size:12px;flex:1"
+        onkeydown="if(event.key==='Enter')postAbsentComment('${s.id}',this)">
+      <button class="btn btn-primary btn-sm" onclick="postAbsentComment('${s.id}',document.getElementById('absent-cmt-${s.id}'))">Post</button>
+    </div>
+  </div>`;
+}
+
+async function postAbsentComment(studentId, input) {
+  const text = (input?.value || '').trim();
+  if (!text) return;
+  try {
+    await apiPost('/api/students/' + studentId + '/comments', { text });
+    input.value = '';
+    showToast('Comment added');
+    // Update the last-comment display inline
+    const me = getSession();
+    const actor = [me.firstName, me.lastName].filter(Boolean).join(' ') || 'You';
+    const cmtBox = input.closest('[style*="border-radius:12px"]')?.querySelector('[style*="fffbf0"],[style*="font-style:italic"]');
+    if (cmtBox) {
+      cmtBox.style.fontStyle = '';
+      cmtBox.innerHTML = `<div style="color:var(--muted);margin-bottom:3px;font-size:11px">${actor} · just now</div><div style="color:var(--text)">${text}</div>`;
+      cmtBox.style.background = '#fffbf0';
+      cmtBox.style.border = '1px solid #fde68a';
+      cmtBox.style.borderRadius = '8px';
+      cmtBox.style.padding = '8px 12px';
+      cmtBox.style.fontSize = '12px';
+    }
+  } catch(e) { showToast(e.message || 'Failed to post', 'error'); }
 }
 
 let _numsHidden = true;
