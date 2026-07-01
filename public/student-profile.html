@@ -234,13 +234,22 @@
             <button class="profile-tab" onclick="switchTab('attendance',this)">Attendance</button>
             <button class="profile-tab" onclick="switchTab('comments',this)">Comments</button>
             <button class="profile-tab" onclick="switchTab('calls',this)">Calls</button>
-            <button class="profile-tab" onclick="switchTab('invoices',this)">Payments</button>
           </div>
           <div style="padding:20px">
 
-            <!-- GROUPS -->
+            <!-- GROUPS + PAYMENTS -->
             <div class="tab-panel active" id="tab-groups">
               <div id="groupsList"><div class="empty-feed">No groups.</div></div>
+              <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:16px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                  <span style="font-size:13px;font-weight:700;color:var(--text)">Payments</span>
+                  <div style="display:flex;gap:6px" id="payActions">
+                    <button class="btn btn-primary btn-sm" onclick="openPayModal('add')">+ Add</button>
+                    <button class="btn btn-outline btn-sm" style="color:var(--crimson);border-color:var(--crimson)" onclick="openPayModal('subtract')">− Subtract</button>
+                  </div>
+                </div>
+                <div id="invoicesList"></div>
+              </div>
             </div>
 
             <!-- COMMENTS -->
@@ -264,15 +273,6 @@
                 <textarea id="callInput" placeholder="Log a call — what was discussed, outcome…"></textarea>
                 <button class="btn btn-primary" style="align-self:flex-end" onclick="addCall()">Log Call</button>
               </div>
-            </div>
-
-            <!-- INVOICES -->
-            <div class="tab-panel" id="tab-invoices">
-              <div style="display:flex;gap:8px;margin-bottom:14px" id="payActions">
-                <button class="btn btn-primary" style="flex:1" onclick="openPayModal('add')">+ Add</button>
-                <button class="btn btn-outline" style="flex:1;color:var(--crimson);border-color:var(--crimson)" onclick="openPayModal('subtract')">− Subtract</button>
-              </div>
-              <div id="invoicesList"></div>
             </div>
 
           </div>
