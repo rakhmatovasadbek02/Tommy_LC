@@ -1662,12 +1662,12 @@ app.delete('/api/invoices/:id', async (req, res) => {
     const { rows } = await pool.query('SELECT * FROM invoices WHERE id=$1', [req.params.id]);
     const inv = rows[0];
     if (inv && inv.student_id) {
-      const isCharge = inv.payment_type === 'Auto' || (inv.description||'').toLowerCase().startsWith('activation');
+      const isCharge = inv.payment_type === 'Auto';
       if (isCharge && inv.status !== 'Cancelled') {
-        // Auto/activation invoice deducted balance when created — restore it
+        // Auto charge deducted balance when created — restore it
         await pool.query('UPDATE students SET balance=balance+$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
       } else if (!isCharge && inv.status === 'Paid') {
-        // Manual Paid invoice credited balance when paid — reverse it
+        // Manual Paid invoice credited balance — reverse it
         await pool.query('UPDATE students SET balance=balance-$1 WHERE id=$2', [Number(inv.total), inv.student_id]);
       }
       // Pending non-Auto: balance was never touched, no adjustment needed
