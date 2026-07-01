@@ -1181,6 +1181,23 @@ app.post('/api/students/:id/activate', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// CEO-only: directly set student balance
+app.patch('/api/students/:id/balance', async (req, res) => {
+  try {
+    if (req.user?.role !== 'CEO') return res.status(403).json({ error: 'CEO only' });
+    const { balance, reason } = req.body;
+    const val = Number(balance);
+    if (isNaN(val)) return res.status(400).json({ error: 'Invalid balance' });
+    const prevRes = await pool.query('SELECT balance FROM students WHERE id=$1', [req.params.id]);
+    const oldBal = Number(prevRes.rows[0]?.balance || 0);
+    await pool.query('UPDATE students SET balance=$1 WHERE id=$2', [val, req.params.id]);
+    await logStudentHistory(req.params.id, req.user.first_name+' '+req.user.last_name, req.user.role, 'balance_adjusted', { from: oldBal, to: val, reason: reason||null });
+    broadcast('students');
+    broadcast('finance');
+    res.json({ ok: true, balance: val });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Adjust balance (add payment)
 app.post('/api/students/:id/payment', async (req, res) => {
   try {

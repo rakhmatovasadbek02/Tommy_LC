@@ -175,6 +175,7 @@
             <div class="pc2-balance-row">
               <span class="pc2-balance-pill" id="profBalance"></span>
               <span class="pc2-balance-label">balance</span>
+              <button id="balEditBtn" onclick="openBalanceModal()" style="display:none;background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;color:var(--muted)">Edit</button>
             </div>
 
             <div class="pc2-section">
@@ -743,6 +744,7 @@
     payment_added:  { icon:'💰', bg:'#e8f5e9', label:'Payment added' },
     payment_edited: { icon:'🖊️', bg:'#fef3c7', label:'Payment edited' },
     payment_deleted:{ icon:'🗑️', bg:'#fde8e8', label:'Payment removed' },
+    balance_adjusted:{ icon:'⚖️', bg:'#fef3c7', label:'Balance adjusted' },
     group_added:    { icon:'➕', bg:'#eef2ff', label:'Added to group' },
     group_removed:  { icon:'➖', bg:'#fde8e8', label:'Removed from group' },
     comment_added:  { icon:'💬', bg:'#f5f0ff', label:'Comment added' },
@@ -975,8 +977,53 @@
     } catch(e) { showToast('Error archiving student.', 'error'); }
   }
 
+  // Show balance edit button for CEO only
+  const _sess = getSession();
+  if (_sess?.title === 'CEO' || (_sess?.roles||[]).includes('CEO')) {
+    document.getElementById('balEditBtn').style.display = '';
+  }
+
+  function openBalanceModal() {
+    document.getElementById('balNewVal').value = Number(student?.balance || 0);
+    document.getElementById('balReason').value = '';
+    openModal('balanceModal');
+  }
+
+  async function submitBalance() {
+    const val = Number(document.getElementById('balNewVal').value);
+    const reason = document.getElementById('balReason').value.trim();
+    if (isNaN(val)) { showToast('Enter a valid number.', 'error'); return; }
+    await apiPatch('/api/students/'+STUDENT_ID+'/balance', { balance: val, reason });
+    closeModal('balanceModal');
+    showToast('Balance updated.');
+    _historyLoaded = false;
+    loadProfile();
+  }
+
   loadProfile();
   setupLive(['students','finance'], () => loadProfile());
 </script>
+<div class="modal-overlay" id="balanceModal">
+  <div class="modal" style="width:380px">
+    <div class="modal-header">
+      <div class="modal-title">Edit Balance</div>
+      <button class="modal-close" onclick="closeModal('balanceModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>New balance (UZS)</label>
+        <input id="balNewVal" type="number" class="form-control" placeholder="e.g. 0 or -150000">
+      </div>
+      <div class="form-group">
+        <label>Reason <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <input id="balReason" type="text" class="form-control" placeholder="Correction, refund…">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('balanceModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitBalance()">Save</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
