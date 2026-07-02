@@ -617,7 +617,7 @@ function requiredPerm(method, p) {
   if (top === 'pricing')    return write ? 'finance'    : null;
   if (top === 'levels')     return write ? 'groups'     : null;
   if (top === 'attendance') return write ? 'groups'     : null;
-  if (top === 'support')    return write ? 'groups'     : null;
+  if (top === 'support')    return write ? 'support'    : null;
   if (top === 'admin')      return 'finance';
   return null;
 }
@@ -647,12 +647,13 @@ app.use('/api', async (req, res, next) => {
     const top = p.split('/').filter(Boolean)[0];
 
     // Pure Teacher accounts (Teacher is their only role): read-only everywhere; only attendance,
-    // activity log, and their own account (e.g. first-login password change) may be written.
+    // activity log, reminders/tasks, and their own account (e.g. first-login password change) may be written.
     const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
     const isPureTeacher = userRoles.every(r => isTeacherTitle(r));
     if (isPureTeacher) {
-      if (write && top !== 'attendance' && top !== 'activity' && top !== 'account') {
-        return res.status(403).json({ error: 'Teachers can only mark attendance.' });
+      const teacherWriteOk = top === 'attendance' || top === 'activity' || top === 'account' || top === 'reminders';
+      if (write && !teacherWriteOk) {
+        return res.status(403).json({ error: 'Teachers can only mark attendance and manage reminders.' });
       }
       return next();
     }
