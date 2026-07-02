@@ -5,6 +5,7 @@ const cors     = require('cors');
 const cron     = require('node-cron');
 const crypto   = require('crypto');
 const compression = require('compression');
+const ExcelJS  = require('exceljs');
 
 const app  = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
@@ -2609,15 +2610,29 @@ app.get('/api/backup', async (req, res) => {
   try {
     const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
     if (!userRoles.includes('CEO')) return res.status(403).json({ error: 'Only CEO can download backups.' });
-    const data = {};
+    const wb = new ExcelJS.Workbook();
     for (const t of BACKUP_TABLES) {
       const { rows } = await pool.query(`SELECT * FROM ${t}`);
-      data[t] = t === 'users' ? rows.map(({ password, ...rest }) => rest) : rows;
+      const data = t === 'users' ? rows.map(({ password, ...rest }) => rest) : rows;
+      const sheet = wb.addWorksheet(t.slice(0, 31));
+      if (!data.length) continue;
+      const cols = Object.keys(data[0]);
+      sheet.columns = cols.map(c => ({ header: c, key: c, width: 18 }));
+      sheet.getRow(1).font = { bold: true };
+      for (const row of data) {
+        const flat = {};
+        for (const c of cols) {
+          const v = row[c];
+          flat[c] = (v !== null && typeof v === 'object' && !(v instanceof Date)) ? JSON.stringify(v) : v;
+        }
+        sheet.addRow(flat);
+      }
     }
-    const filename = `tommylc-backup-${new Date().toISOString().slice(0,10)}.json`;
-    res.setHeader('Content-Type', 'application/json');
+    const filename = `tommylc-backup-${new Date().toISOString().slice(0,10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.json({ generatedAt: new Date().toISOString(), tables: data });
+    await wb.xlsx.write(res);
+    res.end();
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
