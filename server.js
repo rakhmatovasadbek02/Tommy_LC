@@ -2598,6 +2598,29 @@ app.put('/api/notifications/:id/read', async (req, res) => {
 });
 
 /* MEMBERS — lightweight user list for task assignment, accessible to all authenticated users */
+const BACKUP_TABLES = [
+  'students', 'groups', 'invoices', 'leads', 'users', 'reminders', 'activity',
+  'attendance', 'student_history', 'student_comments', 'student_calls',
+  'group_comments', 'lead_calls', 'lead_conversions', 'support_sessions',
+  'support_fines', 'notifications', 'pricing', 'spendings', 'custom_levels',
+  'archive_reasons', 'teachers',
+];
+app.get('/api/backup', async (req, res) => {
+  try {
+    const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
+    if (!userRoles.includes('CEO')) return res.status(403).json({ error: 'Only CEO can download backups.' });
+    const data = {};
+    for (const t of BACKUP_TABLES) {
+      const { rows } = await pool.query(`SELECT * FROM ${t}`);
+      data[t] = t === 'users' ? rows.map(({ password, ...rest }) => rest) : rows;
+    }
+    const filename = `tommylc-backup-${new Date().toISOString().slice(0,10)}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.json({ generatedAt: new Date().toISOString(), tables: data });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/members', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT id, first_name, last_name, title FROM users ORDER BY first_name');

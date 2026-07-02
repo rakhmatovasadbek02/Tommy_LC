@@ -68,7 +68,10 @@
 <div class="main">
   <div class="topbar">
     <div class="page-title">Staff</div>
-    <div class="topbar-right"><button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Staff</span></button></div>
+    <div class="topbar-right">
+      <button class="btn btn-outline" id="backupBtn" onclick="downloadBackup()" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <span>Download Backup</span></button>
+      <button class="btn btn-primary" onclick="openAdd()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Staff</span></button>
+    </div>
   </div>
   <div class="page-content">
 <div class="staff-grid" id="userCards"></div>
@@ -328,8 +331,27 @@
   }
 
   if (!canManage) document.querySelector('.topbar-right').style.display='none';
+  if (myRoles.includes('CEO')) document.getElementById('backupBtn').style.display='';
   load();
   setupLive(['users'], () => load());
+
+  async function downloadBackup() {
+    const btn = document.getElementById('backupBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/backup', { headers: authHeaders() });
+      if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || res.statusText); }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tommylc-backup-${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Backup downloaded.');
+    } catch(e) { showToast('Error: '+e.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
 </script>
 </body>
 </html>
