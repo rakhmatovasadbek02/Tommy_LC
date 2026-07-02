@@ -1846,6 +1846,15 @@ app.delete('/api/support/:id', async (req, res) => {
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.delete('/api/support-fines/:id', async (req, res) => {
+  const allowedRoles = ['CEO','Head Admin','Manager'];
+  const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
+  if (!userRoles.some(r => allowedRoles.includes(r)))
+    return res.status(403).json({ error: 'Only CEO, Head Admin, or Manager can remove fines.' });
+  try { await pool.query('DELETE FROM support_fines WHERE id=$1', [req.params.id]); broadcast('support'); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Mark attendance + optional theme for a session
 app.put('/api/support/:id/attend', async (req, res) => {
   try {
@@ -1893,16 +1902,18 @@ app.get('/api/support-dashboard', async (req, res) => {
 
     const tzNow = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }));
     const monthStart = `${tzNow.getFullYear()}-${String(tzNow.getMonth()+1).padStart(2,'0')}-01`;
+    const monthEndDate = new Date(tzNow.getFullYear(), tzNow.getMonth()+1, 1);
+    const monthEnd = `${monthEndDate.getFullYear()}-${String(monthEndDate.getMonth()+1).padStart(2,'0')}-01`;
 
     const [stuR, fineR, todayR, monthR, shiftR, historyR] = await Promise.all([
       pool.query('SELECT id, first_name, last_name FROM students WHERE archived IS NOT TRUE'),
-      pool.query('SELECT student_id, blocked_until FROM support_fines WHERE blocked_until > NOW()'),
+      pool.query('SELECT id, student_id, blocked_until FROM support_fines WHERE blocked_until > NOW()'),
       isSupport
         ? pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today])
         : pool.query(`SELECT * FROM support_sessions WHERE date=$1 ORDER BY teacher, time`, [today]),
       isSupport
-        ? pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE teacher=$1 AND date>=$2`, [myName, monthStart])
-        : pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE date>=$1`, [monthStart]),
+        ? pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE teacher=$1 AND date>=$2 AND date<$3`, [myName, monthStart, monthEnd])
+        : pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE date>=$1 AND date<$2`, [monthStart, monthEnd]),
       isSupport
         ? pool.query(`SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE (first_name||' '||last_name)=$1 LIMIT 1`, [myName])
         : pool.query(`SELECT first_name||' '||last_name AS name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '["Support Teacher"]'`),
@@ -1988,6 +1999,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       const finedStudents = fineR.rows.map(f => {
         const stu = stuMap.get(f.student_id);
         return {
+          id: f.id,
           name: stu ? stu.last_name+' '+stu.first_name : '?',
           studentId: f.student_id,
           blockedUntil: f.blocked_until,

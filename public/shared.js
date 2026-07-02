@@ -311,6 +311,8 @@ function formatDate(iso) {
 /* ── Student hover card ── */
 let _shcStudentsPromise = null;
 let _shcEl = null, _shcShowTimer = null, _shcHideTimer = null;
+let _shcMouseX = 0, _shcMouseY = 0;
+document.addEventListener('mousemove', e => { _shcMouseX = e.clientX; _shcMouseY = e.clientY; });
 function _shcEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 function _shcLoadStudents() {
   if (!_shcStudentsPromise) _shcStudentsPromise = apiGet('/api/students').catch(() => []);
@@ -362,11 +364,10 @@ function _renderStudentHoverCard(el, s) {
     <a href="student-profile.html?id=${s.id}" class="shc-link">Go to profile →</a>
   `;
   document.body.appendChild(card);
-  const r = el.getBoundingClientRect();
   const cw = 260, ch = card.offsetHeight;
-  let left = r.right + 10;
-  if (left + cw > window.innerWidth - 8) left = Math.max(8, r.left - cw - 10);
-  let top = r.top;
+  let left = _shcMouseX + 16;
+  if (left + cw > window.innerWidth - 8) left = Math.max(8, _shcMouseX - cw - 16);
+  let top = _shcMouseY + 16;
   if (top + ch > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ch - 8);
   card.style.left = left + 'px';
   card.style.top = top + 'px';
