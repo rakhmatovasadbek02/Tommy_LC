@@ -362,7 +362,7 @@ renderSidebar('groups');
 const _isTeacher = isTeacher();
 if (_isTeacher) {
   const st = document.createElement('style');
-  st.textContent = '#editGroupBtn,#deleteGroupBtn,#addStudentBtn,#unitBadge,.stu-menu-btn{display:none!important}';
+  st.textContent = '#editGroupBtn,#deleteGroupBtn,#addStudentBtn,.stu-menu-btn{display:none!important}';
   document.head.appendChild(st);
 }
 const _sess = getSession();

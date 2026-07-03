@@ -661,9 +661,11 @@ app.use('/api', async (req, res, next) => {
     const userRoles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
     const isPureTeacher = userRoles.every(r => isTeacherTitle(r));
     if (isPureTeacher) {
-      const teacherWriteOk = top === 'attendance' || top === 'activity' || top === 'account' || top === 'reminders';
+      const seg = p.split('/').filter(Boolean);
+      const isGroupUnitWrite = top === 'groups' && seg[2] === 'unit';
+      const teacherWriteOk = top === 'attendance' || isGroupUnitWrite || top === 'activity' || top === 'account' || top === 'reminders';
       if (write && !teacherWriteOk) {
-        return res.status(403).json({ error: 'Teachers can only mark attendance and manage reminders.' });
+        return res.status(403).json({ error: 'Teachers can only mark attendance, update their group\'s unit, and manage reminders.' });
       }
       return next();
     }

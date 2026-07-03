@@ -351,7 +351,7 @@
 
   const _archSess = getSession();
   const _archRoles = (_archSess?.roles || [_archSess?.title || '']).filter(Boolean);
-  const CAN_DELETE = _archRoles.includes('CEO');
+  const CAN_DELETE = _archRoles.includes('CEO') || _archRoles.includes('Head Admin');
 
   let _allGroups = [];
   let _activatingId = null;

@@ -252,17 +252,8 @@
             </div>
             <div class="form-group" style="margin:0">
               <label style="font-size:11px">Number</label>
-              <select id="prFileNum" class="form-control" onchange="onPrintNumChange()">
+              <select id="prFileNum" class="form-control" onchange="buildPrintTitle()">
                 <option value="">—</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin:0" id="prLetterWrap">
-              <label style="font-size:11px">Letter</label>
-              <select id="prFileLetter" class="form-control" onchange="buildPrintTitle()">
-                <option value="">—</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
               </select>
             </div>
             <div class="form-group" style="margin:0">
@@ -580,7 +571,6 @@ function closeTaskModal() {
   document.getElementById('printToggle').classList.remove('active');
   document.getElementById('prLevel').value = '';
   document.getElementById('prFileNum').value = '';
-  document.getElementById('prFileLetter').value = '';
   document.getElementById('prAmount').value = '';
   document.getElementById('tmTitle').dataset.autofilled = '';
 }
@@ -673,17 +663,6 @@ function initPrintSection() {
   PRINT_LEVELS.forEach(l => { const o = document.createElement('option'); o.value = l; o.textContent = l; prLevel.appendChild(o); });
 }
 
-function onPrintNumChange() {
-  const num = document.getElementById('prFileNum').value;
-  const letterWrap = document.getElementById('prLetterWrap');
-  const letterSel = document.getElementById('prFileLetter');
-  const noLetter = ['1-6', '7-12', 'Final'].includes(num) || !num;
-  letterWrap.style.opacity = noLetter ? '0.35' : '1';
-  letterWrap.style.pointerEvents = noLetter ? 'none' : '';
-  if (noLetter) letterSel.value = '';
-  buildPrintTitle();
-}
-
 function togglePrintSection() {
   const sec = document.getElementById('printSection');
   const btn = document.getElementById('printToggle');
@@ -692,7 +671,6 @@ function togglePrintSection() {
   if (!open) {
     document.getElementById('prLevel').value = '';
     document.getElementById('prFileNum').value = '';
-    document.getElementById('prFileLetter').value = '';
     document.getElementById('prAmount').value = '';
     // Only clear title if it was auto-generated
     if (document.getElementById('tmTitle').dataset.autofilled === 'true') {
@@ -705,12 +683,10 @@ function togglePrintSection() {
 function buildPrintTitle() {
   const level  = document.getElementById('prLevel').value;
   const num    = document.getElementById('prFileNum').value;
-  const letter = document.getElementById('prFileLetter').value;
   const amount = document.getElementById('prAmount').value;
   if (!num && !amount) return;
-  const fileStr = num ? (letter ? `${num}${letter}` : num) : '';
   const parts = ['Print'];
-  if (fileStr) parts.push(`File Test ${fileStr}`);
+  if (num)     parts.push(`File Test ${num}`);
   if (level)   parts.push(`for ${level}`);
   if (amount)  parts.push(`× ${amount}`);
   const title = document.getElementById('tmTitle');
