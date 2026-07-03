@@ -241,7 +241,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Amount (UZS) *</label>
-          <input type="number" id="invTotal" placeholder="0" min="0" step="1000">
+          <input type="text" inputmode="numeric" id="invTotal" placeholder="0" oninput="formatThousandsInput(this)">
         </div>
         <div class="form-group">
           <label>Payment Type *</label>
@@ -373,7 +373,6 @@
     const lastMonRev = lastMonInv.reduce((s,i)=>s+Number(i.total||0),0);
     const monthCash  = monthInv.filter(i=>i.paymentType!=='Click').reduce((s,i)=>s+Number(i.total||0),0);
     const monthClick = monthRev - monthCash;
-    const allRev     = paid.reduce((s,i)=>s+Number(i.total||0),0);
 
     let trendHtml = '';
     if (lastMonRev > 0) {
@@ -417,11 +416,6 @@
         <div class="sum-card-label">Outstanding Debt</div>
         <div class="sum-card-val">${fmt(totalDebt)}</div>
         <div class="sum-card-sub">${debtors.length} debtor${debtors.length!==1?'s':''}</div>
-      </div>
-      <div class="sum-card amber">
-        <div class="sum-card-label">All-Time Revenue</div>
-        <div class="sum-card-val">${fmt(allRev)}</div>
-        <div class="sum-card-sub">${paid.length} payment${paid.length!==1?'s':''} recorded</div>
       </div>`;
   }
 
@@ -796,7 +790,7 @@
     if (grp) {
       document.getElementById('invGroup').value = grp.id;
       document.getElementById('invLevel').value = grp.level || '';
-      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price));
+      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price)).toLocaleString('ru-RU');
     }
   }
 
@@ -805,7 +799,7 @@
     const grp = groups.find(g=>g.id===gid);
     if (grp) {
       if (grp.level) document.getElementById('invLevel').value = grp.level;
-      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price));
+      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price)).toLocaleString('ru-RU');
     }
   }
 
@@ -827,7 +821,7 @@
     document.getElementById('invGroup').value    = i.groupId||'';
     document.getElementById('invLevel').value    = i.level||'';
     document.getElementById('invMonth').value    = i.month||'';
-    document.getElementById('invTotal').value    = i.total||'';
+    document.getElementById('invTotal').value    = i.total ? Number(i.total).toLocaleString('ru-RU') : '';
     document.getElementById('invNotes').value    = i.notes||'';
     const radio = document.querySelector(`input[name="payType"][value="${i.paymentType||'Cash'}"]`);
     if (radio) { radio.checked = true; onPayType(); }
@@ -838,7 +832,7 @@
   async function saveInvoice() {
     const studentId = document.getElementById('invStudent').value;
     const month     = document.getElementById('invMonth').value;
-    const total     = document.getElementById('invTotal').value;
+    const total     = parseThousands(document.getElementById('invTotal').value);
     if (!studentId || !month || !total) { showToast('Student, month and amount are required.','error'); return; }
     const id = document.getElementById('editInvId').value;
     const level = document.getElementById('invLevel').value;
@@ -847,7 +841,7 @@
       groupId:     document.getElementById('invGroup').value||null,
       level:       level||null,
       month,
-      total:       Number(total),
+      total,
       status:      'Paid',
       paymentType: document.querySelector('input[name="payType"]:checked')?.value||'Cash',
       dueDate:     null,

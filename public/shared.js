@@ -375,6 +375,13 @@ function _renderStudentHoverCard(el, s) {
 }
 function fmtCurrencyUZS(n) { return (Number(n||0) < 0 ? '−' : '') + Math.abs(Number(n||0)).toLocaleString('ru-RU') + ' UZS'; }
 
+// Groups digits with spaces as the user types (400000 -> "400 000"). Read back with parseThousands().
+function formatThousandsInput(el) {
+  const digits = el.value.replace(/\D/g, '');
+  el.value = digits ? Number(digits).toLocaleString('ru-RU') : '';
+}
+function parseThousands(value) { return Number(String(value||'').replace(/\D/g, '')) || 0; }
+
 const AVATAR_COLORS = ['#FF0000','#1D4ED8','#1E6B45','#7C3AED','#A05C00','#0891B2','#BE185D','#D97706'];
 function avatarColor(name) {
  let h = 0;
