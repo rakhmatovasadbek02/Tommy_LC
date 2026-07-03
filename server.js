@@ -888,18 +888,36 @@ app.post('/api/students', async (req, res) => {
 
 app.put('/api/students/:id', async (req, res) => {
   try {
-    const { firstName, lastName, phone, phoneParent, phoneMother, phoneOther, level, status, exam, examDate, notes, school, grade, address, balance_frozen, frozen_comment } = req.body;
-    const { rows: old } = await pool.query('SELECT first_name,last_name,phone,phone_parent,phone_mother,phone_other,level,status,exam,exam_date,notes,school,grade,address,balance_frozen,frozen_comment FROM students WHERE id=$1', [req.params.id]);
-    const prev = old[0] || {};
+    const { rows: old } = await pool.query('SELECT * FROM students WHERE id=$1', [req.params.id]);
+    const prev = old[0];
+    if (!prev) return res.status(404).json({ error: 'Not found' });
+    // Only overwrite fields the caller actually sent — different edit forms (students list,
+    // profile page, group quick-actions) each know about a subset of fields, and a blind
+    // full-row overwrite would silently null out whatever fields that form doesn't have.
+    const has = k => Object.prototype.hasOwnProperty.call(req.body, k);
+    const fieldMap = [
+      ['firstName','first_name'], ['lastName','last_name'], ['phone','phone'],
+      ['phoneParent','phone_parent'], ['phoneMother','phone_mother'], ['phoneOther','phone_other'],
+      ['level','level'], ['status','status'], ['exam','exam'], ['examDate','exam_date'],
+      ['notes','notes'], ['school','school'], ['grade','grade'], ['address','address'],
+      ['balance_frozen','balance_frozen'], ['frozen_comment','frozen_comment'],
+    ];
+    const newVals = {};
+    for (const [bodyKey, col] of fieldMap) {
+      if (!has(bodyKey)) { newVals[col] = prev[col]; continue; }
+      const v = req.body[bodyKey];
+      newVals[col] = col === 'status' ? (v || 'Active') : col === 'balance_frozen' ? !!v : (v ?? null);
+    }
     await pool.query(
       'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,phone_mother=$5,phone_other=$6,level=$7,status=$8,exam=$9,exam_date=$10,notes=$11,school=$12,grade=$13,address=$14,balance_frozen=$15,frozen_comment=$16 WHERE id=$17',
-      [firstName, lastName, phone||null, phoneParent||null, phoneMother||null, phoneOther||null, level||null, status||'Active', exam||null, examDate||null, notes||null, school||null, grade||null, address||null, balance_frozen||false, frozen_comment||null, req.params.id]
+      [newVals.first_name, newVals.last_name, newVals.phone, newVals.phone_parent, newVals.phone_mother, newVals.phone_other,
+       newVals.level, newVals.status, newVals.exam, newVals.exam_date, newVals.notes, newVals.school, newVals.grade,
+       newVals.address, newVals.balance_frozen, newVals.frozen_comment, req.params.id]
     );
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'System';
     const changes = {};
-    const fieldMap = { first_name:'firstName', last_name:'lastName', phone:'phone', phone_parent:'phoneParent', phone_mother:'phoneMother', phone_other:'phoneOther', level:'level', status:'status', exam:'exam', exam_date:'examDate', notes:'notes', school:'school', grade:'grade', address:'address', balance_frozen:'balanceFrozen', frozen_comment:'frozenComment' };
-    const newVals = { first_name:firstName, last_name:lastName, phone:phone||null, phone_parent:phoneParent||null, phone_mother:phoneMother||null, phone_other:phoneOther||null, level:level||null, status:status||'Active', exam:exam||null, exam_date:examDate||null, notes:notes||null, school:school||null, grade:grade||null, address:address||null, balance_frozen:balance_frozen||false, frozen_comment:frozen_comment||null };
-    for (const [col, key] of Object.entries(fieldMap)) {
+    const keyMap = { first_name:'firstName', last_name:'lastName', phone:'phone', phone_parent:'phoneParent', phone_mother:'phoneMother', phone_other:'phoneOther', level:'level', status:'status', exam:'exam', exam_date:'examDate', notes:'notes', school:'school', grade:'grade', address:'address', balance_frozen:'balanceFrozen', frozen_comment:'frozenComment' };
+    for (const [col, key] of Object.entries(keyMap)) {
       const oldVal = prev[col] ?? null;
       const newVal = newVals[col] ?? null;
       if (String(oldVal||'') !== String(newVal||'')) changes[key] = { from: oldVal, to: newVal };
@@ -2195,9 +2213,9 @@ app.post('/api/leads/:id/convert', async (req, res) => {
       var existing = await pool.query('SELECT 1 FROM students WHERE id=$1', [studentId]);
     } while (existing.rows.length > 0);
     await pool.query(
-      `INSERT INTO students(id,first_name,last_name,phone,level,status)
-       VALUES($1,$2,$3,$4,$5,'Active')`,
-      [studentId, l.first_name, l.last_name, phone, l.current_level]
+      `INSERT INTO students(id,first_name,last_name,phone,phone_parent,phone_mother,phone_other,level,status)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'Active')`,
+      [studentId, l.first_name, l.last_name, phone, l.phone_father, l.phone_mother, l.phone_other, l.current_level]
     );
     await pool.query(`UPDATE leads SET status='Student' WHERE id=$1`, [req.params.id]);
     const actor = req.user ? req.user.first_name + ' ' + req.user.last_name : null;
