@@ -277,6 +277,8 @@
         <select id="tmAssignId" class="form-control">
           <option value="">Select member…</option>
           <option value="administration">🏢 Administration (Admin · Head Admin · Manager)</option>
+          <option value="teachers">👨‍🏫 Teachers</option>
+          <option value="support">🎧 Support Teachers</option>
           <option disabled>──────────────</option>
         </select>
       </div>
@@ -349,7 +351,11 @@ renderSidebar('reminders');
 const me = getSession();
 const myRoles = (me.roles || [me.title || '']).map(r => String(r).trim().toLowerCase());
 const isCEO = myRoles.includes('ceo');
-const isAdminRole = myRoles.some(r => ['admin','head admin','manager'].includes(r));
+const isAdminRole = myRoles.some(r => ['ceo','admin','head admin','manager'].includes(r));
+const isTeacherRole = isCEO || myRoles.includes('teacher');
+const isSupportRole = isCEO || myRoles.includes('support teacher');
+const TASK_PACKS = { administration: isAdminRole, teachers: isTeacherRole, support: isSupportRole };
+function isPackId(id) { return Object.prototype.hasOwnProperty.call(TASK_PACKS, id); }
 
 let ALL_TASKS = [];
 let ALL_USERS = [];
@@ -381,8 +387,8 @@ async function init() {
   renderList();
 }
 
-function myTasks()       { return ALL_TASKS.filter(t => t.assignedToId === me.id || (isAdminRole && t.assignedToId === 'administration')); }
-function assignedByMe()  { return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && t.assignedToId !== 'administration'); }
+function myTasks()       { return ALL_TASKS.filter(t => t.assignedToId === me.id || (isPackId(t.assignedToId) && TASK_PACKS[t.assignedToId])); }
+function assignedByMe()  { return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && !isPackId(t.assignedToId)); }
 
 function updateCounts() {
   document.getElementById('fc-inbox').textContent    = myTasks().filter(t => t.status !== 'completed').length;
@@ -461,8 +467,9 @@ function renderList() {
   tickTimers();
 }
 
+const PACK_ICON = { administration: '🏢', teachers: '👨‍🏫', support: '🎧' };
 function cardHTML(t) {
-  const isAssignee = t.assignedToId === me.id || (t.assignedToId === 'administration' && isAdminRole);
+  const isAssignee = t.assignedToId === me.id || (isPackId(t.assignedToId) && TASK_PACKS[t.assignedToId]);
   const canEdit   = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const canDelete = isCEO || (t.createdById === me.id && t.status !== 'overdue');
   const dueLabel  = t.dueDate
@@ -470,10 +477,10 @@ function cardHTML(t) {
     : (t.dueTime ? t.dueTime.slice(0,5) : '');
   const isOverdueDue = t.status === 'overdue';
 
-  const isAdminTaskCard = t.assignedToId === 'administration';
+  const isPackTaskCard = isPackId(t.assignedToId);
   const isSelf = t.assignedToId === t.createdById;
-  const personLabel = isAdminTaskCard
-    ? (CURRENT_FILTER === 'inbox' ? `From: ${reverseName(t.createdByName)||''}` : '🏢 Administration')
+  const personLabel = isPackTaskCard
+    ? (CURRENT_FILTER === 'inbox' ? `From: ${reverseName(t.createdByName)||''}` : `${PACK_ICON[t.assignedToId]||''} ${t.assignedToName}`)
     : isSelf ? null
     : CURRENT_FILTER === 'inbox'
       ? `From: ${reverseName(t.createdByName)||''}`
@@ -729,7 +736,7 @@ function showTaskDetail(id) {
   const rows = [
     { lbl:'Status',    val:`<span class="detail-badge ${t.status}">${STATUS_LABEL[t.status]}</span>` },
     { lbl:'Priority',  val:`<span class="detail-badge ${t.priority}">${cap(t.priority)}</span>` },
-    { lbl:'Assigned to', val: esc(reverseName(t.assignedToName) || '—') },
+    { lbl:'Assigned to', val: esc(isPackId(t.assignedToId) ? `${PACK_ICON[t.assignedToId]||''} ${t.assignedToName}` : (reverseName(t.assignedToName) || '—')) },
     { lbl:'Created by',  val: esc(reverseName(t.createdByName)  || '—') + (isSelf ? ' <span style="color:var(--text-muted);font-size:11px">(self)</span>' : '') },
     { lbl:'Due',         val: dueStr },
     { lbl:'Repeat',      val: t.repeatEvery ? `🔁 ${t.repeatEvery}` : '—' },

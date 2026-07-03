@@ -200,6 +200,8 @@
         <select id="tmAssignId" class="form-control">
           <option value="">Select member…</option>
           <option value="administration">🏢 Administration (Admin · Head Admin · Manager)</option>
+          <option value="teachers">👨‍🏫 Teachers</option>
+          <option value="support">🎧 Support Teachers</option>
           <option disabled>──────────────</option>
         </select>
       </div>
@@ -268,6 +270,8 @@ renderSidebar('manreminders');
 const me = getSession();
 const myRoles = (me.roles || [me.title || '']).map(r => String(r).trim().toLowerCase());
 const isCEO = myRoles.includes('ceo');
+const PACK_LABELS = { administration: '🏢 Administration', teachers: '👨‍🏫 Teachers', support: '🎧 Support Teachers' };
+function isPackId(id) { return Object.prototype.hasOwnProperty.call(PACK_LABELS, id); }
 
 let ALL_TASKS = [];
 let ALL_USERS = [];
@@ -339,7 +343,7 @@ function buildMemberFilters() {
   container.innerHTML = people.map(p => `
     <div class="filter-item" data-filter="${esc(p.id)}" onclick="setFilter('${esc(p.id)}',this)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${esc(reverseName(p.name))}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${esc(isPackId(p.id) ? p.name : reverseName(p.name))}</span>
       <span class="filter-count">${counts[p.id] || 0}</span>
     </div>`).join('');
 }
@@ -348,8 +352,9 @@ function setFilter(filter, el) {
   CURRENT_FILTER = filter;
   document.querySelectorAll('.filter-item').forEach(f => f.classList.remove('active'));
   el.classList.add('active');
+  const filterName = ALL_TASKS.find(t => t.assignedToId === filter)?.assignedToName;
   const name = filter === 'all' ? 'All Staff Tasks'
-    : reverseName(ALL_TASKS.find(t => t.assignedToId === filter)?.assignedToName) || filter;
+    : (isPackId(filter) ? filterName : reverseName(filterName)) || filter;
   document.getElementById('viewTitle').textContent = name;
   renderStats();
   renderList();
@@ -431,7 +436,7 @@ function cardHTML(t) {
     ? `<span class="task-timer" data-due="${dueIso}">${timerText(dueIso)}</span>`
     : '';
 
-  const assigneeLabel = t.assignedToId === 'administration' ? '🏢 Administration' : reverseName(t.assignedToName || '');
+  const assigneeLabel = isPackId(t.assignedToId) ? PACK_LABELS[t.assignedToId] : reverseName(t.assignedToName || '');
   const creatorLabel  = reverseName(t.createdByName || '');
 
   return `<div class="task-card status-${t.status} pri-${t.priority}" data-id="${t.id}" onclick="showTaskDetail('${t.id}')">
@@ -551,7 +556,7 @@ function showTaskDetail(id) {
   const rows = [
     { lbl:'Status',      val:`<span class="detail-badge ${t.status}">${STATUS_LABEL[t.status]}</span>` },
     { lbl:'Priority',    val:`<span class="detail-badge ${t.priority}">${cap(t.priority)}</span>` },
-    { lbl:'Assigned to', val: esc(t.assignedToId === 'administration' ? '🏢 Administration' : (reverseName(t.assignedToName)||'—')) },
+    { lbl:'Assigned to', val: esc(isPackId(t.assignedToId) ? PACK_LABELS[t.assignedToId] : (reverseName(t.assignedToName)||'—')) },
     { lbl:'Created by',  val: esc(reverseName(t.createdByName)||'—') },
     { lbl:'Due',         val: dueStr },
     { lbl:'Repeat',      val: t.repeatEvery ? `🔁 ${t.repeatEvery}` : '—' },
