@@ -347,8 +347,13 @@ const isCEO = myRoles.includes('ceo');
 const isAdminRole = myRoles.some(r => ['ceo','admin','head admin','manager'].includes(r));
 const isTeacherRole = isCEO || myRoles.includes('teacher');
 const isSupportRole = isCEO || myRoles.includes('support teacher');
+// Claim/act-on eligibility (CEO can touch any pack task) — used for isAssignee/drag/move button.
 const TASK_PACKS = { administration: isAdminRole, teachers: isTeacherRole, support: isSupportRole };
 function isPackId(id) { return Object.prototype.hasOwnProperty.call(TASK_PACKS, id); }
+// Genuine role membership (no CEO override) — decides My Tasks vs Assigned by Me. A CEO who
+// assigns something to "Teachers" is delegating it, not doing it themselves, even though they
+// can still claim it if they want.
+const INBOX_PACKS = { administration: isAdminRole, teachers: myRoles.includes('teacher'), support: myRoles.includes('support teacher') };
 
 let ALL_TASKS = [];
 let ALL_USERS = [];
@@ -380,8 +385,8 @@ async function init() {
   renderList();
 }
 
-function myTasks()       { return ALL_TASKS.filter(t => t.assignedToId === me.id || (isPackId(t.assignedToId) && TASK_PACKS[t.assignedToId])); }
-function assignedByMe()  { return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && !isPackId(t.assignedToId)); }
+function myTasks()       { return ALL_TASKS.filter(t => t.assignedToId === me.id || (isPackId(t.assignedToId) && INBOX_PACKS[t.assignedToId])); }
+function assignedByMe()  { return ALL_TASKS.filter(t => t.createdById === me.id && t.assignedToId !== me.id && !(isPackId(t.assignedToId) && INBOX_PACKS[t.assignedToId])); }
 
 function updateCounts() {
   document.getElementById('fc-inbox').textContent    = myTasks().filter(t => t.status !== 'completed').length;
