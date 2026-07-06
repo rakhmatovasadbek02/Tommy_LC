@@ -167,6 +167,17 @@
 </div>
 </div>
 </div>
+<!-- SESSION DETAIL MODAL -->
+<div class="modal-overlay" id="sessionDetailModal">
+<div class="modal" style="width:420px">
+<div class="modal-header">
+<div class="modal-title">Support Session</div>
+<button class="modal-close" onclick="closeModal('sessionDetailModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+</div>
+<div class="modal-body" id="sessionDetailBody"></div>
+<div class="modal-footer" id="sessionDetailFooter"></div>
+</div>
+</div>
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
@@ -379,7 +390,7 @@ ${starting.map(p=>{
   const span=slots.filter(s2=>s2>=p.st && s2<p.en).length;
   const stu=(window._supportStudents||[]).find(x=>x.id===p.studentId);
   const sName=stu?stu.lastName+' '+stu.firstName:'Student';
-  return `<div style="position:absolute;top:2px;left:2px;width:${span*COL_W-4}px;bottom:2px;background:${tCol};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;">
+  return `<div onclick="event.stopPropagation();showSessionDetail('${p.id}')" style="position:absolute;top:2px;left:2px;width:${span*COL_W-4}px;bottom:2px;background:${tCol};border-radius:6px;padding:6px 8px;overflow:hidden;z-index:3;box-sizing:border-box;color:#fff;cursor:pointer;">
 <div style="font-weight:800;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sName}</div>
 <div style="font-size:10px;opacity:0.9;white-space:nowrap">${p.time} · ${p.duration}m</div>
 ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${p.id}')" title="Delete" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.25);border:none;color:#fff;border-radius:4px;width:16px;height:16px;font-size:11px;line-height:1;cursor:pointer;padding:0">×</button>`:''}
@@ -454,6 +465,46 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
     if(!confirm('Delete this session?'))return;
     try{await apiDelete('/api/support/'+id);await loadTimetable();showToast('Deleted.');}
     catch(e){showToast(e.message||'Error.','error');}
+  }
+  function showSessionDetail(id){
+    const p = _support.find(x=>x.id===id);
+    if(!p) return;
+    const stu = (window._supportStudents||[]).find(x=>x.id===p.studentId);
+    const name = stu ? stu.lastName+' '+stu.firstName : 'Student';
+    const badge = p.attended===true ? `<span class="attended-badge present">✓ Present</span>`
+      : p.attended===false ? `<span class="attended-badge absent">✗ Absent</span>`
+      : `<span style="color:var(--muted);font-size:12px">Not marked yet</span>`;
+    const d = new Date(p.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    const rows = [
+      ['Student', stu ? `<a href="student-profile.html?id=${stu.id}">${name}</a>` : name],
+      ['Phone', stu?.phone ? '+998 '+stu.phone : '—'],
+      ['Level', stu?.level || '—'],
+      ['Teacher', reverseName(p.teacher)],
+      ['Date', d],
+      ['Time', `${p.time} · ${p.duration} min`],
+      ['Theme', p.theme || '—'],
+      ['Attendance', badge],
+    ];
+    document.getElementById('sessionDetailBody').innerHTML = rows.map(([lbl,val])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--muted);font-weight:600">${lbl}</span>
+        <span style="font-weight:600;text-align:right">${val}</span>
+      </div>`).join('');
+    const canMark = (p.attended===null || p.attended===undefined);
+    document.getElementById('sessionDetailFooter').innerHTML = `
+      ${canMark?`<button class="btn btn-primary btn-sm" onclick="markAttendFromDetail('${p.id}',true)">✓ Present</button>
+      <button class="btn btn-outline btn-sm" onclick="markAttendFromDetail('${p.id}',false)">✗ Absent</button>`:''}
+      ${isAdministration()?`<button class="btn btn-danger btn-sm" onclick="closeModal('sessionDetailModal');deleteSupport('${p.id}')">Delete</button>`:''}
+    `;
+    openModal('sessionDetailModal');
+  }
+  async function markAttendFromDetail(id, attended){
+    try{
+      await apiPut('/api/support/'+id+'/attend', { attended, theme:null });
+      closeModal('sessionDetailModal');
+      await loadTimetable();
+      showToast(attended?'Marked present.':'Marked absent.');
+    } catch(e){ showToast(e.message||'Error.','error'); }
   }
   if(!isAdministration())document.getElementById('addSupportBtn').style.display='none';
   renderSupportDateLabel();

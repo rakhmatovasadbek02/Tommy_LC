@@ -108,6 +108,10 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .chip-empty:hover { border-color: var(--crimson); background: var(--crimson-soft); }
 .chip-locked { width: 28px; height: 28px; border-radius: 50%; border: 1.5px dashed #d1d5db; background: #f9fafb; display: inline-flex; align-items: center; justify-content: center; opacity: 0.5; }
 .chip.chip-locked { cursor: default; opacity: 0.5; }
+/* A locked (past-day, view-only) mark must still show its actual present/absent color —
+   .chip-locked's pale placeholder background is only meant for cells with no status at all. */
+.chip.chip-present.chip-locked { background: #1E6B45; border: none; opacity: 0.85; }
+.chip.chip-absent.chip-locked { background: var(--crimson); border: none; opacity: 0.85; }
 .att-picker { position: fixed; z-index: 999; background: white; border: 1px solid var(--border); border-radius: 99px; box-shadow: 0 4px 16px rgba(0,0,0,.13); display: flex; gap: 6px; padding: 6px; }
 .att-picker button { width: 28px; height: 28px; border-radius: 50%; border: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity .1s; padding: 0; }
 .att-picker .ap-present { background: #1E6B45; color: white; }

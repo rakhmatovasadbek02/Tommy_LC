@@ -1821,7 +1821,7 @@ app.get('/api/support/:date', async (req, res) => {
     const { rows } = isSupport && !isAdmin
       ? await pool.query('SELECT * FROM support_sessions WHERE date=$1 AND teacher=$2 ORDER BY time', [req.params.date, myName])
       : await pool.query('SELECT * FROM support_sessions WHERE date=$1 ORDER BY time', [req.params.date]);
-    res.json(rows.map(s => ({ id:s.id, date:s.date, time:s.time, duration:s.duration, teacher:s.teacher, studentId:s.student_id })));
+    res.json(rows.map(s => ({ id:s.id, date:s.date, time:s.time, duration:s.duration, teacher:s.teacher, studentId:s.student_id, theme:s.theme, attended:s.attended })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
