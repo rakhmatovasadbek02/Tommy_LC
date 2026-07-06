@@ -190,7 +190,11 @@ apiGet('/api/leads').catch(()=>[]), apiGet('/api/levels').catch(()=>[])
 ]);
 if(isTeacher()||isSupportTeacher()){groups=groups.filter(ownsGroup);const b=document.querySelector('.topbar-right .btn-primary');if(b)b.style.display='none';document.getElementById('levelsBtn').style.display='none';}
 const tSel=document.getElementById('filterTeacher');
-[...new Set(groups.map(g=>g.teacher).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=reverseName(t);tSel.appendChild(o);});
+const prevTeacher=tSel.value;
+tSel.innerHTML='<option value="">All Teachers</option>';
+const allTeachers=[...new Set(groups.map(g=>g.teacher).filter(Boolean))].sort();
+allTeachers.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=reverseName(t);tSel.appendChild(o);});
+if(allTeachers.includes(prevTeacher))tSel.value=prevTeacher;
 renderGroups();
 }
 function renderGroups() {
@@ -206,7 +210,7 @@ const filtered=groups.filter(g=>
 document.getElementById('groupCount').textContent=`${filtered.length} group${filtered.length!==1?'s':''}`;
 const canManage=can('settings')||getRole()==='CEO';
 const grid=document.getElementById('groupsGrid');
-const LANG_FLAG={UZ:'',RU:''};
+const LANG_FLAG={UZ:'🇺🇿',RU:'🇷🇺'};
 const SCHED_LABEL={odd:'Odd days',even:'Even days',custom:'Custom'};
 if(!filtered.length){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"></div><p>No groups yet. Click "+ Add Group" to create one.</p></div>';return;}
 grid.innerHTML=filtered.map(g=>{

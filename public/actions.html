@@ -96,7 +96,10 @@
     // Populate actor dropdown
     const actors = [...new Set(_allItems.map(a => a.actor).filter(Boolean))].sort();
     const aSel = document.getElementById('filterActor');
+    const prevActor = aSel.value;
+    aSel.innerHTML = '<option value="">All Staff</option>';
     actors.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = reverseName(a); aSel.appendChild(o); });
+    if (actors.includes(prevActor)) aSel.value = prevActor;
     renderFeed();
   }
 

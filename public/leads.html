@@ -611,25 +611,26 @@ const COLUMNS = [
   { status: 'Student',      label: 'Converted',    color: '#1E6B45' },
 ];
 
-/* ── LocalStorage containers ── */
+/* ── Containers — synced server-side so every role with leads access sees the same ones ── */
+let ALL_CONTAINERS = [];
 function getContainers(colStatus) {
-  try { return JSON.parse(localStorage.getItem('lc_cont_'+colStatus) || '[]'); }
-  catch { return []; }
-}
-function setContainers(colStatus, arr) {
-  localStorage.setItem('lc_cont_'+colStatus, JSON.stringify(arr));
+  return ALL_CONTAINERS.filter(c => c.status === colStatus);
 }
 
 /* ── Load ── */
 async function load() {
-  [leads, groups] = await Promise.all([apiGet('/api/leads'), apiGet('/api/groups')]);
+  [leads, groups, ALL_CONTAINERS] = await Promise.all([apiGet('/api/leads'), apiGet('/api/groups'), apiGet('/api/lead-containers').catch(() => [])]);
   const sel = document.getElementById('filterGroup');
+  const prevGroup = sel.value;
   sel.innerHTML = '<option value="">All Groups</option>' +
     groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  if (groups.some(g=>g.id===prevGroup)) sel.value = prevGroup;
   const sources = [...new Set(leads.map(l => l.source).filter(Boolean))].sort();
   const sSel = document.getElementById('filterSource');
+  const prevSource = sSel.value;
   sSel.innerHTML = '<option value="">All</option>' +
     sources.map(s => `<option value="${s}">${s}</option>`).join('');
+  if (sources.includes(prevSource)) sSel.value = prevSource;
   renderBoard();
   if (editorColStatus) renderContainerEditor();
 }
@@ -774,10 +775,13 @@ function buildCard(l, col, conts) {
   </div>`;
 }
 
-function toggleSubCont(colStatus, contId) {
-  const conts = getContainers(colStatus);
-  const c = conts.find(c => c.id === contId);
-  if (c) { c.collapsed = !c.collapsed; setContainers(colStatus, conts); renderBoard(); }
+async function toggleSubCont(colStatus, contId) {
+  const c = ALL_CONTAINERS.find(c => c.id === contId);
+  if (!c) return;
+  c.collapsed = !c.collapsed;
+  renderBoard();
+  try { await apiPut('/api/lead-containers/'+contId, { collapsed: c.collapsed }); }
+  catch(e) { c.collapsed = !c.collapsed; renderBoard(); showToast('Error: '+e.message,'error'); }
 }
 
 async function moveToContainer(event, leadId, colStatus) {
@@ -840,7 +844,7 @@ function renderContainerEditor() {
   }).join('');
 }
 
-function addContainer() {
+async function addContainer() {
   const input = document.getElementById('newContInput');
   const name  = input.value.trim();
   if (!name) { input.focus(); return; }
@@ -848,27 +852,33 @@ function addContainer() {
   if (conts.find(c => c.name.toLowerCase() === name.toLowerCase())) {
     showToast('Already exists.', 'error'); return;
   }
-  conts.push({ id: genId(), name, collapsed: false });
-  setContainers(editorColStatus, conts);
-  input.value = '';
-  renderContainerEditor();
-  renderBoard();
-  showToast(`"${name}" added!`);
-  input.focus();
+  const id = genId();
+  try {
+    await apiPost('/api/lead-containers', { id, status: editorColStatus, name });
+    ALL_CONTAINERS.push({ id, status: editorColStatus, name, collapsed: false });
+    input.value = '';
+    renderContainerEditor();
+    renderBoard();
+    showToast(`"${name}" added!`);
+    input.focus();
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
 function startRenameContainer(colStatus, contId) {
-  const conts   = getContainers(colStatus);
-  const c       = conts.find(c => c.id === contId); if (!c) return;
+  const c = ALL_CONTAINERS.find(c => c.id === contId); if (!c) return;
   const nameEl  = document.getElementById('cname-'+contId);
   const input   = document.createElement('input');
   input.className = 'cont-name-input';
   input.value = c.name;
   nameEl.replaceWith(input);
   input.focus(); input.select();
-  const save = () => {
+  const save = async () => {
     const val = input.value.trim();
-    if (val) { c.name = val; setContainers(colStatus, conts); }
+    if (val && val !== c.name) {
+      c.name = val;
+      try { await apiPut('/api/lead-containers/'+contId, { name: val }); }
+      catch(e) { showToast('Error: '+e.message, 'error'); }
+    }
     renderContainerEditor();
     renderBoard();
   };
@@ -879,17 +889,16 @@ function startRenameContainer(colStatus, contId) {
   });
 }
 
-function deleteContainer(colStatus, contId) {
+async function deleteContainer(colStatus, contId) {
   if (!confirm('Delete this container? Leads will become ungrouped.')) return;
-  leads.filter(l => l.subContainer === contId).forEach(l => {
-    l.subContainer = null;
-    apiPut('/api/leads/'+l.id, { ...l }).catch(() => {});
-  });
-  const conts = getContainers(colStatus).filter(c => c.id !== contId);
-  setContainers(colStatus, conts);
-  renderContainerEditor();
-  renderBoard();
-  showToast('Container deleted.', 'error');
+  try {
+    await apiDelete('/api/lead-containers/'+contId);
+    leads.filter(l => l.subContainer === contId).forEach(l => { l.subContainer = null; });
+    ALL_CONTAINERS = ALL_CONTAINERS.filter(c => c.id !== contId);
+    renderContainerEditor();
+    renderBoard();
+    showToast('Container deleted.', 'error');
+  } catch(e) { showToast('Error: '+e.message, 'error'); }
 }
 
 /* ── Lead CRUD ── */

@@ -302,10 +302,14 @@ async function searchStudents(q) {
 const dd = document.getElementById('searchDropdown');
 if (!q.trim()) { dd.style.display = 'none'; return; }
 await ensureStudents();
+const ql = q.toLowerCase();
 const results = (window._students || []).filter(s =>
-(s.firstName+' '+s.lastName).toLowerCase().includes(q.toLowerCase()) ||
+(s.firstName+' '+s.lastName).toLowerCase().includes(ql) ||
 (s.phone||'').includes(q) ||
-(s.level||'').toLowerCase().includes(q.toLowerCase())
+(s.phoneParent||'').includes(q) ||
+(s.phoneMother||'').includes(q) ||
+(s.phoneOther||'').includes(q) ||
+(s.level||'').toLowerCase().includes(ql)
 ).slice(0, 8);
 const SBADGE = { Active:'#1E6B45', Trial:'#A05C00', Lead:'#1D4ED8', Inactive:'#666' };
 dd.innerHTML = !results.length
@@ -336,6 +340,7 @@ const LEVEL_COLORS = {
 'Pre-Intermediate':'#1E88E5','Intermediate':'#F9A825','CEFR':'#8E24AA','IELTS':'#00897B',
 };
 const LEVEL_DEFAULT = '#546E7A';
+const LANG_FLAG = { UZ:'🇺🇿', RU:'🇷🇺' };
 let dayFilter = 'odd';
 function classColor(cls) { return LEVEL_COLORS[cls.level] || LEVEL_DEFAULT; }
 function classTextColor(cls) { return cls.level === 'Intermediate' ? '#1a1a1a' : 'white'; }
@@ -433,6 +438,7 @@ style="position:absolute;top:2px;left:2px;width:${blockW}px;bottom:2px;backgroun
 onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">
 <div style="grid-column:1;grid-row:1;overflow:hidden">
 <span style="font-weight:800;font-size:11px;color:${textCol};white-space:nowrap">${cls.name}</span>
+${cls.lang?`<span style="font-size:11px;margin-left:3px">${LANG_FLAG[cls.lang]||''}</span>`:''}
 ${cls.level?`<span style="font-size:10px;color:${textCol};opacity:0.85;margin-left:4px;white-space:nowrap">${cls.level}</span>`:''}
 </div>
 <div style="grid-column:2;grid-row:1;text-align:right">
@@ -660,7 +666,7 @@ let rangeStart = 9*60, rangeEnd = 18*60;
 teachers.forEach(n=>{ const sh=supShiftFor(n); if(sh){ rangeStart=Math.min(rangeStart, spMin(sh.start)); rangeEnd=Math.max(rangeEnd, spMin(sh.end)); } });
 placed.forEach(s => { if (s.st < rangeStart) rangeStart = Math.floor(s.st/60)*60; if (s.en > rangeEnd) rangeEnd = Math.ceil(s.en/60)*60; });
 const slots = []; for (let m=rangeStart; m<rangeEnd; m+=30) slots.push(m);
-const COL_W=60, LANE_W=150;
+const COL_W=88, LANE_W=150;
 const minToTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 const totalW2 = LANE_W + slots.length * COL_W;
 let html = `<div style="display:flex;min-width:${totalW2}px;position:sticky;top:0;z-index:5;">

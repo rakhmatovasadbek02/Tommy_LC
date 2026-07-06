@@ -371,6 +371,7 @@ async function initDB() {
     `CREATE INDEX IF NOT EXISTS idx_comments_student ON student_comments(student_id)`,
     `CREATE INDEX IF NOT EXISTS idx_calls_student ON student_calls(student_id)`,
     `CREATE TABLE IF NOT EXISTS lead_calls (id SERIAL PRIMARY KEY, lead_id TEXT NOT NULL, note TEXT NOT NULL, actor TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS lead_containers (id TEXT PRIMARY KEY, status TEXT NOT NULL, name TEXT NOT NULL, collapsed BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_lead_calls ON lead_calls(lead_id)`,
     `CREATE TABLE IF NOT EXISTS lead_conversions (id SERIAL PRIMARY KEY, lead_id TEXT NOT NULL, student_id TEXT, converted_by TEXT, converted_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_attendance_grp_date ON attendance(group_id, date)`,
@@ -624,6 +625,7 @@ function requiredPerm(method, p) {
   if (top === 'invoices')   return write ? 'finance'    : null;
   if (top === 'teachers')   return write ? 'teachers'   : null;
   if (top === 'leads')      return write ? 'leads'      : null;
+  if (top === 'lead-containers') return write ? 'leads' : null;
   if (top === 'pricing')    return write ? 'finance'    : null;
   if (top === 'levels')     return write ? 'groups'     : null;
   if (top === 'attendance') return write ? 'groups'     : null;
@@ -2115,12 +2117,23 @@ app.get('/api/attendance/:groupId/:date', async (req, res) => {
 app.post('/api/attendance/:groupId/:date', async (req, res) => {
   try {
     const { records } = req.body;
-    await pool.query('DELETE FROM attendance WHERE group_id=$1 AND date=$2', [req.params.groupId, req.params.date]);
+    // Upsert/clear only the specific students in this request — never wipe the whole day.
+    // A blanket delete-then-reinsert here would let one save race another and silently
+    // erase marks the sender's local copy didn't know about (e.g. from a concurrent
+    // teacher/admin session, or a live-reload landing mid-edit).
     for (const r of records) {
-      await pool.query(
-        'INSERT INTO attendance(group_id,date,student_id,status) VALUES($1,$2,$3,$4)',
-        [req.params.groupId, req.params.date, r.studentId, r.status]
-      );
+      if (!r.status) {
+        await pool.query(
+          'DELETE FROM attendance WHERE group_id=$1 AND date=$2 AND student_id=$3',
+          [req.params.groupId, req.params.date, r.studentId]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO attendance(group_id,date,student_id,status) VALUES($1,$2,$3,$4)
+           ON CONFLICT(group_id,date,student_id) DO UPDATE SET status=$4`,
+          [req.params.groupId, req.params.date, r.studentId, r.status]
+        );
+      }
     }
     broadcast('attendance');
     res.json({ ok: true });
@@ -2271,6 +2284,46 @@ app.delete('/api/leads/:id/permanent', async (req, res) => {
   try {
     const id = req.params.id;
     await pool.query('DELETE FROM leads WHERE id=$1', [id]);
+    broadcast('leads');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* LEAD CONTAINERS — synced across everyone with leads access, not per-browser */
+app.get('/api/lead-containers', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, status, name, collapsed FROM lead_containers ORDER BY created_at');
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/lead-containers', async (req, res) => {
+  try {
+    const { id, status, name } = req.body;
+    if (!status || !name || !name.trim()) return res.status(400).json({ error: 'Status and name are required.' });
+    await pool.query('INSERT INTO lead_containers(id,status,name) VALUES($1,$2,$3)', [id, status, name.trim()]);
+    broadcast('leads');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/lead-containers/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM lead_containers WHERE id=$1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found.' });
+    const prev = rows[0];
+    const name = req.body.name != null ? req.body.name.trim() : prev.name;
+    const collapsed = req.body.collapsed != null ? !!req.body.collapsed : prev.collapsed;
+    await pool.query('UPDATE lead_containers SET name=$1, collapsed=$2 WHERE id=$3', [name, collapsed, req.params.id]);
+    broadcast('leads');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/lead-containers/:id', async (req, res) => {
+  try {
+    await pool.query('UPDATE leads SET sub_container=NULL WHERE sub_container=$1', [req.params.id]);
+    await pool.query('DELETE FROM lead_containers WHERE id=$1', [req.params.id]);
     broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }

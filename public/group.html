@@ -690,7 +690,9 @@ function scheduleAutoSave() {
   _autoSaveTimer = setTimeout(async () => {
     try {
       await Promise.all(Object.entries(attData).map(([date, records]) => {
-        const arr = Object.entries(records).filter(([,s])=>s!=='').map(([studentId,status])=>({studentId,status}));
+        // Include cleared ('') entries too — the server now upserts/deletes per student
+        // rather than replacing the whole day, so a clear must be sent explicitly.
+        const arr = Object.entries(records).map(([studentId,status])=>({studentId,status}));
         return apiPost(`/api/attendance/${groupId}/${date}`, { records: arr });
       }));
       if (ind) { ind.textContent = 'Saved ✓'; ind.style.opacity = '1'; setTimeout(()=>{ ind.style.opacity='0'; }, 2000); }
@@ -770,7 +772,7 @@ function setAtt(sid, date, next) {
 async function saveAttendance() {
 try {
 await Promise.all(Object.entries(attData).map(([date, records]) => {
-const arr = Object.entries(records).filter(([,s])=>s!=='').map(([studentId,status])=>({studentId,status}));
+const arr = Object.entries(records).map(([studentId,status])=>({studentId,status}));
 return apiPost(`/api/attendance/${groupId}/${date}`, { records: arr });
 }));
 logActivity(`Attendance saved for ${group.name}`, '');

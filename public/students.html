@@ -264,15 +264,20 @@
       apiGet('/api/archive-reasons').catch(() => [])
     ]);
     if (isTeacher()) { students = students.filter(s => (s.groups||[]).some(ownsGroup)); document.getElementById('addStudentBtn').style.display='none'; }
-    // Populate group and teacher filter dropdowns dynamically (reset first to avoid duplicates on reload)
+    // Populate group and teacher filter dropdowns dynamically (reset first to avoid duplicates on reload).
+    // Preserve whatever the user had selected — a live-update broadcast shouldn't silently clear their filter.
     const allGroups   = [...new Map(students.flatMap(s=>s.groups||[]).map(g=>[g.id,g])).values()];
     const allTeachers = [...new Set(students.flatMap(s=>(s.groups||[]).map(g=>g.teacher)).filter(Boolean))].sort();
     const gSel = document.getElementById('filterGroup');
+    const prevGroup = gSel.value;
     gSel.innerHTML = '<option value="">All Groups</option>';
     allGroups.forEach(g => { const o=document.createElement('option'); o.value=g.id; o.textContent=g.name; gSel.appendChild(o); });
+    if (allGroups.some(g=>g.id===prevGroup)) gSel.value = prevGroup;
     const tSel = document.getElementById('filterTeacher');
+    const prevTeacher = tSel.value;
     tSel.innerHTML = '<option value="">All Teachers</option>';
     allTeachers.forEach(t => { const o=document.createElement('option'); o.value=t; o.textContent=reverseName(t); tSel.appendChild(o); });
+    if (allTeachers.includes(prevTeacher)) tSel.value = prevTeacher;
     renderStudents();
   }
 
