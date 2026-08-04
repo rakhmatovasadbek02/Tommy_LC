@@ -133,7 +133,7 @@
 <div class="main">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:12px">
-      <a href="students.html" style="display:flex;align-items:center;color:var(--muted);text-decoration:none;gap:6px;font-size:13px;font-weight:600">
+      <a href="students.html" onclick="if(window.history.length>1){event.preventDefault();window.history.back();}" style="display:flex;align-items:center;color:var(--muted);text-decoration:none;gap:6px;font-size:13px;font-weight:600">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         Students
       </a>
