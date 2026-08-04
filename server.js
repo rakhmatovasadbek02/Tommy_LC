@@ -342,6 +342,7 @@ async function initDB() {
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS balance NUMERIC DEFAULT 0`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS balance_frozen BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS frozen_comment TEXT`,
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS freeze_periods JSONB DEFAULT '[]'`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_parent TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_mother TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS phone_other  TEXT`,
@@ -859,6 +860,7 @@ app.get('/api/students', async (req, res) => {
         balance: Number(s.balance || 0),
         balance_frozen: s.balance_frozen || false,
         frozen_comment: s.frozen_comment || null,
+        freezePeriods: s.freeze_periods || [],
         exam: s.exam, examDate: s.exam_date, notes: s.notes, createdAt: s.created_at,
         school: s.school, grade: s.grade, address: s.address,
         groups: (studentGroups[s.id] || []).map(g => ({
@@ -921,11 +923,21 @@ app.put('/api/students/:id', async (req, res) => {
       const v = req.body[bodyKey];
       newVals[col] = col === 'status' ? (v || 'Active') : col === 'balance_frozen' ? !!v : (v ?? null);
     }
+    // Track freeze start/end dates so the attendance table can shade the days a student
+    // was frozen once they're reactivated, without touching their actual attendance marks.
+    const todayStr = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' })).toISOString().slice(0,10);
+    let freezePeriods = Array.isArray(prev.freeze_periods) ? prev.freeze_periods : [];
+    if (prev.status !== 'Frozen' && newVals.status === 'Frozen') {
+      freezePeriods = [...freezePeriods, { start: todayStr, end: null }];
+    } else if (prev.status === 'Frozen' && newVals.status !== 'Frozen') {
+      const last = freezePeriods[freezePeriods.length - 1];
+      if (last && last.end === null) freezePeriods = [...freezePeriods.slice(0,-1), { ...last, end: todayStr }];
+    }
     await pool.query(
-      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,phone_mother=$5,phone_other=$6,level=$7,status=$8,exam=$9,exam_date=$10,notes=$11,school=$12,grade=$13,address=$14,balance_frozen=$15,frozen_comment=$16 WHERE id=$17',
+      'UPDATE students SET first_name=$1,last_name=$2,phone=$3,phone_parent=$4,phone_mother=$5,phone_other=$6,level=$7,status=$8,exam=$9,exam_date=$10,notes=$11,school=$12,grade=$13,address=$14,balance_frozen=$15,frozen_comment=$16,freeze_periods=$17 WHERE id=$18',
       [newVals.first_name, newVals.last_name, newVals.phone, newVals.phone_parent, newVals.phone_mother, newVals.phone_other,
        newVals.level, newVals.status, newVals.exam, newVals.exam_date, newVals.notes, newVals.school, newVals.grade,
-       newVals.address, newVals.balance_frozen, newVals.frozen_comment, req.params.id]
+       newVals.address, newVals.balance_frozen, newVals.frozen_comment, JSON.stringify(freezePeriods), req.params.id]
     );
     const actor = req.user ? req.user.first_name+' '+req.user.last_name : 'System';
     const changes = {};

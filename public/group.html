@@ -109,6 +109,7 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
    .chip-locked's pale placeholder background is only meant for cells with no status at all. */
 .chip.chip-present.chip-locked { background: #1E6B45; border: none; opacity: 0.85; }
 .chip.chip-absent.chip-locked { background: var(--crimson); border: none; opacity: 0.85; }
+.chip-frozen { width: 28px; height: 28px; border-radius: 50%; border: none; background: #60a5fa; display: inline-flex; align-items: center; justify-content: center; opacity: 0.85; cursor: default; }
 .att-picker { position: fixed; z-index: 999; background: white; border: 1px solid var(--border); border-radius: 99px; box-shadow: 0 4px 16px rgba(0,0,0,.13); display: flex; gap: 6px; padding: 6px; }
 .att-picker button { width: 28px; height: 28px; border-radius: 50%; border: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity .1s; padding: 0; }
 .att-picker .ap-present { background: #1E6B45; color: white; }
@@ -368,7 +369,13 @@ function getTodayStr() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 }
-function attCell(ds, sid, status) {
+function isFrozenOn(periods, ds) {
+  return (periods||[]).some(p => ds >= p.start && (!p.end || ds < p.end));
+}
+function attCell(ds, sid, status, wasFrozen) {
+  if (!status && wasFrozen) {
+    return `<td><span class="chip-frozen" title="Frozen"></span></td>`;
+  }
   const isToday = _canMarkAnyTime || ds === getTodayStr();
   if (!isToday) {
     // locked — show value but no interaction
@@ -617,7 +624,7 @@ const month = currentMonth.getMonth();
 const today = new Date(); today.setHours(0,0,0,0);
 const days = getClassDays(year, month);
 document.getElementById('monthLabel').textContent = MONTH_FULL[month]+' '+year;
-const sorted = [...students].sort((a,b) => {
+const sorted = students.filter(s => s.status !== 'Frozen').sort((a,b) => {
 const na = (a.lastName+' '+a.firstName).toLowerCase();
 const nb = (b.lastName+' '+b.firstName).toLowerCase();
 return na.localeCompare(nb);
@@ -648,7 +655,7 @@ tbody += `<tr>
 ${days.map(d => {
 const ds = toDateStr(year, month, d);
 const status = attData[ds]?.[s.id] || '';
-return attCell(ds, s.id, status);
+return attCell(ds, s.id, status, isFrozenOn(s.freezePeriods, ds));
 }).join('')}
 </tr>`;
 });
@@ -936,13 +943,18 @@ async function makeStudentFrozen(id) {
     if (comment === null) return;
     await apiPut('/api/students/'+id, { ...s, status: 'Frozen', balance_frozen: true, frozen_comment: comment });
     s.status = 'Frozen'; s.balance_frozen = true; s.frozen_comment = comment;
+    s.freezePeriods = [...(s.freezePeriods||[]), { start: getTodayStr(), end: null }];
     const sess = getSession();
     if (comment) await apiPost('/api/students/'+id+'/comments', { text: `Frozen: ${comment}`, actor: sess?.name||'Staff' });
   } else {
     await apiPut('/api/students/'+id, { ...s, status: 'Active', balance_frozen: false, frozen_comment: null });
     s.status = 'Active'; s.balance_frozen = false; s.frozen_comment = null;
+    const periods = s.freezePeriods||[];
+    const last = periods[periods.length-1];
+    if (last && last.end === null) s.freezePeriods = [...periods.slice(0,-1), { ...last, end: getTodayStr() }];
   }
   renderStudentList();
+  renderAttendance();
   logActivity(`${freeze ? 'Frozen' : 'Unfrozen'} student: ${s.lastName} ${s.firstName}`, '');
   showToast(freeze ? `${s.firstName} frozen.` : `${s.firstName} unfrozen.`);
 }
