@@ -1351,7 +1351,7 @@ app.get('/api/students/:id/invoices', async (req, res) => {
 // Teachers are now Staff users with the 'Teacher' role.
 app.get('/api/teachers', async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id,first_name,last_name,phone,created_at FROM users WHERE title='Teacher' ORDER BY first_name");
+    const { rows } = await pool.query("SELECT id,first_name,last_name,phone,created_at FROM users WHERE title='Teacher' OR title='CEO' ORDER BY first_name");
     res.json(rows.map(t => ({
       id: t.id, firstName: t.first_name, lastName: t.last_name,
       phone: t.phone, status: 'Active', createdAt: t.created_at
