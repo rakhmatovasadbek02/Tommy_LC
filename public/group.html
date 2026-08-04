@@ -261,7 +261,7 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
       <p style="margin:0 0 14px;font-weight:600;font-size:14px" id="qpStudentName"></p>
       <div class="form-group">
         <label>Amount (UZS) *</label>
-        <input type="number" id="qpAmount" placeholder="0" min="0" step="1000">
+        <input type="text" inputmode="numeric" id="qpAmount" placeholder="0" oninput="formatThousandsInput(this)">
       </div>
       <div class="form-group">
         <label>Payment type</label>
@@ -935,7 +935,7 @@ function openQuickPayment(id) {
   openModal('quickPayModal');
 }
 async function submitQuickPayment() {
-  const amount = Number(document.getElementById('qpAmount').value);
+  const amount = parseThousands(document.getElementById('qpAmount').value);
   if (!amount || amount <= 0) { showToast('Enter a valid amount.','error'); return; }
   const s = students.find(s => s.id === _qpStudentId);
   const session = getSession();

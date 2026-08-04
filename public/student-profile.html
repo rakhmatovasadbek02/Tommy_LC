@@ -373,7 +373,7 @@
     <div class="modal-body">
       <div class="form-group">
         <label>Amount *</label>
-        <input type="number" id="payAmount" placeholder="0" min="0">
+        <input type="text" inputmode="numeric" id="payAmount" placeholder="0" oninput="formatThousandsInput(this)">
       </div>
       <div class="form-group" id="payTypeGroup">
         <label>Payment type</label>
@@ -711,7 +711,7 @@
     _editInvoiceId = id;
     document.getElementById('payModalTitle').textContent = 'Edit Payment';
     document.getElementById('paySubmitBtn').textContent  = 'Save Changes';
-    document.getElementById('payAmount').value = Math.abs(Number(i.total));
+    document.getElementById('payAmount').value = Math.abs(Number(i.total)).toLocaleString('en-US');
     document.getElementById('payType').value = i.paymentType || 'Cash';
     document.querySelectorAll('.pay-type-btn').forEach(b => {
       b.classList.toggle('selected', b.dataset.type === (i.paymentType||'Cash'));
@@ -907,7 +907,7 @@
   }
 
   async function submitPayment() {
-    const raw = Number(document.getElementById('payAmount').value);
+    const raw = parseThousands(document.getElementById('payAmount').value);
     if (!raw || raw <= 0) { showToast('Enter a valid amount.','error'); return; }
     const isSubtract = _payMode === 'subtract';
     const amount = isSubtract ? -raw : raw;
@@ -991,13 +991,13 @@
   }
 
   function openBalanceModal() {
-    document.getElementById('balNewVal').value = Number(student?.balance || 0);
+    document.getElementById('balNewVal').value = Number(student?.balance || 0).toLocaleString('en-US');
     document.getElementById('balReason').value = '';
     openModal('balanceModal');
   }
 
   async function submitBalance() {
-    const val = Number(document.getElementById('balNewVal').value);
+    const val = parseSignedThousands(document.getElementById('balNewVal').value);
     const reason = document.getElementById('balReason').value.trim();
     if (isNaN(val)) { showToast('Enter a valid number.', 'error'); return; }
     await apiPatch('/api/students/'+STUDENT_ID+'/balance', { balance: val, reason });
@@ -1019,7 +1019,7 @@
     <div class="modal-body">
       <div class="form-group">
         <label>New balance (UZS)</label>
-        <input id="balNewVal" type="number" class="form-control" placeholder="e.g. 0 or -150000">
+        <input id="balNewVal" type="text" inputmode="numeric" class="form-control" placeholder="e.g. 0 or -150000" oninput="formatSignedThousandsInput(this)">
       </div>
       <div class="form-group">
         <label>Reason <span style="color:var(--muted);font-weight:400">(optional)</span></label>

@@ -375,12 +375,25 @@ function _renderStudentHoverCard(el, s) {
 }
 function fmtCurrencyUZS(n) { return (Number(n||0) < 0 ? '−' : '') + Math.abs(Number(n||0)).toLocaleString('ru-RU') + ' UZS'; }
 
-// Groups digits with spaces as the user types (400000 -> "400 000"). Read back with parseThousands().
+// Groups digits with commas as the user types (400000 -> "400,000"). Read back with parseThousands().
 function formatThousandsInput(el) {
   const digits = el.value.replace(/\D/g, '');
-  el.value = digits ? Number(digits).toLocaleString('ru-RU') : '';
+  el.value = digits ? Number(digits).toLocaleString('en-US') : '';
 }
 function parseThousands(value) { return Number(String(value||'').replace(/\D/g, '')) || 0; }
+
+// Signed variant (allows a leading "-") for fields like a manual balance override.
+function formatSignedThousandsInput(el) {
+  const neg = el.value.trim().startsWith('-');
+  const digits = el.value.replace(/\D/g, '');
+  el.value = digits ? (neg?'-':'') + Number(digits).toLocaleString('en-US') : (neg ? '-' : '');
+}
+function parseSignedThousands(value) {
+  const s = String(value||'').trim();
+  const digits = s.replace(/\D/g, '');
+  const n = digits ? Number(digits) : 0;
+  return s.startsWith('-') ? -n : n;
+}
 
 const AVATAR_COLORS = ['#FF0000','#1D4ED8','#1E6B45','#7C3AED','#A05C00','#0891B2','#BE185D','#D97706'];
 function avatarColor(name) {

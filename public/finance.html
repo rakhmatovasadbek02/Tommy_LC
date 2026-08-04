@@ -278,7 +278,7 @@
       <input type="hidden" id="spendingId">
       <div class="form-group">
         <label>Amount (UZS) *</label>
-        <input type="number" id="spAmount" placeholder="e.g. 500000" min="0">
+        <input type="text" inputmode="numeric" id="spAmount" placeholder="e.g. 500,000" oninput="formatThousandsInput(this)">
       </div>
       <div class="form-group">
         <label>Category</label>
@@ -790,7 +790,7 @@
     if (grp) {
       document.getElementById('invGroup').value = grp.id;
       document.getElementById('invLevel').value = grp.level || '';
-      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price)).toLocaleString('ru-RU');
+      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price)).toLocaleString('en-US');
     }
   }
 
@@ -799,7 +799,7 @@
     const grp = groups.find(g=>g.id===gid);
     if (grp) {
       if (grp.level) document.getElementById('invLevel').value = grp.level;
-      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price)).toLocaleString('ru-RU');
+      if (grp.price) document.getElementById('invTotal').value = Math.abs(Number(grp.price)).toLocaleString('en-US');
     }
   }
 
@@ -821,7 +821,7 @@
     document.getElementById('invGroup').value    = i.groupId||'';
     document.getElementById('invLevel').value    = i.level||'';
     document.getElementById('invMonth').value    = i.month||'';
-    document.getElementById('invTotal').value    = i.total ? Number(i.total).toLocaleString('ru-RU') : '';
+    document.getElementById('invTotal').value    = i.total ? Number(i.total).toLocaleString('en-US') : '';
     document.getElementById('invNotes').value    = i.notes||'';
     const radio = document.querySelector(`input[name="payType"][value="${i.paymentType||'Cash'}"]`);
     if (radio) { radio.checked = true; onPayType(); }
@@ -1086,7 +1086,7 @@
     document.getElementById('spendingModalTitle').textContent = id ? 'Edit Spending' : 'Add Spending';
     if (id) {
       const s = spendings.find(x=>x.id===id);
-      document.getElementById('spAmount').value = s.amount||'';
+      document.getElementById('spAmount').value = s.amount ? Number(s.amount).toLocaleString('en-US') : '';
       document.getElementById('spCategory').value = s.category||'';
       document.getElementById('spDesc').value = s.description||'';
       document.getElementById('spMonth').value = s.month||'';
@@ -1101,7 +1101,7 @@
 
   async function saveSpending() {
     const id = document.getElementById('spendingId').value;
-    const amount = Number(document.getElementById('spAmount').value);
+    const amount = parseThousands(document.getElementById('spAmount').value);
     const category = document.getElementById('spCategory').value;
     const description = document.getElementById('spDesc').value.trim();
     const month = document.getElementById('spMonth').value;

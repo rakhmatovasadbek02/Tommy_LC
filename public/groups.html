@@ -159,7 +159,7 @@ style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;border:2px
 </div>
 <div class="form-group" style="margin:0">
 <label>Price (UZS)</label>
-<input type="number" id="newLevelPrice" placeholder="0" min="0" step="1000"
+<input type="text" inputmode="numeric" id="newLevelPrice" placeholder="0" oninput="formatThousandsInput(this)"
 style="padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;width:100%;outline:none;font-family:'Inter',sans-serif">
 </div>
 <button class="btn btn-primary" onclick="addLevel()" style="height:40px">Add</button>
@@ -385,7 +385,7 @@ return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;bord
 <div style="flex:1;font-weight:600;font-size:14px">${l}${isBuiltIn?'<span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:4px">built-in</span>':''}</div>
 <div style="display:flex;align-items:center;gap:6px">
 <span style="font-size:12px;font-weight:700;color:var(--muted)">UZS</span>
-<input type="number" id="lp_${key}" value="${price}" min="0" step="1000"
+<input type="text" inputmode="numeric" id="lp_${key}" value="${Number(price).toLocaleString('en-US')}" oninput="formatThousandsInput(this)"
 style="width:130px;padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;font-family:'Inter',sans-serif;outline:none;text-align:right"
 onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='var(--border)'">
 </div>
@@ -398,7 +398,7 @@ try {
 const all=getAllLevels();
 await Promise.all(all.map(l=>{
 const key=l.replace(/[^a-z0-9]/gi,'_');
-const val=Number(document.getElementById('lp_'+key)?.value||0);
+const val=parseThousands(document.getElementById('lp_'+key)?.value||0);
 levelPrices[l]=val;
 return apiPut('/api/pricing/'+encodeURIComponent(l),{price:val});
 }));
@@ -407,7 +407,7 @@ showToast('Prices saved!');
 }
 async function addLevel() {
 const val=document.getElementById('newLevelInput').value.trim();
-const price=Number(document.getElementById('newLevelPrice').value)||0;
+const price=parseThousands(document.getElementById('newLevelPrice').value);
 if(!val){showToast('Enter a level name.','error');return;}
 if(getAllLevels().includes(val)){showToast('Level already exists.','error');return;}
 await apiPost('/api/levels',{level:val});
