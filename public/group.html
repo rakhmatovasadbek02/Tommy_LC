@@ -33,8 +33,6 @@ min-width: 56px;
 }
 .unit-badge:hover { background: var(--crimson-dark); }
 .unit-badge-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.7); display: block; margin-bottom: 2px; }
-.sort-bar { padding: 10px 16px; border-bottom: 1px solid var(--border); }
-.sort-bar select { width: 100%; padding: 9px 12px; font-size: 13px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; color: var(--text); background: white; outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px; }
 .student-list { max-height: 420px; overflow-y: auto; }
 .student-list-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; transition: background 0.1s; position: relative; }
 .student-list-item:last-child { border-bottom: none; }
@@ -179,13 +177,6 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <span class="unit-badge-label">Unit</span>
 <span id="unitBadgeVal">1A</span>
 </div>
-</div>
-<!-- Sort -->
-<div class="sort-bar">
-<select id="sortSelect" onchange="renderStudentList();renderAttendance()">
-<option value="az">By A-Z</option>
-<option value="za">By Z-A</option>
-</select>
 </div>
 <!-- Student list -->
 <div class="student-list" id="studentList"></div>
@@ -486,11 +477,10 @@ function fmtPhone(p) {
 }
 
 function renderStudentList() {
-const sort = document.getElementById('sortSelect').value;
 const sorted = [...students].sort((a,b) => {
 const na = (a.lastName+' '+a.firstName).toLowerCase();
 const nb = (b.lastName+' '+b.firstName).toLowerCase();
-return sort==='az' ? na.localeCompare(nb) : nb.localeCompare(na);
+return na.localeCompare(nb);
 });
 const el = document.getElementById('studentList');
 if (!sorted.length) {
@@ -627,11 +617,10 @@ const month = currentMonth.getMonth();
 const today = new Date(); today.setHours(0,0,0,0);
 const days = getClassDays(year, month);
 document.getElementById('monthLabel').textContent = MONTH_FULL[month]+' '+year;
-const sort = document.getElementById('sortSelect').value;
 const sorted = [...students].sort((a,b) => {
 const na = (a.lastName+' '+a.firstName).toLowerCase();
 const nb = (b.lastName+' '+b.firstName).toLowerCase();
-return sort==='az' ? na.localeCompare(nb) : nb.localeCompare(na);
+return na.localeCompare(nb);
 });
 if (!sorted.length && !trialStudents.length) {
 document.getElementById('attTable').innerHTML = `<tr><td style="padding:40px;text-align:center;color:var(--muted)">No students enrolled.</td></tr>`;
