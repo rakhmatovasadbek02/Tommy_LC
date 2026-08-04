@@ -2240,6 +2240,13 @@ app.post('/api/leads/:id/convert', async (req, res) => {
       `INSERT INTO lead_conversions(lead_id, student_id, converted_by) VALUES($1,$2,$3)`,
       [req.params.id, studentId, actor]
     ).catch(()=>{});
+    // Carry over attendance marked while they were a trial lead (stored under the lead's id)
+    // to the new student id, so it isn't orphaned once the lead record stops being referenced.
+    await pool.query(
+      `UPDATE attendance a SET student_id=$1 WHERE a.student_id=$2
+       AND NOT EXISTS (SELECT 1 FROM attendance b WHERE b.student_id=$1 AND b.group_id=a.group_id AND b.date=a.date)`,
+      [studentId, req.params.id]
+    ).catch(()=>{});
     // Add to group student_ids now that they are a real student
     if (l.group_id) {
       const grp = await pool.query('SELECT student_ids FROM groups WHERE id=$1', [l.group_id]);

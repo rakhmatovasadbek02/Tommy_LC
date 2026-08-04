@@ -93,10 +93,10 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .att-table-wrap { overflow-x: auto; }
 .att-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .att-table th { padding: 10px 8px; text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; background: white; }
-.att-table th.name-col { text-align: left; padding-left: 16px; min-width: 160px; }
+.att-table th.name-col { text-align: left; padding-left: 16px; min-width: 160px; position: sticky; left: 0; z-index: 3; box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08); }
 .att-table th.today-col { color: var(--text); font-weight: 900; }
 .att-table td { padding: 8px; text-align: center; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.att-table td.name-col { text-align: left; padding-left: 16px; }
+.att-table td.name-col { text-align: left; padding-left: 16px; position: sticky; left: 0; z-index: 2; background: white; box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08); }
 .att-table tr:hover td { background: var(--crimson-soft); }
 .att-table tr:last-child td { border-bottom: none; }
 .att-name-cell { display: flex; align-items: center; gap: 10px; }
@@ -133,6 +133,7 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 .student-dot.trial { background: #bbb; }
 .trial-badge { font-size: 10px; font-weight: 700; color: #888; background: #eee; border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
 .att-trial-row td { background: #f5f5f5; }
+.att-trial-row td.name-col { background: #f5f5f5; }
 .att-trial-row:hover td { background: #eeeeee !important; }
 .att-trial-name { color: #666; }
 .trial-label { font-size: 10px; font-weight: 700; color: #888; background: #e0e0e0; border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
@@ -487,8 +488,8 @@ function fmtPhone(p) {
 function renderStudentList() {
 const sort = document.getElementById('sortSelect').value;
 const sorted = [...students].sort((a,b) => {
-const na = (a.firstName+' '+a.lastName).toLowerCase();
-const nb = (b.firstName+' '+b.lastName).toLowerCase();
+const na = (a.lastName+' '+a.firstName).toLowerCase();
+const nb = (b.lastName+' '+b.firstName).toLowerCase();
 return sort==='az' ? na.localeCompare(nb) : nb.localeCompare(na);
 });
 const el = document.getElementById('studentList');
@@ -628,8 +629,8 @@ const days = getClassDays(year, month);
 document.getElementById('monthLabel').textContent = MONTH_FULL[month]+' '+year;
 const sort = document.getElementById('sortSelect').value;
 const sorted = [...students].sort((a,b) => {
-const na = (a.firstName+' '+a.lastName).toLowerCase();
-const nb = (b.firstName+' '+b.lastName).toLowerCase();
+const na = (a.lastName+' '+a.firstName).toLowerCase();
+const nb = (b.lastName+' '+b.firstName).toLowerCase();
 return sort==='az' ? na.localeCompare(nb) : nb.localeCompare(na);
 });
 if (!sorted.length && !trialStudents.length) {
