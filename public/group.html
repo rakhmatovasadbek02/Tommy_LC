@@ -376,9 +376,10 @@ function attCell(ds, sid, status) {
     if (status === 'absent')  return `<td><button class="chip chip-absent chip-locked" disabled>${IC_X}</button></td>`;
     return `<td><span class="chip-locked"></span></td>`;
   }
-  if (status === 'present') return `<td><button class="chip chip-present" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)">${IC_CHECK}</button></td>`;
-  if (status === 'absent')  return `<td><button class="chip chip-absent" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)">${IC_X}</button></td>`;
-  return `<td><span class="chip-empty" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)"></span></td>`;
+  const hoverAttrs = `onmouseenter="hoverAttPicker(this)" onmouseleave="schedulePickerClose()"`;
+  if (status === 'present') return `<td><button class="chip chip-present" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)" ${hoverAttrs}>${IC_CHECK}</button></td>`;
+  if (status === 'absent')  return `<td><button class="chip chip-absent" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)" ${hoverAttrs}>${IC_X}</button></td>`;
+  return `<td><span class="chip-empty" data-sid="${sid}" data-date="${ds}" onclick="cycleAtt(this)" ${hoverAttrs}></span></td>`;
 }
 function isDuringLesson(dateStr) {
   if (_canMarkAnyTime) return true;
@@ -694,7 +695,15 @@ function scheduleAutoSave() {
     }
   }, 1200);
 }
-let _pickerSid = null, _pickerDate = null;
+let _pickerSid = null, _pickerDate = null, _pickerCloseTimer = null;
+function cancelPickerClose() {
+  if (_pickerCloseTimer) { clearTimeout(_pickerCloseTimer); _pickerCloseTimer = null; }
+}
+function schedulePickerClose() {
+  cancelPickerClose();
+  _pickerCloseTimer = setTimeout(closePicker, 250);
+}
+// Click: toggles the picker for touch/keyboard use (hover already opens it on desktop).
 function cycleAtt(el) {
   while (el && !el.dataset.sid) el = el.parentElement;
   if (!el) return;
@@ -703,14 +712,26 @@ function cycleAtt(el) {
     showToast(getLessonToast(_date), 'error');
     return;
   }
-  _pickerSid  = el.dataset.sid;
-  _pickerDate = el.dataset.date;
   const existing = document.getElementById('attPickerEl');
-  // toggling: if picker already open for same cell, close it
-  if (existing && existing.dataset.sid === _pickerSid && existing.dataset.date === _pickerDate) {
+  if (existing && existing.dataset.sid === el.dataset.sid && existing.dataset.date === _date) {
     closePicker(); return;
   }
+  openAttPicker(el);
+}
+// Hover: opens the picker automatically as the mouse enters the circle.
+function hoverAttPicker(el) {
+  while (el && !el.dataset.sid) el = el.parentElement;
+  if (!el) return;
+  cancelPickerClose();
+  if (!isDuringLesson(el.dataset.date)) return;
+  const existing = document.getElementById('attPickerEl');
+  if (existing && existing.dataset.sid === el.dataset.sid && existing.dataset.date === el.dataset.date) return;
+  openAttPicker(el);
+}
+function openAttPicker(el) {
   closePicker();
+  _pickerSid  = el.dataset.sid;
+  _pickerDate = el.dataset.date;
   const picker = document.createElement('div');
   picker.id = 'attPickerEl';
   picker.className = 'att-picker';
@@ -726,6 +747,8 @@ function cycleAtt(el) {
   btnC.className = 'ap-clear';
   btnC.addEventListener('mousedown', e => { e.stopPropagation(); setAtt(_pickerSid, _pickerDate, ''); });
   picker.append(btnP, btnA, btnC);
+  picker.addEventListener('mouseenter', cancelPickerClose);
+  picker.addEventListener('mouseleave', schedulePickerClose);
   const rect = el.getBoundingClientRect();
   document.body.appendChild(picker);
   const pw = picker.offsetWidth, ph = picker.offsetHeight;
@@ -745,6 +768,7 @@ function _outsidePickerHandler(e) {
   }
 }
 function closePicker() {
+  cancelPickerClose();
   document.getElementById('attPickerEl')?.remove();
   document.removeEventListener('mousedown', _outsidePickerHandler);
 }
