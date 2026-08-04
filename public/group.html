@@ -1004,18 +1004,19 @@ async function submitMoveToGroup() {
   const targetId = document.getElementById('mvGroupSelect').value;
   if (!targetId) { showToast('Select a group.','error'); return; }
   const s = students.find(s => s.id === _mvStudentId);
-  // Remove from current group
-  const curIds = (group.studentIds||[]).filter(id => id !== _mvStudentId);
-  await apiPatch('/api/groups/'+groupId+'/students', { studentIds: curIds });
-  group.studentIds = curIds;
-  students = students.filter(s => s.id !== _mvStudentId);
-  // Add to target group
+  // Add to target group first, so the student stays enrolled the whole time and
+  // the server's "no longer enrolled anywhere" deactivation logic doesn't fire.
   const allGrps = await apiGet('/api/groups');
   const target = allGrps.find(g => g.id === targetId);
   if (target) {
     const newIds = [...new Set([...(target.studentIds||[]), _mvStudentId])];
     await apiPatch('/api/groups/'+targetId+'/students', { studentIds: newIds });
   }
+  // Remove from current group
+  const curIds = (group.studentIds||[]).filter(id => id !== _mvStudentId);
+  await apiPatch('/api/groups/'+groupId+'/students', { studentIds: curIds });
+  group.studentIds = curIds;
+  students = students.filter(s => s.id !== _mvStudentId);
   renderStudentList();
   renderAttendance();
   closeModal('moveGroupModal');
