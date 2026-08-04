@@ -161,7 +161,7 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <div class="main">
 <div class="topbar">
 <div style="display:flex;align-items:center;gap:12px">
-<a href="groups.html" class="btn btn-ghost btn-sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back</a>
+<a href="groups.html" class="btn btn-ghost btn-sm" onclick="if(window.history.length>1){event.preventDefault();window.history.back();}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back</a>
 <div class="page-title" id="pageTitle">Group</div>
 </div>
 <div class="topbar-right"></div>
