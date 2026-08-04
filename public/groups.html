@@ -248,7 +248,7 @@ ${g.price?`<span class="badge" style="background:#E8F5E9;color:#2E7D32">${Number
 <div class="group-card-footer">
 <a href="group.html?id=${g.id}" class="btn btn-ghost btn-sm"> Open Group</a>
 ${canManage?`<button class="btn btn-ghost btn-sm" onclick="editGroup('${g.id}')">️ Edit</button>
-<button class="btn btn-danger btn-sm" onclick="deleteGroup('${g.id}')"></button>`:''}
+<button class="btn btn-danger btn-sm" onclick="deleteGroup('${g.id}')">${IC.trash}</button>`:''}
 </div>
 </div>`;
 }).join('');
@@ -389,7 +389,7 @@ return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;bord
 style="width:130px;padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-weight:700;font-family:'Inter',sans-serif;outline:none;text-align:right"
 onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='var(--border)'">
 </div>
-${!isBuiltIn?`<button class="btn btn-danger btn-sm" onclick="deleteLevel('${l}')"></button>`:'<div style="width:52px"></div>'}
+${!isBuiltIn?`<button class="btn btn-danger btn-sm" onclick="deleteLevel('${l}')">${IC.trash}</button>`:'<div style="width:52px"></div>'}
 </div>`;
 }).join('');
 }
