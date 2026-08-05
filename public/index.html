@@ -448,24 +448,23 @@ const spanSlots = slots.filter(s2 => s2 >= cStart && s2 < cEnd).length;
 const blockW = spanSlots * COL_W - 4;
 const enrolled = cls.enrolledCount != null ? cls.enrolledCount : (cls.studentIds || []).length;
 return `<div onclick="window.location.href='group.html?id=${cls.id}'"
-style="position:absolute;top:2px;left:2px;width:${blockW}px;bottom:2px;background:${c};border-radius:6px;padding:5px 8px;cursor:pointer;overflow:hidden;z-index:3;box-sizing:border-box;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto 1fr auto;gap:1px 4px;"
+style="position:absolute;top:2px;left:2px;width:${blockW}px;bottom:2px;background:${c};border-radius:6px;padding:5px 8px;cursor:pointer;overflow:hidden;z-index:3;box-sizing:border-box;display:flex;flex-direction:column;gap:2px;"
 onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">
-<div style="grid-column:1;grid-row:1;overflow:hidden">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;overflow:hidden">
+<div style="display:flex;align-items:center;gap:4px;overflow:hidden">
 <span style="font-weight:800;font-size:13px;color:${textCol};white-space:nowrap">${cls.name}</span>
-${cls.lang?`<span style="font-size:13px;margin-left:3px">${LANG_FLAG[cls.lang]||''}</span>`:''}
-${cls.level?`<span style="font-size:12px;color:${textCol};opacity:0.85;margin-left:4px;white-space:nowrap">${cls.level}</span>`:''}
+${cls.lang?`<span style="font-size:11px;background:rgba(255,255,255,0.4);border-radius:3px;padding:0 3px;line-height:1.5;flex-shrink:0">${LANG_FLAG[cls.lang]||''}</span>`:''}
 </div>
-<div style="grid-column:2;grid-row:1;text-align:right">
-${cls.currentUnit?`<span style="font-size:11px;font-weight:700;color:${c};background:${textCol};padding:1px 5px;border-radius:3px;white-space:nowrap">${cls.currentUnit}</span>`:''}
+<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+${cls.currentUnit?`<span style="font-size:10px;font-weight:700;color:${c};background:${textCol};padding:1px 5px;border-radius:3px;white-space:nowrap">${cls.currentUnit}</span>`:''}
+${enrolled?`<span style="font-size:10px;color:${textCol};opacity:0.85;white-space:nowrap">👥 ${enrolled}</span>`:''}
 </div>
-<div style="grid-column:1/3;grid-row:2;display:flex;align-items:center;overflow:hidden">
-<span style="font-size:12px;color:${textCol};opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.teacher ? reverseName(cls.teacher) : 'No teacher'}</span>
 </div>
-<div style="grid-column:1;grid-row:3">
-<span style="font-size:11px;color:${textCol};opacity:0.85;white-space:nowrap"> ${cls.time}–${minToTime(cEnd)}</span>
+<div style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden">
+<span style="font-size:15px;font-weight:800;color:${textCol};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.level||''}</span>
 </div>
-<div style="grid-column:2;grid-row:3;text-align:right">
-${enrolled?`<span style="font-size:11px;color:${textCol};opacity:0.85;white-space:nowrap"> ${enrolled}</span>`:''}
+<div style="text-align:center;overflow:hidden">
+<span style="font-size:11px;color:${textCol};opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.teacher ? reverseName(cls.teacher) : 'No teacher'}</span>
 </div>
 </div>`;
 }).join('')}
