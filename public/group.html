@@ -33,14 +33,13 @@ min-width: 56px;
 }
 .unit-badge:hover { background: var(--crimson-dark); }
 .unit-badge-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.7); display: block; margin-bottom: 2px; }
-.student-list-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; transition: background 0.1s; position: relative; }
-.student-list-item:last-child { border-bottom: none; }
+.student-list-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; font-size: 13px; transition: background 0.1s; position: relative; }
 .student-list-item:hover { background: #fafafa; }
 .student-num { font-size: 12px; color: var(--muted); min-width: 22px; text-align: right; }
 .student-dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
 .student-dot.debt { background: #dc2626; }
 .student-dot.frozen { background: #60a5fa; }
-.student-list-name { flex: 1; font-weight: 500; font-size: 13px; }
+.student-list-name { flex: 1; min-width: 0; font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .student-list-name.is-frozen { background: #dbeafe; color: #1d4ed8; border-radius: 5px; padding: 2px 8px; font-weight: 600; }
 .student-list-name.is-trial { background: #e5e7eb; color: #4b5563; border-radius: 5px; padding: 2px 8px; font-weight: 600; }
 .student-phone { font-size: 12px; color: #6366f1; font-weight: 500; }
