@@ -104,6 +104,9 @@ font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.14s; backg
 }
 .nums-hidden .stat-box-value { visibility:hidden; position:relative; }
 .nums-hidden .stat-box-value::after { content:'***'; visibility:visible; position:absolute; left:0; top:0; letter-spacing:4px; color:var(--muted); }
+/* Leads/Trial/Absent Today stay visible even in hide-numbers mode. */
+.nums-hidden .stat-box-value.num-exempt { visibility:visible; }
+.nums-hidden .stat-box-value.num-exempt::after { content:none; }
 @media(max-width:640px){
   .welcome-banner { padding:14px 16px !important; }
   .welcome-banner h2 { font-size:16px !important; }
@@ -308,7 +311,7 @@ row.innerHTML = visibleStats()
 <div class="stat-box ${s.color}" ${s.link?`onclick="location.href='${s.link}'" style="cursor:pointer"`:s.onclick?`onclick="${s.onclick}" style="cursor:pointer"`:''}">
 <span class="stat-box-icon">${s.icon}</span>
 <div class="stat-box-label">${s.label}</div>
-<div class="stat-box-value" id="${s.id}">—</div>
+<div class="stat-box-value${s.always?' num-exempt':''}" id="${s.id}">—</div>
 <div class="stat-box-sub">${s.sub}</div>
 </div>`).join('');
 visibleStats().forEach(s => {
