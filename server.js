@@ -2299,15 +2299,17 @@ app.post('/api/vocab/access', async (req, res) => {
   try {
     const { studentId } = req.body;
     const unitIds = Array.isArray(req.body.unitIds) ? [...new Set(req.body.unitIds.filter(Boolean))] : [];
-    const languagePair = ['RU-ENG', 'ENG-UZ'].includes(req.body.languagePair) ? req.body.languagePair : null;
     if (!studentId || !unitIds.length) return res.status(400).json({ error: 'studentId and at least one unit are required.' });
-    if (!languagePair) return res.status(400).json({ error: 'A language pair (RU-ENG or ENG-UZ) is required.' });
-    const [stu, units] = await Promise.all([
+    const [stu, units, groupR] = await Promise.all([
       pool.query('SELECT id FROM students WHERE id=$1', [studentId]),
       pool.query('SELECT id FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
+      // The group's instruction language decides the pair: a UZ-medium group tests
+      // ENG-UZ, an RU-medium group tests RU-ENG. Ungrouped/unknown students default RU-ENG.
+      pool.query(`SELECT lang FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]),
     ]);
     if (!stu.rows[0]) return res.status(404).json({ error: 'Student not found.' });
     if (units.rows.length !== unitIds.length) return res.status(404).json({ error: 'One or more units were not found.' });
+    const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
     const id = genVocabId('vacc');
     let code;
     for (let i = 0; i < 10; i++) {
@@ -2321,7 +2323,7 @@ app.post('/api/vocab/access', async (req, res) => {
       [id, code, studentId, JSON.stringify(unitIds), languagePair, actor]
     );
     broadcast('vocab');
-    res.json({ ok: true, id, code });
+    res.json({ ok: true, id, code, languagePair });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
