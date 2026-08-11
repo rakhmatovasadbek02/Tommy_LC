@@ -2410,12 +2410,19 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
     let questionSet = row.question_set;
     if (!questionSet) {
       const units = await pool.query('SELECT words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
-      const words = units.rows.flatMap(u => u.words || []);
-      if (!words.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
+      const allWords = units.rows.flatMap(u => u.words || []);
+      if (!allWords.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
       // language_pair picks which of RU/UZ is shown; the student always answers in English.
       const backKey = row.language_pair === 'ENG-UZ' ? 'uz' : 'ru';
       const backAltKey = row.language_pair === 'ENG-UZ' ? 'uzAlt' : 'ruAlt';
-      const allEnglish = [...new Set(words.map(w => w.en))];
+      const allEnglish = [...new Set(allWords.map(w => w.en))];
+      // The test covers at least 80% of the unit's words, not necessarily every one.
+      const shuffledWords = [...allWords];
+      for (let i = shuffledWords.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
+      }
+      const words = shuffledWords.slice(0, Math.ceil(shuffledWords.length * 0.8));
       questionSet = words.map(w => {
         const isPhrase = w.en.trim().includes(' ');
         let options = null;

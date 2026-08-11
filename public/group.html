@@ -694,8 +694,8 @@ tbody += '</tbody>';
 document.getElementById('attTable').innerHTML = thead + tbody;
 }
 // ── VOCABULARY ──
-// Placeholder pass rule — 60% correct. Revisit once the real passing bar is decided.
-function vocabPassed(score, total) { return total > 0 && (score / total) >= 0.6; }
+// Passing bar: 80% correct.
+function vocabPassed(score, total) { return total > 0 && (score / total) >= 0.8; }
 function shortUnitLabel(name) {
   const m = name.match(/^(\d{1,2}[A-C])\b/) || name.match(/^(\d{1,2})\s+Practical/);
   if (!m) return name.slice(0, 6);
