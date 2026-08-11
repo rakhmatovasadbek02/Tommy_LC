@@ -185,6 +185,7 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 <div class="right-panel">
 <div class="tab-nav">
 <button class="tab-nav-btn active" onclick="setTab('attendance',this)">Attendance</button>
+<button class="tab-nav-btn" onclick="setTab('vocab',this)">Vocabulary</button>
 <button class="tab-nav-btn" onclick="setTab('exams',this)">Exams</button>
 <button class="tab-nav-btn" onclick="setTab('history',this)">History</button>
 </div>
@@ -206,6 +207,14 @@ cursor: pointer; font-size: 16px; transition: all 0.15s; flex-shrink: 0;
 </div>
 <div class="att-save-row">
 <button class="btn btn-primary" onclick="saveAttendance()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Save Attendance</button>
+</div>
+</div>
+<div class="tab-content" id="tab-vocab">
+<div class="att-header">
+<div class="att-title">Vocabulary</div>
+</div>
+<div class="att-table-wrap">
+<table class="att-table" id="vocabTable"></table>
 </div>
 </div>
 <div class="tab-content" id="tab-exams"><div style="padding:40px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:10px"></div><p>Exams coming soon.</p></div></div>
@@ -415,6 +424,8 @@ const IC_X     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" st
 const groupId = params.get('id');
 if (!groupId) window.location.replace('groups.html');
 let group = null, students = [], allStudents = [], trialStudents = [];
+let VOCAB_UNITS = [], VOCAB_ATTEMPTS = [];
+function escHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 let currentMonth = new Date();
 let attData = {};
 let selectedUnit = '1A';
@@ -451,6 +462,7 @@ renderGroupInfo();
 renderStudentList();
 await loadMonthAttendance();
 renderAttendance();
+loadVocab();
 } catch(e) {
 document.getElementById('loadingState').textContent = 'Error loading group.';
 }
@@ -680,6 +692,61 @@ return attCell(ds, s.id, status);
 }
 tbody += '</tbody>';
 document.getElementById('attTable').innerHTML = thead + tbody;
+}
+// ── VOCABULARY ──
+// Placeholder pass rule — 60% correct. Revisit once the real passing bar is decided.
+function vocabPassed(score, total) { return total > 0 && (score / total) >= 0.6; }
+function shortUnitLabel(name) {
+  const m = name.match(/^(\d{1,2}[A-C])\b/) || name.match(/^(\d{1,2})\s+Practical/);
+  if (!m) return name.slice(0, 6);
+  return m[1] + (name.match(/Practical/) && !/[A-C]$/.test(m[1]) ? ' PE' : '');
+}
+async function loadVocab() {
+  try {
+    const [units, attempts] = await Promise.all([apiGet('/api/vocab/units'), apiGet('/api/vocab/attempts')]);
+    VOCAB_UNITS = units.filter(u => u.level === group.level);
+    VOCAB_ATTEMPTS = attempts;
+    renderVocab();
+  } catch(e) {
+    document.getElementById('vocabTable').innerHTML = `<tr><td style="padding:40px;text-align:center;color:var(--muted)">Couldn't load vocabulary results.</td></tr>`;
+  }
+}
+function renderVocab() {
+  const table = document.getElementById('vocabTable');
+  const sorted = [...students].filter(s => s.status !== 'Frozen').sort((a,b) => {
+    const na = (a.lastName+' '+a.firstName).toLowerCase();
+    const nb = (b.lastName+' '+b.firstName).toLowerCase();
+    return na.localeCompare(nb);
+  });
+  if (!sorted.length) { table.innerHTML = `<tr><td style="padding:40px;text-align:center;color:var(--muted)">No students enrolled.</td></tr>`; return; }
+  if (!VOCAB_UNITS.length) { table.innerHTML = `<tr><td style="padding:40px;text-align:center;color:var(--muted)">No ${group.level||''} vocabulary units yet.</td></tr>`; return; }
+  const thead = `<thead><tr>
+    <th class="name-col">Name</th>
+    ${VOCAB_UNITS.map(u => `<th style="min-width:46px" title="${escHtml(u.name)}">${escHtml(shortUnitLabel(u.name))}</th>`).join('')}
+  </tr></thead>`;
+  let tbody = '<tbody>';
+  sorted.forEach(s => {
+    const name = s.lastName+' '+s.firstName;
+    // Most recent attempt (by completedAt) covering each unit decides that cell.
+    const mine = VOCAB_ATTEMPTS.filter(a => a.studentId === s.id).sort((a,b) => new Date(b.completedAt)-new Date(a.completedAt));
+    tbody += `<tr>
+      <td class="name-col">
+        <div class="att-name-cell">
+          <div class="att-avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
+          <span ${_isTeacher ? '' : `style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'"`} onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()">${name}</span>
+        </div>
+      </td>
+      ${VOCAB_UNITS.map(u => {
+        const att = mine.find(a => (a.unitIds||[]).includes(u.id));
+        if (!att) return `<td><span class="chip-locked"></span></td>`;
+        const pass = vocabPassed(att.score, att.total);
+        const title = `${att.score}/${att.total} · ${new Date(att.completedAt).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent' })}`;
+        return `<td><span class="chip ${pass?'chip-present':'chip-absent'} chip-locked" title="${title}">${pass?IC_CHECK:IC_X}</span></td>`;
+      }).join('')}
+    </tr>`;
+  });
+  tbody += '</tbody>';
+  table.innerHTML = thead + tbody;
 }
 let _autoSaveTimer = null;
 function scheduleAutoSave() {
