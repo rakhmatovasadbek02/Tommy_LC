@@ -96,7 +96,7 @@ async function startFromCode() {
     ACCESS_ID = data.accessId;
     document.getElementById('confirmName').textContent = 'Hi, ' + data.studentName + '!';
     const pairLabel = data.languagePair === 'RU-ENG' ? 'Russian ↔ English' : 'English ↔ Uzbek';
-    document.getElementById('confirmMeta').innerHTML = `<b>${escapeHtml(data.unitName)}</b><br>${data.wordCount} words · ${pairLabel}`;
+    document.getElementById('confirmMeta').innerHTML = `<b>${escapeHtml(data.unitNames.join(', '))}</b><br>${data.wordCount} words · ${pairLabel}`;
     show('viewConfirm');
   } catch (e) {
     errEl.textContent = e.message;
@@ -126,6 +126,7 @@ function renderQuestion() {
 }
 
 async function nextQuestion() {
+  if (IDX >= QUESTIONS.length) return; // guard against a stray double-submit
   const given = document.getElementById('qAnswer').value.trim();
   ANSWERS.push({ qid: QUESTIONS[IDX].qid, given });
   IDX++;

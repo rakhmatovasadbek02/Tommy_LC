@@ -328,7 +328,7 @@ async function initDB() {
       id            TEXT PRIMARY KEY,
       code          TEXT UNIQUE NOT NULL,
       student_id    TEXT NOT NULL,
-      unit_id       TEXT NOT NULL,
+      unit_ids      JSONB NOT NULL DEFAULT '[]',
       granted_by    TEXT,
       question_set  JSONB,
       used          BOOLEAN DEFAULT FALSE,
@@ -340,13 +340,28 @@ async function initDB() {
       id          TEXT PRIMARY KEY,
       access_id   TEXT NOT NULL,
       student_id  TEXT NOT NULL,
-      unit_id     TEXT NOT NULL,
+      unit_ids    JSONB NOT NULL DEFAULT '[]',
       score       INT NOT NULL,
       total       INT NOT NULL,
       answers     JSONB,
       completed_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+
+  // Vocab tests can now cover multiple units per grant — migrate the old single unit_id
+  // column to a unit_ids array (no real data existed under the old single-unit schema).
+  await pool.query(`
+    ALTER TABLE vocab_access  ADD COLUMN IF NOT EXISTS unit_ids JSONB NOT NULL DEFAULT '[]';
+    ALTER TABLE vocab_attempts ADD COLUMN IF NOT EXISTS unit_ids JSONB NOT NULL DEFAULT '[]';
+  `).catch(() => {});
+  await pool.query(`
+    UPDATE vocab_access SET unit_ids = jsonb_build_array(unit_id) WHERE unit_id IS NOT NULL AND unit_ids = '[]'::jsonb
+  `).catch(() => {});
+  await pool.query(`
+    UPDATE vocab_attempts SET unit_ids = jsonb_build_array(unit_id) WHERE unit_id IS NOT NULL AND unit_ids = '[]'::jsonb
+  `).catch(() => {});
+  await pool.query(`ALTER TABLE vocab_access DROP COLUMN IF EXISTS unit_id`).catch(() => {});
+  await pool.query(`ALTER TABLE vocab_attempts DROP COLUMN IF EXISTS unit_id`).catch(() => {});
 
   // student_history table (added as separate migration for safety)
   await pool.query(`CREATE TABLE IF NOT EXISTS student_history (
@@ -2233,7 +2248,16 @@ app.put('/api/vocab/units/:id', async (req, res) => {
 
 app.delete('/api/vocab/units/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM vocab_access WHERE unit_id=$1 AND used IS NOT TRUE', [req.params.id]);
+    // Pending (unused) access grants that reference only this unit become unusable — drop them.
+    // Grants that also include other units keep those units, just lose this one.
+    await pool.query(
+      `DELETE FROM vocab_access WHERE used IS NOT TRUE AND unit_ids @> to_jsonb($1::text) AND jsonb_array_length(unit_ids) = 1`,
+      [req.params.id]
+    );
+    await pool.query(
+      `UPDATE vocab_access SET unit_ids = unit_ids - $1 WHERE used IS NOT TRUE AND unit_ids @> to_jsonb($1::text)`,
+      [req.params.id]
+    );
     await pool.query('DELETE FROM vocab_units WHERE id=$1', [req.params.id]);
     broadcast('vocab');
     res.json({ ok: true });
@@ -2242,17 +2266,21 @@ app.delete('/api/vocab/units/:id', async (req, res) => {
 
 app.get('/api/vocab/access', async (req, res) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT a.*, s.first_name AS s_first, s.last_name AS s_last, u.name AS unit_name, u.language_pair
-      FROM vocab_access a
-      LEFT JOIN students s ON s.id = a.student_id
-      LEFT JOIN vocab_units u ON u.id = a.unit_id
-      ORDER BY a.created_at DESC LIMIT 300
-    `);
-    res.json(rows.map(a => ({
+    const [accessR, unitsR] = await Promise.all([
+      pool.query(`
+        SELECT a.*, s.first_name AS s_first, s.last_name AS s_last
+        FROM vocab_access a
+        LEFT JOIN students s ON s.id = a.student_id
+        ORDER BY a.created_at DESC LIMIT 300
+      `),
+      pool.query('SELECT id, name FROM vocab_units'),
+    ]);
+    const unitNames = new Map(unitsR.rows.map(u => [u.id, u.name]));
+    res.json(accessR.rows.map(a => ({
       id: a.id, code: a.code, studentId: a.student_id,
       studentName: a.s_first ? `${a.s_last} ${a.s_first}` : '(deleted student)',
-      unitId: a.unit_id, unitName: a.unit_name || '(deleted unit)', languagePair: a.language_pair,
+      unitIds: a.unit_ids || [],
+      unitNames: (a.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
       grantedBy: a.granted_by, used: a.used, usedAt: a.used_at, createdAt: a.created_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2260,14 +2288,15 @@ app.get('/api/vocab/access', async (req, res) => {
 
 app.post('/api/vocab/access', async (req, res) => {
   try {
-    const { studentId, unitId } = req.body;
-    if (!studentId || !unitId) return res.status(400).json({ error: 'studentId and unitId are required.' });
-    const [stu, unit] = await Promise.all([
+    const { studentId } = req.body;
+    const unitIds = Array.isArray(req.body.unitIds) ? [...new Set(req.body.unitIds.filter(Boolean))] : [];
+    if (!studentId || !unitIds.length) return res.status(400).json({ error: 'studentId and at least one unit are required.' });
+    const [stu, units] = await Promise.all([
       pool.query('SELECT id FROM students WHERE id=$1', [studentId]),
-      pool.query('SELECT id FROM vocab_units WHERE id=$1', [unitId]),
+      pool.query('SELECT id FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
     ]);
     if (!stu.rows[0]) return res.status(404).json({ error: 'Student not found.' });
-    if (!unit.rows[0]) return res.status(404).json({ error: 'Unit not found.' });
+    if (units.rows.length !== unitIds.length) return res.status(404).json({ error: 'One or more units were not found.' });
     const id = genVocabId('vacc');
     let code;
     for (let i = 0; i < 10; i++) {
@@ -2277,8 +2306,8 @@ app.post('/api/vocab/access', async (req, res) => {
     }
     const actor = req.user ? `${req.user.last_name} ${req.user.first_name}` : 'Someone';
     await pool.query(
-      `INSERT INTO vocab_access(id, code, student_id, unit_id, granted_by) VALUES($1,$2,$3,$4,$5)`,
-      [id, code, studentId, unitId, actor]
+      `INSERT INTO vocab_access(id, code, student_id, unit_ids, granted_by) VALUES($1,$2,$3,$4,$5)`,
+      [id, code, studentId, JSON.stringify(unitIds), actor]
     );
     broadcast('vocab');
     res.json({ ok: true, id, code });
@@ -2295,17 +2324,21 @@ app.delete('/api/vocab/access/:id', async (req, res) => {
 
 app.get('/api/vocab/attempts', async (req, res) => {
   try {
-    const { rows } = await pool.query(`
-      SELECT t.*, s.first_name AS s_first, s.last_name AS s_last, u.name AS unit_name
-      FROM vocab_attempts t
-      LEFT JOIN students s ON s.id = t.student_id
-      LEFT JOIN vocab_units u ON u.id = t.unit_id
-      ORDER BY t.completed_at DESC LIMIT 300
-    `);
-    res.json(rows.map(t => ({
+    const [attemptsR, unitsR] = await Promise.all([
+      pool.query(`
+        SELECT t.*, s.first_name AS s_first, s.last_name AS s_last
+        FROM vocab_attempts t
+        LEFT JOIN students s ON s.id = t.student_id
+        ORDER BY t.completed_at DESC LIMIT 300
+      `),
+      pool.query('SELECT id, name FROM vocab_units'),
+    ]);
+    const unitNames = new Map(unitsR.rows.map(u => [u.id, u.name]));
+    res.json(attemptsR.rows.map(t => ({
       id: t.id, studentId: t.student_id,
       studentName: t.s_first ? `${t.s_last} ${t.s_first}` : '(deleted student)',
-      unitId: t.unit_id, unitName: t.unit_name || '(deleted unit)',
+      unitIds: t.unit_ids || [],
+      unitNames: (t.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
       score: t.score, total: t.total, completedAt: t.completed_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2317,40 +2350,44 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
     const { rows } = await pool.query(`
-      SELECT a.id, a.used, u.name AS unit_name, u.language_pair, jsonb_array_length(u.words) AS word_count,
-             s.first_name, s.last_name
+      SELECT a.id, a.used, a.unit_ids, s.first_name, s.last_name
       FROM vocab_access a
-      JOIN vocab_units u ON u.id = a.unit_id
       JOIN students s ON s.id = a.student_id
       WHERE a.code = $1
     `, [code]);
     const row = rows[0];
     if (!row) return res.status(404).json({ error: 'Invalid code.' });
     if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
+    const units = await pool.query('SELECT name, language_pair, words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
+    if (!units.rows.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
+    const unitNames = units.rows.map(u => u.name);
+    const languagePairs = [...new Set(units.rows.map(u => u.language_pair))];
+    const wordCount = units.rows.reduce((sum, u) => sum + (u.words || []).length, 0);
     res.json({
-      accessId: row.id, unitName: row.unit_name, languagePair: row.language_pair,
-      wordCount: row.word_count, studentName: `${row.first_name} ${row.last_name}`
+      accessId: row.id, unitNames, languagePair: languagePairs.length === 1 ? languagePairs[0] : 'mixed',
+      wordCount, studentName: `${row.first_name} ${row.last_name}`
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Builds (or replays) the shuffled/mixed-direction question set for an access code,
-// without ever sending accepted answers to the client.
+// Builds (or replays) the shuffled/mixed-direction question set for an access code.
+// Each question is a full snapshot (word + accepted answers), taken once at first fetch,
+// so accepted answers are never re-derived from (possibly since-edited) unit data, and
+// are never sent to the client — only the prompt + direction are.
 app.get('/api/public/vocab/test/:accessId', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT a.*, u.words FROM vocab_access a JOIN vocab_units u ON u.id = a.unit_id WHERE a.id=$1`,
-      [req.params.accessId]
-    );
+    const { rows } = await pool.query('SELECT * FROM vocab_access WHERE id=$1', [req.params.accessId]);
     const row = rows[0];
     if (!row) return res.status(404).json({ error: 'Access not found.' });
     if (row.used) return res.status(410).json({ error: 'This test was already completed.' });
 
     let questionSet = row.question_set;
     if (!questionSet) {
-      const words = row.words || [];
-      questionSet = words.map((w, idx) => ({
-        qid: idx,
+      const units = await pool.query('SELECT words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
+      const words = units.rows.flatMap(u => u.words || []);
+      if (!words.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
+      questionSet = words.map(w => ({
+        front: w.front, back: w.back, altFront: w.altFront || [], altBack: w.altBack || [],
         direction: Math.random() < 0.5 ? 'f2b' : 'b2f', // front→back or back→front
       }));
       // shuffle order
@@ -2360,20 +2397,16 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
       }
       await pool.query('UPDATE vocab_access SET question_set=$1 WHERE id=$2', [JSON.stringify(questionSet), req.params.accessId]);
     }
-    const questions = questionSet.map(q => {
-      const w = row.words[q.qid];
-      return { qid: q.qid, prompt: q.direction === 'f2b' ? w.front : w.back, direction: q.direction };
-    });
+    const questions = questionSet.map((q, qid) => ({
+      qid, prompt: q.direction === 'f2b' ? q.front : q.back, direction: q.direction
+    }));
     res.json({ questions });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT a.*, u.words FROM vocab_access a JOIN vocab_units u ON u.id = a.unit_id WHERE a.id=$1`,
-      [req.params.accessId]
-    );
+    const { rows } = await pool.query('SELECT * FROM vocab_access WHERE id=$1', [req.params.accessId]);
     const row = rows[0];
     if (!row) return res.status(404).json({ error: 'Access not found.' });
     if (row.used) return res.status(410).json({ error: 'This test was already completed.' });
@@ -2384,21 +2417,20 @@ app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
     const givenByQid = new Map(submitted.map(a => [a.qid, a.given]));
 
     let score = 0;
-    const details = row.question_set.map(q => {
-      const w = row.words[q.qid];
-      const expected = q.direction === 'f2b' ? w.back : w.front;
-      const alts = (q.direction === 'f2b' ? w.altBack : w.altFront) || [];
+    const details = row.question_set.map((q, qid) => {
+      const expected = q.direction === 'f2b' ? q.back : q.front;
+      const alts = (q.direction === 'f2b' ? q.altBack : q.altFront) || [];
       const accepted = [expected, ...alts].map(norm);
-      const given = givenByQid.get(q.qid);
+      const given = givenByQid.get(qid);
       const correct = accepted.includes(norm(given));
       if (correct) score++;
-      return { qid: q.qid, prompt: q.direction === 'f2b' ? w.front : w.back, given: given || '', expected, correct };
+      return { qid, prompt: q.direction === 'f2b' ? q.front : q.back, given: given || '', expected, correct };
     });
     const total = row.question_set.length;
     const attemptId = genVocabId('vatt');
     await pool.query(
-      `INSERT INTO vocab_attempts(id, access_id, student_id, unit_id, score, total, answers) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-      [attemptId, row.id, row.student_id, row.unit_id, score, total, JSON.stringify(details)]
+      `INSERT INTO vocab_attempts(id, access_id, student_id, unit_ids, score, total, answers) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [attemptId, row.id, row.student_id, JSON.stringify(row.unit_ids), score, total, JSON.stringify(details)]
     );
     await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
     broadcast('vocab');

@@ -36,6 +36,16 @@
     .student-pick-item:hover{background:var(--surface)}
     .word-pair-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
     .word-pair-row input{margin:0}
+    .unit-pick-list{border:1.5px solid var(--border);border-radius:10px;max-height:260px;overflow:auto}
+    .unit-pick-item{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer}
+    .unit-pick-item:last-child{border-bottom:none}
+    .unit-pick-item:hover{background:var(--surface)}
+    .unit-pick-item input{width:16px;height:16px;accent-color:var(--crimson);flex-shrink:0}
+    .unit-pick-name{font-size:13.5px;font-weight:600;color:var(--text)}
+    .unit-pick-sub{font-size:11.5px;color:var(--muted)}
+    .unit-pick-edit{margin-left:auto;display:flex;gap:4px}
+    .unit-pick-icon{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px}
+    .unit-pick-icon:hover{background:var(--border);color:var(--text)}
   </style>
 </head>
 <body>
@@ -43,20 +53,14 @@
 <div class="main">
   <div class="topbar">
     <div class="page-title">Vocabulary Test</div>
-    <div class="topbar-right">
-      <button class="btn btn-primary" id="newUnitBtn" onclick="openUnitModal()" style="display:none">+ New Unit</button>
-    </div>
   </div>
   <div class="page-content">
     <div class="vtabs">
-      <button class="vtab on" id="tabUnits" onclick="switchTab('units')">Units</button>
-      <button class="vtab" id="tabGrant" onclick="switchTab('grant')">Grant Access</button>
+      <button class="vtab on" id="tabGrant" onclick="switchTab('grant')">Grant Access</button>
       <button class="vtab" id="tabHistory" onclick="switchTab('history')">History</button>
     </div>
 
-    <div id="panelUnits"></div>
-
-    <div id="panelGrant" style="display:none">
+    <div id="panelGrant">
       <div class="vcard">
         <div class="vcard-title" style="margin-bottom:12px">Grant a student a one-time test code</div>
         <div class="form-group student-pick">
@@ -66,20 +70,21 @@
           <input type="hidden" id="grantStudentId">
         </div>
         <div class="form-group">
-          <label>Unit / Theme</label>
-          <select id="grantUnitId"></select>
+          <label>Units / Themes <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(pick one or more — the test mixes all their words together)</span></label>
+          <div class="unit-pick-list" id="unitPickList"></div>
+          <button class="btn btn-outline" type="button" onclick="openUnitModal()" style="margin-top:8px" id="newUnitBtn">+ New Unit</button>
         </div>
         <button class="btn btn-primary" onclick="grantAccess()">Generate Code</button>
         <div id="grantResult"></div>
       </div>
       <div class="vcard">
         <div class="vcard-title" style="margin-bottom:10px">Pending codes</div>
-        <table class="vtable" id="pendingTable"><thead><tr><th>Student</th><th>Unit</th><th>Code</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
+        <table class="vtable" id="pendingTable"><thead><tr><th>Student</th><th>Units</th><th>Code</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
     <div id="panelHistory" style="display:none">
-      <table class="vtable" id="historyTable"><thead><tr><th>Student</th><th>Unit</th><th>Score</th><th>Completed</th></tr></thead><tbody></tbody></table>
+      <table class="vtable" id="historyTable"><thead><tr><th>Student</th><th>Units</th><th>Score</th><th>Completed</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 </div>
@@ -123,6 +128,7 @@ requireAuth('vocab');
 renderSidebar('vocab');
 
 let UNITS = [], STUDENTS = [], ACCESS = [], ATTEMPTS = [];
+let SELECTED_UNIT_IDS = new Set();
 const canManage = can('vocab');
 document.getElementById('newUnitBtn').style.display = canManage ? '' : 'none';
 
@@ -133,8 +139,7 @@ async function loadAll() {
     apiGet('/api/vocab/access'),
     apiGet('/api/vocab/attempts'),
   ]);
-  renderUnits();
-  renderGrantUnitOptions();
+  renderUnitPickList();
   renderPending();
   renderHistory();
   applyStudentFromQuery();
@@ -152,37 +157,32 @@ function applyStudentFromQuery() {
 }
 
 function switchTab(t) {
-  ['units','grant','history'].forEach(x => {
+  ['grant','history'].forEach(x => {
     document.getElementById('panel'+x[0].toUpperCase()+x.slice(1)).style.display = x===t ? '' : 'none';
     document.getElementById('tab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on', x===t);
   });
-  document.getElementById('newUnitBtn').style.display = (t==='units' && canManage) ? '' : 'none';
 }
 
-function renderUnits() {
-  const el = document.getElementById('panelUnits');
-  if (!UNITS.length) { el.innerHTML = '<div class="vcard" style="text-align:center;color:var(--muted)">No units yet. Create one to get started.</div>'; return; }
+function toggleUnit(id, checked) {
+  if (checked) SELECTED_UNIT_IDS.add(id); else SELECTED_UNIT_IDS.delete(id);
+}
+
+function renderUnitPickList() {
+  const el = document.getElementById('unitPickList');
+  if (!UNITS.length) { el.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px">No units yet — create one below.</div>'; return; }
   el.innerHTML = UNITS.map(u => `
-    <div class="vcard">
-      <div class="vcard-head">
-        <div>
-          <div class="vcard-title">${escapeHtml(u.name)}</div>
-          <div class="vcard-sub">${u.wordCount} word${u.wordCount===1?'':'s'}</div>
-        </div>
-        <div class="vrow-actions">
-          <span class="vpill pair">${u.languagePair === 'RU-ENG' ? 'RU ↔ ENG' : 'ENG ↔ UZ'}</span>
-          ${canManage ? `<button class="btn btn-outline" onclick="editUnit('${u.id}')">Edit</button>
-          <button class="btn btn-outline" onclick="deleteUnit('${u.id}')">Delete</button>` : ''}
-        </div>
+    <label class="unit-pick-item">
+      <input type="checkbox" ${SELECTED_UNIT_IDS.has(u.id)?'checked':''} onchange="toggleUnit('${u.id}', this.checked)">
+      <div>
+        <div class="unit-pick-name">${escapeHtml(u.name)}</div>
+        <div class="unit-pick-sub">${u.wordCount} word${u.wordCount===1?'':'s'} · ${u.languagePair === 'RU-ENG' ? 'RU ↔ ENG' : 'ENG ↔ UZ'}</div>
       </div>
-      <div class="vword-list">${u.words.map(w => `<div>${escapeHtml(w.front)} — ${escapeHtml(w.back)}</div>`).join('')}</div>
-    </div>
+      ${canManage ? `<div class="unit-pick-edit">
+        <button type="button" class="unit-pick-icon" title="Edit" onclick="event.preventDefault();editUnit('${u.id}')">${IC.edit}</button>
+        <button type="button" class="unit-pick-icon" title="Delete" onclick="event.preventDefault();deleteUnit('${u.id}')">${IC.trash}</button>
+      </div>` : ''}
+    </label>
   `).join('');
-}
-
-function renderGrantUnitOptions() {
-  const sel = document.getElementById('grantUnitId');
-  sel.innerHTML = UNITS.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${u.languagePair === 'RU-ENG' ? 'RU↔ENG' : 'ENG↔UZ'})</option>`).join('');
 }
 
 function filterStudentPick() {
@@ -204,14 +204,15 @@ document.addEventListener('click', e => {
 
 async function grantAccess() {
   const studentId = document.getElementById('grantStudentId').value;
-  const unitId = document.getElementById('grantUnitId').value;
+  const unitIds = [...SELECTED_UNIT_IDS];
   if (!studentId) return showToast('Pick a student first.', 'error');
-  if (!unitId) return showToast('Create a unit first.', 'error');
+  if (!unitIds.length) return showToast('Pick at least one unit.', 'error');
   try {
-    const r = await apiPost('/api/vocab/access', { studentId, unitId });
+    const r = await apiPost('/api/vocab/access', { studentId, unitIds });
     document.getElementById('grantResult').innerHTML = `<div class="vcode-box">${r.code}</div><div style="text-align:center;color:var(--muted);font-size:12px">Give this code to the student on vocab-test.html. Single use.</div>`;
     document.getElementById('grantStudentQuery').value = '';
     document.getElementById('grantStudentId').value = '';
+    SELECTED_UNIT_IDS = new Set();
     await loadAll();
   } catch(e) { showToast(e.message, 'error'); }
 }
@@ -222,7 +223,7 @@ function renderPending() {
   tbody.innerHTML = pending.map(a => `
     <tr>
       <td>${escapeHtml(a.studentName)}</td>
-      <td>${escapeHtml(a.unitName)}</td>
+      <td>${escapeHtml(a.unitNames.join(', '))}</td>
       <td style="font-family:ui-monospace,monospace;font-weight:700">${a.code}</td>
       <td>${escapeHtml(a.grantedBy||'')}</td>
       <td>${canManage ? `<button class="btn btn-outline" onclick="revokeAccess('${a.id}')">Revoke</button>` : ''}</td>
@@ -239,7 +240,7 @@ function renderHistory() {
   tbody.innerHTML = ATTEMPTS.map(t => `
     <tr>
       <td>${escapeHtml(t.studentName)}</td>
-      <td>${escapeHtml(t.unitName)}</td>
+      <td>${escapeHtml(t.unitNames.join(', '))}</td>
       <td>${t.score} / ${t.total}</td>
       <td>${new Date(t.completedAt).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false })}</td>
     </tr>
@@ -279,8 +280,12 @@ function editUnit(id) {
   openModal('unitModal');
 }
 async function deleteUnit(id) {
-  if (!confirm('Delete this unit? Any pending (unused) access codes for it will also be removed.')) return;
-  try { await apiDelete('/api/vocab/units/'+id); await loadAll(); } catch(e) { showToast(e.message, 'error'); }
+  if (!confirm('Delete this unit? Pending (unused) access codes that only cover this unit will be removed; codes covering other units too will just lose this one.')) return;
+  try {
+    await apiDelete('/api/vocab/units/'+id);
+    SELECTED_UNIT_IDS.delete(id);
+    await loadAll();
+  } catch(e) { showToast(e.message, 'error'); }
 }
 function parseWordCell(v) {
   const parts = String(v||'').split('/').map(s => s.trim()).filter(Boolean);
