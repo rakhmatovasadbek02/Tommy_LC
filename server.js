@@ -2416,13 +2416,16 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
       const backKey = row.language_pair === 'ENG-UZ' ? 'uz' : 'ru';
       const backAltKey = row.language_pair === 'ENG-UZ' ? 'uzAlt' : 'ruAlt';
       const allEnglish = [...new Set(allWords.map(w => w.en))];
-      // The test covers at least 80% of the unit's words, not necessarily every one.
+      // Sample size: 20 or fewer words -> ask all of them. More than 50 -> cap at 80% of
+      // 50 (= 40), even if the unit has far more words. In between, 80% of the actual count.
+      const n = allWords.length;
+      const sampleSize = n <= 20 ? n : (n > 50 ? 40 : Math.ceil(n * 0.8));
       const shuffledWords = [...allWords];
       for (let i = shuffledWords.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
       }
-      const words = shuffledWords.slice(0, Math.ceil(shuffledWords.length * 0.8));
+      const words = shuffledWords.slice(0, sampleSize);
       questionSet = words.map(w => {
         const isPhrase = w.en.trim().includes(' ');
         let options = null;
