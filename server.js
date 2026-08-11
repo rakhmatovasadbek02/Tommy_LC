@@ -37,17 +37,17 @@ app.use(express.json());
    PERMISSIONS
 ══════════════════════════════════════ */
 // Page permissions: having one = full see + manage of that section.
-const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived','support'];
+const PAGE_PERMISSIONS = ['dashboard','leads','students','groups','finance','teachers','staff','actions','archived','support','vocab'];
 // finance_view_only restricts Finance to read (no recording/editing).
 const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
   'CEO':        [...PAGE_PERMISSIONS, 'statistics', 'manreminders'],
-  'Head Admin': ['dashboard','leads','students','groups','finance','finance_view_only','teachers','staff','archived','support','reminders','manreminders'],
-  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','support','reminders','manreminders'],
-  'Admin':      ['dashboard','leads','students','groups','teachers','support','reminders'],
-  'Teacher':    ['dashboard','groups','reminders'],
+  'Head Admin': ['dashboard','leads','students','groups','finance','finance_view_only','teachers','staff','archived','support','vocab','reminders','manreminders'],
+  'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','support','vocab','reminders','manreminders'],
+  'Admin':      ['dashboard','leads','students','groups','teachers','support','vocab','reminders'],
+  'Teacher':    ['dashboard','groups','vocab','reminders'],
   'Support Teacher': ['dashboard','support','reminders'],
 };
 function isSupportTitle(t) { return String(t||'').trim().toLowerCase() === 'support teacher'; }
@@ -312,6 +312,39 @@ async function initDB() {
       actor       TEXT,
       role        TEXT,
       created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Vocabulary test: units of words (a theme), plus one-time admin-granted access codes
+    -- students use to take a test, plus a record of completed attempts.
+    CREATE TABLE IF NOT EXISTS vocab_units (
+      id            TEXT PRIMARY KEY,
+      name          TEXT NOT NULL,
+      language_pair TEXT NOT NULL DEFAULT 'RU-ENG',
+      words         JSONB NOT NULL DEFAULT '[]',
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vocab_access (
+      id            TEXT PRIMARY KEY,
+      code          TEXT UNIQUE NOT NULL,
+      student_id    TEXT NOT NULL,
+      unit_id       TEXT NOT NULL,
+      granted_by    TEXT,
+      question_set  JSONB,
+      used          BOOLEAN DEFAULT FALSE,
+      used_at       TIMESTAMPTZ,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vocab_attempts (
+      id          TEXT PRIMARY KEY,
+      access_id   TEXT NOT NULL,
+      student_id  TEXT NOT NULL,
+      unit_id     TEXT NOT NULL,
+      score       INT NOT NULL,
+      total       INT NOT NULL,
+      answers     JSONB,
+      completed_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
 
@@ -587,6 +620,13 @@ async function initDB() {
     WHERE NOT (permissions @> '["reminders"]'::jsonb)
   `).catch(() => {});
 
+  // Grant 'vocab' to existing users whose role should have it (new permission)
+  await pool.query(`
+    UPDATE users SET permissions = permissions || '["vocab"]'::jsonb
+    WHERE NOT (permissions @> '["vocab"]'::jsonb)
+      AND (role = ANY($1::text[]) OR roles ?| $1::text[])
+  `, [['CEO','Head Admin','Manager','Admin','Teacher']]).catch(() => {});
+
   await loadAppSecret();
   console.log('Database ready');
 }
@@ -642,6 +682,7 @@ function requiredPerm(method, p) {
   if (top === 'levels')     return write ? 'groups'     : null;
   if (top === 'attendance') return write ? 'groups'     : null;
   if (top === 'support')    return write ? 'support'    : null;
+  if (top === 'vocab')      return write ? 'vocab'      : null;
   if (top === 'admin')      return 'finance';
   return null;
 }
@@ -660,6 +701,7 @@ app.use('/api', async (req, res, next) => {
     if (req.path.startsWith('/auth/')) return next();
     if (req.path === '/public/lead-signup' && req.method === 'POST') return next();
     if (req.path.startsWith('/public/lead-test/') && req.method === 'PUT') return next();
+    if (req.path.startsWith('/public/vocab/')) return next();
     const hdr = req.headers.authorization || '';
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
     const userId = token && verifyToken(token);
@@ -679,9 +721,9 @@ app.use('/api', async (req, res, next) => {
     if (isPureTeacher) {
       const seg = p.split('/').filter(Boolean);
       const isGroupUnitWrite = top === 'groups' && seg[2] === 'unit';
-      const teacherWriteOk = top === 'attendance' || isGroupUnitWrite || top === 'activity' || top === 'account' || top === 'reminders';
+      const teacherWriteOk = top === 'attendance' || isGroupUnitWrite || top === 'activity' || top === 'account' || top === 'reminders' || top === 'vocab';
       if (write && !teacherWriteOk) {
-        return res.status(403).json({ error: 'Teachers can only mark attendance, update their group\'s unit, and manage reminders.' });
+        return res.status(403).json({ error: 'Teachers can only mark attendance, update their group\'s unit, grant vocab access, and manage reminders.' });
       }
       return next();
     }
@@ -2117,6 +2159,250 @@ app.get('/api/students/:id/attendance', async (req, res) => {
       [req.params.id]
     );
     res.json(rows.map(r => ({ date: r.date, status: r.status, groupId: r.group_id, groupName: r.group_name })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════
+   VOCABULARY TEST
+   - vocab_units: admin-managed word banks per theme ("unit"), each tagged with a
+     fixed language pair (RU-ENG or ENG-UZ).
+   - vocab_access: a single-use code an admin/teacher grants a student; the student
+     enters the code on the standalone public test page (not linked in app nav yet).
+   - vocab_attempts: completed results, for admin review.
+══════════════════════════════════════ */
+function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function genVocabCode() { return String(Math.floor(100000 + Math.random() * 900000)); } // 6 digits
+
+app.get('/api/vocab/units', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM vocab_units ORDER BY created_at DESC');
+    res.json(rows.map(u => ({
+      id: u.id, name: u.name, languagePair: u.language_pair,
+      words: u.words || [], wordCount: (u.words || []).length, createdAt: u.created_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/vocab/units', async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim().slice(0, 120);
+    const languagePair = ['RU-ENG', 'ENG-UZ'].includes(req.body.languagePair) ? req.body.languagePair : 'RU-ENG';
+    const words = Array.isArray(req.body.words) ? req.body.words
+      .map(w => ({
+        front: String(w.front || '').trim().slice(0, 100),
+        back: String(w.back || '').trim().slice(0, 100),
+        altFront: Array.isArray(w.altFront) ? w.altFront.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
+        altBack: Array.isArray(w.altBack) ? w.altBack.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
+      }))
+      .filter(w => w.front && w.back) : [];
+    if (!name) return res.status(400).json({ error: 'Unit name is required.' });
+    if (!words.length) return res.status(400).json({ error: 'At least one word pair is required.' });
+    const id = genVocabId('vunit');
+    await pool.query(
+      `INSERT INTO vocab_units(id, name, language_pair, words) VALUES($1,$2,$3,$4)`,
+      [id, name, languagePair, JSON.stringify(words)]
+    );
+    broadcast('vocab');
+    res.json({ ok: true, id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/vocab/units/:id', async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim().slice(0, 120);
+    const languagePair = ['RU-ENG', 'ENG-UZ'].includes(req.body.languagePair) ? req.body.languagePair : 'RU-ENG';
+    const words = Array.isArray(req.body.words) ? req.body.words
+      .map(w => ({
+        front: String(w.front || '').trim().slice(0, 100),
+        back: String(w.back || '').trim().slice(0, 100),
+        altFront: Array.isArray(w.altFront) ? w.altFront.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
+        altBack: Array.isArray(w.altBack) ? w.altBack.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
+      }))
+      .filter(w => w.front && w.back) : [];
+    if (!name) return res.status(400).json({ error: 'Unit name is required.' });
+    if (!words.length) return res.status(400).json({ error: 'At least one word pair is required.' });
+    const { rowCount } = await pool.query(
+      `UPDATE vocab_units SET name=$1, language_pair=$2, words=$3 WHERE id=$4`,
+      [name, languagePair, JSON.stringify(words), req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Unit not found.' });
+    broadcast('vocab');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/vocab/units/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM vocab_access WHERE unit_id=$1 AND used IS NOT TRUE', [req.params.id]);
+    await pool.query('DELETE FROM vocab_units WHERE id=$1', [req.params.id]);
+    broadcast('vocab');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/vocab/access', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT a.*, s.first_name AS s_first, s.last_name AS s_last, u.name AS unit_name, u.language_pair
+      FROM vocab_access a
+      LEFT JOIN students s ON s.id = a.student_id
+      LEFT JOIN vocab_units u ON u.id = a.unit_id
+      ORDER BY a.created_at DESC LIMIT 300
+    `);
+    res.json(rows.map(a => ({
+      id: a.id, code: a.code, studentId: a.student_id,
+      studentName: a.s_first ? `${a.s_last} ${a.s_first}` : '(deleted student)',
+      unitId: a.unit_id, unitName: a.unit_name || '(deleted unit)', languagePair: a.language_pair,
+      grantedBy: a.granted_by, used: a.used, usedAt: a.used_at, createdAt: a.created_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/vocab/access', async (req, res) => {
+  try {
+    const { studentId, unitId } = req.body;
+    if (!studentId || !unitId) return res.status(400).json({ error: 'studentId and unitId are required.' });
+    const [stu, unit] = await Promise.all([
+      pool.query('SELECT id FROM students WHERE id=$1', [studentId]),
+      pool.query('SELECT id FROM vocab_units WHERE id=$1', [unitId]),
+    ]);
+    if (!stu.rows[0]) return res.status(404).json({ error: 'Student not found.' });
+    if (!unit.rows[0]) return res.status(404).json({ error: 'Unit not found.' });
+    const id = genVocabId('vacc');
+    let code;
+    for (let i = 0; i < 10; i++) {
+      code = genVocabCode();
+      const clash = await pool.query('SELECT 1 FROM vocab_access WHERE code=$1', [code]);
+      if (!clash.rows[0]) break;
+    }
+    const actor = req.user ? `${req.user.last_name} ${req.user.first_name}` : 'Someone';
+    await pool.query(
+      `INSERT INTO vocab_access(id, code, student_id, unit_id, granted_by) VALUES($1,$2,$3,$4,$5)`,
+      [id, code, studentId, unitId, actor]
+    );
+    broadcast('vocab');
+    res.json({ ok: true, id, code });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/vocab/access/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM vocab_access WHERE id=$1 AND used IS NOT TRUE', [req.params.id]);
+    broadcast('vocab');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/vocab/attempts', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT t.*, s.first_name AS s_first, s.last_name AS s_last, u.name AS unit_name
+      FROM vocab_attempts t
+      LEFT JOIN students s ON s.id = t.student_id
+      LEFT JOIN vocab_units u ON u.id = t.unit_id
+      ORDER BY t.completed_at DESC LIMIT 300
+    `);
+    res.json(rows.map(t => ({
+      id: t.id, studentId: t.student_id,
+      studentName: t.s_first ? `${t.s_last} ${t.s_first}` : '(deleted student)',
+      unitId: t.unit_id, unitName: t.unit_name || '(deleted unit)',
+      score: t.score, total: t.total, completedAt: t.completed_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public, unauthenticated: standalone vocab-test.html. Student enters the code an
+// admin/teacher granted them. Bypassed in the /api auth middleware above.
+app.get('/api/public/vocab/access/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim();
+    const { rows } = await pool.query(`
+      SELECT a.id, a.used, u.name AS unit_name, u.language_pair, jsonb_array_length(u.words) AS word_count,
+             s.first_name, s.last_name
+      FROM vocab_access a
+      JOIN vocab_units u ON u.id = a.unit_id
+      JOIN students s ON s.id = a.student_id
+      WHERE a.code = $1
+    `, [code]);
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Invalid code.' });
+    if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
+    res.json({
+      accessId: row.id, unitName: row.unit_name, languagePair: row.language_pair,
+      wordCount: row.word_count, studentName: `${row.first_name} ${row.last_name}`
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Builds (or replays) the shuffled/mixed-direction question set for an access code,
+// without ever sending accepted answers to the client.
+app.get('/api/public/vocab/test/:accessId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.*, u.words FROM vocab_access a JOIN vocab_units u ON u.id = a.unit_id WHERE a.id=$1`,
+      [req.params.accessId]
+    );
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Access not found.' });
+    if (row.used) return res.status(410).json({ error: 'This test was already completed.' });
+
+    let questionSet = row.question_set;
+    if (!questionSet) {
+      const words = row.words || [];
+      questionSet = words.map((w, idx) => ({
+        qid: idx,
+        direction: Math.random() < 0.5 ? 'f2b' : 'b2f', // front→back or back→front
+      }));
+      // shuffle order
+      for (let i = questionSet.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questionSet[i], questionSet[j]] = [questionSet[j], questionSet[i]];
+      }
+      await pool.query('UPDATE vocab_access SET question_set=$1 WHERE id=$2', [JSON.stringify(questionSet), req.params.accessId]);
+    }
+    const questions = questionSet.map(q => {
+      const w = row.words[q.qid];
+      return { qid: q.qid, prompt: q.direction === 'f2b' ? w.front : w.back, direction: q.direction };
+    });
+    res.json({ questions });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.*, u.words FROM vocab_access a JOIN vocab_units u ON u.id = a.unit_id WHERE a.id=$1`,
+      [req.params.accessId]
+    );
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Access not found.' });
+    if (row.used) return res.status(410).json({ error: 'This test was already completed.' });
+    if (!row.question_set) return res.status(400).json({ error: 'Test was never started.' });
+
+    const norm = s => String(s || '').trim().toLowerCase();
+    const submitted = Array.isArray(req.body.answers) ? req.body.answers : [];
+    const givenByQid = new Map(submitted.map(a => [a.qid, a.given]));
+
+    let score = 0;
+    const details = row.question_set.map(q => {
+      const w = row.words[q.qid];
+      const expected = q.direction === 'f2b' ? w.back : w.front;
+      const alts = (q.direction === 'f2b' ? w.altBack : w.altFront) || [];
+      const accepted = [expected, ...alts].map(norm);
+      const given = givenByQid.get(q.qid);
+      const correct = accepted.includes(norm(given));
+      if (correct) score++;
+      return { qid: q.qid, prompt: q.direction === 'f2b' ? w.front : w.back, given: given || '', expected, correct };
+    });
+    const total = row.question_set.length;
+    const attemptId = genVocabId('vatt');
+    await pool.query(
+      `INSERT INTO vocab_attempts(id, access_id, student_id, unit_id, score, total, answers) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [attemptId, row.id, row.student_id, row.unit_id, score, total, JSON.stringify(details)]
+    );
+    await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+    broadcast('vocab');
+    res.json({ ok: true, score, total, details });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
