@@ -95,8 +95,7 @@ async function startFromCode() {
     if (!r.ok) throw new Error(data.error || 'Invalid code.');
     ACCESS_ID = data.accessId;
     document.getElementById('confirmName').textContent = 'Hi, ' + data.studentName + '!';
-    const pairLabel = data.languagePair === 'RU-ENG' ? 'Russian ↔ English' : 'English ↔ Uzbek';
-    document.getElementById('confirmMeta').innerHTML = `<b>${escapeHtml(data.unitNames.join(', '))}</b><br>${data.wordCount} words · ${pairLabel}`;
+    document.getElementById('confirmMeta').innerHTML = `<b>${escapeHtml(data.unitNames.join(', '))}</b><br>${data.wordCount} words`;
     show('viewConfirm');
   } catch (e) {
     errEl.textContent = e.message;
