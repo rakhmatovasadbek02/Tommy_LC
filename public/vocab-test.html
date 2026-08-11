@@ -34,6 +34,10 @@
   .ritem .rq{color:var(--muted)}
   .ritem.ok .ra{color:#1a7a3c;font-weight:700}
   .ritem.bad .ra{color:var(--crimson-dark);font-weight:700}
+  .mc-options{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+  .mc-option{width:100%;text-align:left;padding:13px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;background:white;cursor:pointer;color:var(--text)}
+  .mc-option:hover{border-color:var(--crimson-light,var(--crimson))}
+  .mc-option.selected{border-color:var(--crimson);background:var(--crimson-soft);font-weight:700}
 </style>
 </head>
 <body>
@@ -61,7 +65,8 @@
     <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     <div class="qdir" id="qCounter"></div>
     <div class="qprompt" id="qPrompt"></div>
-    <input type="text" id="qAnswer" placeholder="Type the translation…" autocomplete="off" onkeydown="if(event.key==='Enter')nextQuestion()">
+    <input type="text" id="qAnswer" placeholder="Type in English…" autocomplete="off" onkeydown="if(event.key==='Enter')nextQuestion()">
+    <div class="mc-options hide" id="mcOptions"></div>
     <button class="btn" onclick="nextQuestion()">Next</button>
   </div>
 
@@ -114,20 +119,40 @@ async function beginTest() {
   renderQuestion();
 }
 
+let SELECTED_MC = null;
+
 function renderQuestion() {
   const q = QUESTIONS[IDX];
+  SELECTED_MC = null;
   document.getElementById('qCounter').textContent = `Question ${IDX + 1} of ${QUESTIONS.length}`;
   document.getElementById('qPrompt').textContent = q.prompt;
   document.getElementById('progressFill').style.width = (IDX / QUESTIONS.length * 100) + '%';
   const input = document.getElementById('qAnswer');
-  input.value = '';
-  input.focus();
+  const mcBox = document.getElementById('mcOptions');
+  if (q.options) {
+    input.classList.add('hide');
+    mcBox.classList.remove('hide');
+    mcBox.innerHTML = q.options.map((o, i) => `<button type="button" class="mc-option" onclick="selectMc(this, ${i})">${escapeHtml(o)}</button>`).join('');
+  } else {
+    mcBox.classList.add('hide');
+    input.classList.remove('hide');
+    input.value = '';
+    input.focus();
+  }
+}
+
+function selectMc(btn, i) {
+  SELECTED_MC = QUESTIONS[IDX].options[i];
+  document.querySelectorAll('#mcOptions .mc-option').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
 }
 
 async function nextQuestion() {
   if (IDX >= QUESTIONS.length) return; // guard against a stray double-submit
-  const given = document.getElementById('qAnswer').value.trim();
-  ANSWERS.push({ qid: QUESTIONS[IDX].qid, given });
+  const q = QUESTIONS[IDX];
+  const given = q.options ? (SELECTED_MC || '') : document.getElementById('qAnswer').value.trim();
+  if (q.options && !given) return; // must pick an option first
+  ANSWERS.push({ qid: q.qid, given });
   IDX++;
   if (IDX < QUESTIONS.length) { renderQuestion(); return; }
   document.getElementById('progressFill').style.width = '100%';

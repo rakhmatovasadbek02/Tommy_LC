@@ -2399,7 +2399,7 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
 // Builds (or replays) the shuffled/mixed-direction question set for an access code.
 // Each question is a full snapshot (word + accepted answers), taken once at first fetch,
 // so accepted answers are never re-derived from (possibly since-edited) unit data, and
-// are never sent to the client — only the prompt + direction are.
+// are never sent to the client — only the prompt (+ multiple-choice options, if any) are.
 app.get('/api/public/vocab/test/:accessId', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM vocab_access WHERE id=$1', [req.params.accessId]);
@@ -2412,14 +2412,28 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
       const units = await pool.query('SELECT words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
       const words = units.rows.flatMap(u => u.words || []);
       if (!words.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
-      // language_pair picks which two of the word's 3 languages this test quizzes.
-      const frontKey = 'en', frontAltKey = 'enAlt';
+      // language_pair picks which of RU/UZ is shown; the student always answers in English.
       const backKey = row.language_pair === 'ENG-UZ' ? 'uz' : 'ru';
       const backAltKey = row.language_pair === 'ENG-UZ' ? 'uzAlt' : 'ruAlt';
-      questionSet = words.map(w => ({
-        front: w[frontKey], back: w[backKey], altFront: w[frontAltKey] || [], altBack: w[backAltKey] || [],
-        direction: Math.random() < 0.5 ? 'f2b' : 'b2f', // front→back or back→front
-      }));
+      const allEnglish = [...new Set(words.map(w => w.en))];
+      questionSet = words.map(w => {
+        const isPhrase = w.en.trim().includes(' ');
+        let options = null;
+        if (isPhrase) {
+          // Multiple choice for multi-word answers — typing a whole phrase is slow.
+          const distractorPool = allEnglish.filter(e => e !== w.en);
+          for (let i = distractorPool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [distractorPool[i], distractorPool[j]] = [distractorPool[j], distractorPool[i]];
+          }
+          options = [w.en, ...distractorPool.slice(0, 3)];
+          for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+          }
+        }
+        return { prompt: w[backKey], promptAlt: w[backAltKey] || [], en: w.en, enAlt: w.enAlt || [], options };
+      });
       // shuffle order
       for (let i = questionSet.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -2427,9 +2441,7 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
       }
       await pool.query('UPDATE vocab_access SET question_set=$1 WHERE id=$2', [JSON.stringify(questionSet), req.params.accessId]);
     }
-    const questions = questionSet.map((q, qid) => ({
-      qid, prompt: q.direction === 'f2b' ? q.front : q.back, direction: q.direction
-    }));
+    const questions = questionSet.map((q, qid) => ({ qid, prompt: q.prompt, options: q.options }));
     res.json({ questions });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2448,13 +2460,11 @@ app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
 
     let score = 0;
     const details = row.question_set.map((q, qid) => {
-      const expected = q.direction === 'f2b' ? q.back : q.front;
-      const alts = (q.direction === 'f2b' ? q.altBack : q.altFront) || [];
-      const accepted = [expected, ...alts].map(norm);
+      const accepted = [q.en, ...(q.enAlt || [])].map(norm);
       const given = givenByQid.get(qid);
       const correct = accepted.includes(norm(given));
       if (correct) score++;
-      return { qid, prompt: q.direction === 'f2b' ? q.front : q.back, given: given || '', expected, correct };
+      return { qid, prompt: q.prompt, given: given || '', expected: q.en, correct };
     });
     const total = row.question_set.length;
     const attemptId = genVocabId('vatt');
