@@ -544,7 +544,7 @@ async function initDB() {
     await pool.query(`
       UPDATE groups SET teacher = NULL
       WHERE teacher IS NOT NULL
-      AND teacher NOT IN (SELECT first_name || ' ' || last_name FROM users WHERE title='Teacher')
+      AND teacher NOT IN (SELECT first_name || ' ' || last_name FROM users WHERE title='Teacher' OR title='CEO')
     `);
   } catch(e) { console.warn('Teacher orphan cleanup skipped:', e.message); }
 
