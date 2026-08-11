@@ -79,8 +79,8 @@
         <div id="grantResult"></div>
       </div>
       <div class="vcard">
-        <div class="vcard-title" style="margin-bottom:10px">Pending codes</div>
-        <table class="vtable" id="pendingTable"><thead><tr><th>Student</th><th>Units</th><th>Code</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
+        <div class="vcard-title" style="margin-bottom:10px">Access codes</div>
+        <table class="vtable" id="pendingTable"><thead><tr><th>Student</th><th>Units</th><th>Code</th><th>Status</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
@@ -213,16 +213,16 @@ async function grantAccess() {
 
 function renderPending() {
   const tbody = document.querySelector('#pendingTable tbody');
-  const pending = ACCESS.filter(a => !a.used);
-  tbody.innerHTML = pending.map(a => `
+  tbody.innerHTML = ACCESS.map(a => `
     <tr>
       <td>${escapeHtml(a.studentName)}</td>
       <td>${escapeHtml(a.unitNames.join(', '))}</td>
       <td style="font-family:ui-monospace,monospace;font-weight:700">${a.code}</td>
+      <td>${a.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>'}</td>
       <td>${escapeHtml(a.grantedBy||'')}</td>
-      <td>${canManage ? `<button class="btn btn-outline" onclick="revokeAccess('${a.id}')">Revoke</button>` : ''}</td>
+      <td>${canManage && !a.used ? `<button class="btn btn-outline" onclick="revokeAccess('${a.id}')">Revoke</button>` : ''}</td>
     </tr>
-  `).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center">No pending codes.</td></tr>';
+  `).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes granted yet.</td></tr>';
 }
 
 async function revokeAccess(id) {
