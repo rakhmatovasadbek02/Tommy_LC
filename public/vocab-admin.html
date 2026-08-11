@@ -137,6 +137,18 @@ async function loadAll() {
   renderGrantUnitOptions();
   renderPending();
   renderHistory();
+  applyStudentFromQuery();
+}
+
+// Arriving from a student's profile (vocab-admin.html?studentId=...): jump straight
+// to Grant Access with that student pre-selected.
+function applyStudentFromQuery() {
+  const studentId = new URLSearchParams(location.search).get('studentId');
+  if (!studentId) return;
+  const s = STUDENTS.find(x => x.id === studentId);
+  if (!s) { showToast('Student not found.', 'error'); return; }
+  switchTab('grant');
+  pickStudent(s.id, `${s.lastName} ${s.firstName}`);
 }
 
 function switchTab(t) {

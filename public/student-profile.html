@@ -161,6 +161,9 @@
                 <button class="pc2-icon-btn" onclick="switchTabByName('comments')" title="Comments">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 </button>
+                <button class="pc2-icon-btn" id="vocabTestBtn" onclick="location.href='vocab-admin.html?studentId='+encodeURIComponent(STUDENT_ID)" title="Vocabulary test" style="display:none">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M10 8h6M10 12h4"/></svg>
+                </button>
                 <button class="pc2-icon-btn danger" onclick="openArchiveModal()" title="Archive student">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 </button>
@@ -989,6 +992,7 @@
   if (_sess?.title === 'CEO' || (_sess?.roles||[]).includes('CEO')) {
     document.getElementById('balEditBtn').style.display = '';
   }
+  if (can('vocab')) document.getElementById('vocabTestBtn').style.display = '';
 
   function openBalanceModal() {
     document.getElementById('balNewVal').value = Number(student?.balance || 0).toLocaleString('en-US');
