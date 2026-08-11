@@ -2191,10 +2191,16 @@ app.post('/api/public/lead-signup', async (req, res) => {
       return res.status(400).json({ error: 'Name and at least 2 phone numbers are required.' });
     }
     const id = 'lead_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    // Drop self-registered leads into the "Tablet" sub-column of Registration, if staff have
+    // created one — looked up by name so it keeps working if it's ever recreated/renamed.
+    const tablet = await pool.query(
+      `SELECT id FROM lead_containers WHERE status='Registration' AND name='Tablet' ORDER BY created_at LIMIT 1`
+    );
+    const subContainer = tablet.rows[0]?.id || null;
     await pool.query(
-      `INSERT INTO leads(id,first_name,last_name,phone_student,phone_father,phone_mother,phone_other,notes,status)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'Registration')`,
-      [id, firstName, lastName, phoneStudent||null, phoneFather||null, phoneMother||null, phoneOther||null, 'Self-registered at front desk']
+      `INSERT INTO leads(id,first_name,last_name,phone_student,phone_father,phone_mother,phone_other,notes,status,sub_container)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'Registration',$9)`,
+      [id, firstName, lastName, phoneStudent||null, phoneFather||null, phoneMother||null, phoneOther||null, 'Self-registered at front desk', subContainer]
     );
     await notifyRole('staff', 'new_lead', 'New lead registered',
       `${lastName} ${firstName} self-registered`, 'leads.html');
