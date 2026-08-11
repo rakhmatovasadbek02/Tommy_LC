@@ -647,6 +647,7 @@ function isFinanceWrite(method, p) {
 app.use('/api', async (req, res, next) => {
   try {
     if (req.path.startsWith('/auth/')) return next();
+    if (req.path === '/public/lead-signup' && req.method === 'POST') return next();
     const hdr = req.headers.authorization || '';
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
     const userId = token && verifyToken(token);
@@ -2169,6 +2170,29 @@ app.post('/api/leads', async (req, res) => {
     const actor = req.user ? req.user.last_name+' '+req.user.first_name : 'Someone';
     await notifyRole('staff', 'new_lead', 'New lead registered',
       `${lastName} ${firstName} registered by ${actor}`, 'leads.html', req.user?.id);
+    broadcast('leads');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public, unauthenticated: front-desk kiosk self-registration (register.html).
+// Bypassed in the /api auth middleware above — keep this endpoint minimal and validated.
+app.post('/api/public/lead-signup', async (req, res) => {
+  try {
+    const firstName = String(req.body.firstName || '').trim().slice(0, 80);
+    const lastName = String(req.body.lastName || '').trim().slice(0, 80);
+    const phoneStudent = String(req.body.phoneStudent || '').trim().slice(0, 20);
+    if (!firstName || !lastName || !phoneStudent) {
+      return res.status(400).json({ error: 'Name and phone are required.' });
+    }
+    const id = 'lead_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    await pool.query(
+      `INSERT INTO leads(id,first_name,last_name,phone_student,notes,status)
+       VALUES($1,$2,$3,$4,$5,'Registration')`,
+      [id, firstName, lastName, phoneStudent, 'Self-registered at front desk']
+    );
+    await notifyRole('staff', 'new_lead', 'New lead registered',
+      `${lastName} ${firstName} self-registered`, 'leads.html');
     broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
