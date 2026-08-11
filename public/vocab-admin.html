@@ -75,13 +75,12 @@
           <label>Units / Themes <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(pick one or more — the test mixes all their words together)</span></label>
           <div class="unit-pick-list" id="unitPickList"></div>
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Language pair is set automatically from the student's group (Russian-medium groups get RU↔ENG, Uzbek-medium groups get ENG↔UZ).</div>
         <button class="btn btn-primary" onclick="grantAccess()">Generate Code</button>
         <div id="grantResult"></div>
       </div>
       <div class="vcard">
         <div class="vcard-title" style="margin-bottom:10px">Pending codes</div>
-        <table class="vtable" id="pendingTable"><thead><tr><th>Student</th><th>Units</th><th>Pair</th><th>Code</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
+        <table class="vtable" id="pendingTable"><thead><tr><th>Student</th><th>Units</th><th>Code</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
@@ -204,8 +203,7 @@ async function grantAccess() {
   if (!unitIds.length) return showToast('Pick at least one unit.', 'error');
   try {
     const r = await apiPost('/api/vocab/access', { studentId, unitIds });
-    const pairLabel = r.languagePair === 'ENG-UZ' ? 'English ↔ Uzbek' : 'Russian ↔ English';
-    document.getElementById('grantResult').innerHTML = `<div class="vcode-box">${r.code}</div><div style="text-align:center;color:var(--muted);font-size:12px">${pairLabel} · Give this code to the student on vocab-test.html. Single use.</div>`;
+    document.getElementById('grantResult').innerHTML = `<div class="vcode-box">${r.code}</div><div style="text-align:center;color:var(--muted);font-size:12px">Give this code to the student on vocab-test.html. Single use.</div>`;
     document.getElementById('grantStudentQuery').value = '';
     document.getElementById('grantStudentId').value = '';
     SELECTED_UNIT_IDS = new Set();
@@ -220,12 +218,11 @@ function renderPending() {
     <tr>
       <td>${escapeHtml(a.studentName)}</td>
       <td>${escapeHtml(a.unitNames.join(', '))}</td>
-      <td>${a.languagePair === 'ENG-UZ' ? 'ENG↔UZ' : 'RU↔ENG'}</td>
       <td style="font-family:ui-monospace,monospace;font-weight:700">${a.code}</td>
       <td>${escapeHtml(a.grantedBy||'')}</td>
       <td>${canManage ? `<button class="btn btn-outline" onclick="revokeAccess('${a.id}')">Revoke</button>` : ''}</td>
     </tr>
-  `).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No pending codes.</td></tr>';
+  `).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center">No pending codes.</td></tr>';
 }
 
 async function revokeAccess(id) {
