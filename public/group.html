@@ -694,16 +694,8 @@ tbody += '</tbody>';
 document.getElementById('attTable').innerHTML = thead + tbody;
 }
 // ── VOCABULARY ──
-// Passing bar: a max number of wrong answers, scaled to how many questions were actually
-// asked in the test (not the unit's full word count — sampling can ask fewer).
-function maxMistakesAllowed(total) {
-  if (total <= 6) return 0;
-  if (total <= 12) return 2;
-  if (total <= 20) return 3;
-  if (total <= 50) return 4;
-  return 5;
-}
-function vocabPassed(score, total) { return total > 0 && (total - score) <= maxMistakesAllowed(total); }
+// Pass/fail is computed server-side (server.js: vocabPassed) and stored per attempt —
+// read att.passed directly rather than recomputing the rule here.
 function shortUnitLabel(name) {
   const m = name.match(/^(\d{1,2}[A-C])\b/) || name.match(/^(\d{1,2})\s+Practical/);
   if (!m) return name.slice(0, 6);
@@ -765,7 +757,7 @@ function renderVocab() {
       ${VOCAB_UNITS.map(u => {
         const att = mine.find(a => (a.unitIds||[]).includes(u.id));
         if (!att) return `<td><span class="chip-locked"></span></td>`;
-        const pass = vocabPassed(att.score, att.total);
+        const pass = att.passed;
         const title = `${att.score}/${att.total} · ${new Date(att.completedAt).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent' })}`;
         return `<td><span class="chip ${pass?'chip-present':'chip-absent'} chip-locked" title="${title}">${pass?IC_CHECK:IC_X}</span></td>`;
       }).join('')}

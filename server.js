@@ -346,6 +346,7 @@ async function initDB() {
       unit_ids    JSONB NOT NULL DEFAULT '[]',
       score       INT NOT NULL,
       total       INT NOT NULL,
+      passed      BOOLEAN,
       answers     JSONB,
       completed_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -374,6 +375,7 @@ async function initDB() {
   // Units are tagged with a course level (e.g. "Elementary") so Grant Access only offers
   // units matching the student's group level.
   await pool.query(`ALTER TABLE vocab_units ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'Elementary'`).catch(() => {});
+  await pool.query(`ALTER TABLE vocab_attempts ADD COLUMN IF NOT EXISTS passed BOOLEAN`).catch(() => {});
 
   // student_history table (added as separate migration for safety)
   await pool.query(`CREATE TABLE IF NOT EXISTS student_history (
@@ -2201,6 +2203,18 @@ app.get('/api/students/:id/attendance', async (req, res) => {
 function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function genVocabCode() { return String(Math.floor(100000 + Math.random() * 900000)); } // 6 digits
 
+// Pass rule: a max number of wrong answers, scaled to how many questions were actually
+// asked (post-sampling), not the unit's raw word count. Single source of truth — the
+// group page's Vocabulary tab reads the stored `passed` value rather than recomputing.
+function maxMistakesAllowed(total) {
+  if (total <= 6) return 0;
+  if (total <= 12) return 2;
+  if (total <= 20) return 3;
+  if (total <= 50) return 4;
+  return 5;
+}
+function vocabPassed(score, total) { return total > 0 && (total - score) <= maxMistakesAllowed(total); }
+
 function cleanWordField(v) {
   return String(v || '').trim().slice(0, 150);
 }
@@ -2366,7 +2380,9 @@ app.get('/api/vocab/attempts', async (req, res) => {
       studentName: t.s_first ? `${t.s_last} ${t.s_first}` : '(deleted student)',
       unitIds: t.unit_ids || [],
       unitNames: (t.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
-      score: t.score, total: t.total, completedAt: t.completed_at
+      // Older attempts recorded before the `passed` column existed: fall back to computing it.
+      score: t.score, total: t.total, passed: t.passed !== null ? t.passed : vocabPassed(t.score, t.total),
+      completedAt: t.completed_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2477,14 +2493,15 @@ app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
       return { qid, prompt: q.prompt, given: given || '', expected: q.en, correct };
     });
     const total = row.question_set.length;
+    const passed = vocabPassed(score, total);
     const attemptId = genVocabId('vatt');
     await pool.query(
-      `INSERT INTO vocab_attempts(id, access_id, student_id, unit_ids, score, total, answers) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-      [attemptId, row.id, row.student_id, JSON.stringify(row.unit_ids), score, total, JSON.stringify(details)]
+      `INSERT INTO vocab_attempts(id, access_id, student_id, unit_ids, score, total, passed, answers) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [attemptId, row.id, row.student_id, JSON.stringify(row.unit_ids), score, total, passed, JSON.stringify(details)]
     );
     await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
     broadcast('vocab');
-    res.json({ ok: true, score, total, details });
+    res.json({ ok: true, score, total, passed, details });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

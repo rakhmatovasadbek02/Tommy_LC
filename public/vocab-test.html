@@ -2,59 +2,143 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="light only">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Vocabulary Test — TommyLC</title>
 <style>
-  :root{ color-scheme: light only; --crimson:#990000; --crimson-dark:#700000; --crimson-soft:#fbe9e9; --border:#e6e2e0; --text:#20181a; --muted:#8a7f7d; --bg:#faf7f6; }
+  :root{
+    color-scheme: light only;
+    --crimson:#990000; --crimson-dark:#700000; --crimson-light:#c23838; --crimson-soft:#fbe9e9;
+    --green:#1a7a3c; --green-soft:#e8f7ee; --green-dark:#12592c;
+    --border:#e6e2e0; --text:#20181a; --muted:#8a7f7d; --bg:#faf7f6;
+  }
   *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .card{background:white;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,.08);max-width:480px;width:100%;padding:32px 28px}
-  .logo{font-weight:800;font-size:20px;color:var(--crimson-dark);text-align:center;margin-bottom:4px}
-  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:24px}
-  h1{font-size:19px;margin:0 0 6px;text-align:center}
-  label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
-  input[type=text]{width:100%;padding:13px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:16px;margin-bottom:14px}
-  input[type=text]:focus{outline:none;border-color:var(--crimson)}
-  .btn{display:block;width:100%;padding:14px;border-radius:10px;border:none;background:var(--crimson);color:white;font-size:15px;font-weight:700;cursor:pointer}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:radial-gradient(circle at 15% 10%,#fff 0%,var(--bg) 55%);color:var(--text);
+    min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
+    padding:28px;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;
+  }
+  button{font-family:inherit;touch-action:manipulation}
+  input{font-family:inherit;touch-action:manipulation}
+  .card{
+    background:white;border-radius:24px;box-shadow:0 20px 60px rgba(80,30,20,.10),0 2px 8px rgba(0,0,0,.04);
+    max-width:560px;width:100%;padding:40px 36px;position:relative;overflow:hidden;
+    animation:cardIn .35s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+  @media (min-width:700px){ .card{max-width:640px;padding:48px 52px} }
+
+  .logo-row{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:6px}
+  .logo-mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--crimson),var(--crimson-dark));display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;flex-shrink:0}
+  .logo{font-weight:800;font-size:21px;color:var(--crimson-dark);letter-spacing:-.2px}
+  .sub{text-align:center;color:var(--muted);font-size:13.5px;margin-bottom:26px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+  h1{font-size:21px;margin:0 0 8px;text-align:center;font-weight:800}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+
+  input[type=text]{
+    width:100%;padding:18px 16px;border:2px solid var(--border);border-radius:14px;
+    font-size:22px;font-weight:700;margin-bottom:16px;letter-spacing:2px;text-align:center;
+    transition:border-color .15s,box-shadow .15s;color:var(--text);background:#fff;
+  }
+  input[type=text]:focus{outline:none;border-color:var(--crimson);box-shadow:0 0 0 4px var(--crimson-soft)}
+  input[type=text]::placeholder{letter-spacing:0;font-weight:500;color:#c9beba}
+  #qAnswer{text-align:left;letter-spacing:normal;font-size:20px}
+
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:18px;
+    border-radius:14px;border:none;background:var(--crimson);color:white;font-size:16px;font-weight:800;
+    cursor:pointer;transition:transform .08s,background .15s,box-shadow .15s;
+    box-shadow:0 6px 18px rgba(153,0,0,.25);min-height:58px;
+  }
   .btn:hover{background:var(--crimson-dark)}
-  .btn:disabled{opacity:.5;cursor:default}
-  .err{color:var(--crimson-dark);background:var(--crimson-soft);border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:14px;display:none}
+  .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.45;cursor:default;box-shadow:none;transform:none}
+  .btn-outline{background:white;color:var(--crimson-dark);border:2px solid var(--border);box-shadow:none}
+  .btn-outline:hover{border-color:var(--crimson);background:var(--crimson-soft)}
+  .btn-ghost{background:transparent;color:var(--muted);box-shadow:none;font-weight:700}
+  .btn-ghost:hover{background:var(--bg);color:var(--text)}
+
+  .err{
+    color:var(--crimson-dark);background:var(--crimson-soft);border:1.5px solid #f3c9c9;border-radius:12px;
+    padding:12px 14px;font-size:13.5px;margin-bottom:16px;display:none;font-weight:600;
+    animation:shake .3s;
+  }
+  @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
   .hide{display:none !important}
-  .meta{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6}
-  .meta b{color:var(--text)}
-  .progress-bar{height:6px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:22px}
-  .progress-fill{height:100%;background:var(--crimson);transition:width .2s}
-  .qprompt{font-size:26px;font-weight:800;text-align:center;margin:6px 0 22px}
-  .qdir{text-align:center;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-  .result-score{font-size:44px;font-weight:800;text-align:center;color:var(--crimson-dark);margin:10px 0 4px}
-  .result-label{text-align:center;color:var(--muted);font-size:13px;margin-bottom:20px}
-  .rlist{max-height:320px;overflow:auto;margin-bottom:18px}
-  .ritem{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px}
-  .ritem .rq{color:var(--muted)}
-  .ritem.ok .ra{color:#1a7a3c;font-weight:700}
-  .ritem.bad .ra{color:var(--crimson-dark);font-weight:700}
-  .mc-options{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
-  .mc-option{width:100%;text-align:left;padding:13px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;background:white;cursor:pointer;color:var(--text)}
-  .mc-option:hover{border-color:var(--crimson-light,var(--crimson))}
-  .mc-option.selected{border-color:var(--crimson);background:var(--crimson-soft);font-weight:700}
+
+  .meta{background:var(--bg);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;font-size:14px;color:var(--muted);margin-bottom:22px;line-height:1.7}
+  .meta b{color:var(--text);font-size:15px}
+
+  .progress-bar{height:8px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:28px}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--crimson-light),var(--crimson));border-radius:99px;transition:width .35s cubic-bezier(.3,.8,.3,1)}
+
+  .qcounter{text-align:center;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:10px}
+  .qprompt{font-size:36px;font-weight:800;text-align:center;margin:4px 0 30px;line-height:1.25;word-break:break-word}
+  @media (min-width:700px){ .qprompt{font-size:42px} }
+
+  #questionBody{animation:qIn .28s cubic-bezier(.2,.8,.2,1)}
+  @keyframes qIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+
+  .mc-options{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:18px}
+  @media (min-width:560px){ .mc-options{grid-template-columns:1fr 1fr} }
+  .mc-option{
+    width:100%;text-align:center;padding:20px 16px;border:2px solid var(--border);border-radius:14px;
+    font-size:17px;font-weight:700;background:white;cursor:pointer;color:var(--text);min-height:64px;
+    transition:transform .08s,border-color .15s,background .15s,box-shadow .15s;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .mc-option:active{transform:scale(.96)}
+  .mc-option:hover{border-color:var(--crimson-light)}
+  .mc-option.selected{border-color:var(--crimson);background:var(--crimson-soft);color:var(--crimson-dark);box-shadow:0 0 0 4px var(--crimson-soft)}
+
+  /* ── Result ── */
+  .result-hero{display:flex;flex-direction:column;align-items:center;margin-bottom:8px}
+  .result-badge{
+    width:88px;height:88px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    margin-bottom:16px;animation:badgeIn .45s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes badgeIn{from{opacity:0;transform:scale(.5)}to{opacity:1;transform:scale(1)}}
+  .result-badge.pass{background:var(--green-soft);color:var(--green)}
+  .result-badge.fail{background:var(--crimson-soft);color:var(--crimson)}
+  .result-title{font-size:26px;font-weight:800;text-align:center;margin-bottom:4px}
+  .result-title.pass{color:var(--green-dark)}
+  .result-title.fail{color:var(--crimson-dark)}
+  .result-score{font-size:17px;text-align:center;color:var(--muted);margin-bottom:24px;font-weight:600}
+  .result-score b{color:var(--text);font-size:19px}
+
+  .rlist{max-height:280px;overflow:auto;margin-bottom:22px;border-radius:12px;border:1.5px solid var(--border)}
+  .ritem{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:14px}
+  .ritem:last-child{border-bottom:none}
+  .ritem .rq{color:var(--muted);font-weight:600}
+  .ritem .ra{display:flex;align-items:center;gap:6px;font-weight:700}
+  .ritem.ok .ra{color:var(--green)}
+  .ritem.bad .ra{color:var(--crimson-dark)}
+  .ritem .rexp{color:var(--muted);font-weight:500}
+  .ritem-icon{width:18px;height:18px;flex-shrink:0}
+
+  .hint{text-align:center;color:var(--muted);font-size:12.5px;margin-top:4px}
 </style>
 </head>
 <body>
-<div class="card">
+<div class="card" id="card">
 
   <div id="viewEntry">
-    <div class="logo">TommyLC</div>
+    <div class="logo-row"><div class="logo-mark">T</div><div class="logo">TommyLC</div></div>
     <div class="sub">Vocabulary Test</div>
     <h1>Enter your code</h1>
     <div class="err" id="entryErr"></div>
     <label>Access code</label>
-    <input type="text" id="codeInput" inputmode="numeric" maxlength="6" placeholder="6-digit code" autofocus>
+    <input type="text" id="codeInput" inputmode="numeric" maxlength="6" placeholder="• • • • • •" autofocus>
     <button class="btn" onclick="startFromCode()">Continue</button>
   </div>
 
   <div id="viewConfirm" class="hide">
-    <div class="logo">TommyLC</div>
+    <div class="logo-row"><div class="logo-mark">T</div><div class="logo">TommyLC</div></div>
     <div class="sub">Vocabulary Test</div>
     <h1 id="confirmName"></h1>
     <div class="meta" id="confirmMeta"></div>
@@ -63,19 +147,24 @@
 
   <div id="viewTest" class="hide">
     <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-    <div class="qdir" id="qCounter"></div>
-    <div class="qprompt" id="qPrompt"></div>
-    <input type="text" id="qAnswer" placeholder="Type in English…" autocomplete="off" onkeydown="if(event.key==='Enter')nextQuestion()">
-    <div class="mc-options hide" id="mcOptions"></div>
+    <div id="questionBody">
+      <div class="qcounter" id="qCounter"></div>
+      <div class="qprompt" id="qPrompt"></div>
+      <input type="text" id="qAnswer" placeholder="Type in English…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')nextQuestion()">
+      <div class="mc-options hide" id="mcOptions"></div>
+    </div>
     <button class="btn" onclick="nextQuestion()">Next</button>
   </div>
 
   <div id="viewResult" class="hide">
-    <div class="logo">TommyLC</div>
-    <div class="result-score" id="resultScore"></div>
-    <div class="result-label">correct answers</div>
+    <div class="result-hero">
+      <div class="result-badge" id="resultBadge"></div>
+      <div class="result-title" id="resultTitle"></div>
+      <div class="result-score" id="resultScore"></div>
+    </div>
     <div class="rlist" id="resultList"></div>
-    <div style="text-align:center;color:var(--muted);font-size:12.5px">Ask your admin for a new code for your next test.</div>
+    <button class="btn" onclick="resetToStart()">Back</button>
+    <div class="hint">Ask your admin for a new code for your next test.</div>
   </div>
 
 </div>
@@ -84,9 +173,22 @@ let ACCESS_ID = null;
 let QUESTIONS = [];
 let IDX = 0;
 let ANSWERS = [];
+let SELECTED_MC = null;
+
+const IC_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const IC_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
 function show(id) {
   ['viewEntry','viewConfirm','viewTest','viewResult'].forEach(v => document.getElementById(v).classList.toggle('hide', v !== id));
+}
+
+function resetToStart() {
+  ACCESS_ID = null; QUESTIONS = []; IDX = 0; ANSWERS = []; SELECTED_MC = null;
+  const codeInput = document.getElementById('codeInput');
+  codeInput.value = '';
+  document.getElementById('entryErr').style.display = 'none';
+  show('viewEntry');
+  setTimeout(() => codeInput.focus(), 50);
 }
 
 async function startFromCode() {
@@ -119,11 +221,15 @@ async function beginTest() {
   renderQuestion();
 }
 
-let SELECTED_MC = null;
-
 function renderQuestion() {
   const q = QUESTIONS[IDX];
   SELECTED_MC = null;
+  // Re-trigger the entrance animation on every question.
+  const body = document.getElementById('questionBody');
+  body.style.animation = 'none';
+  void body.offsetWidth;
+  body.style.animation = '';
+
   document.getElementById('qCounter').textContent = `Question ${IDX + 1} of ${QUESTIONS.length}`;
   document.getElementById('qPrompt').textContent = q.prompt;
   document.getElementById('progressFill').style.width = (IDX / QUESTIONS.length * 100) + '%';
@@ -166,11 +272,21 @@ async function submitTest() {
   });
   const data = await r.json();
   if (!r.ok) { alert(data.error || 'Could not submit test.'); return; }
-  document.getElementById('resultScore').textContent = `${data.score} / ${data.total}`;
+
+  const badge = document.getElementById('resultBadge');
+  const title = document.getElementById('resultTitle');
+  badge.className = 'result-badge ' + (data.passed ? 'pass' : 'fail');
+  badge.innerHTML = data.passed ? IC_CHECK : IC_X;
+  title.className = 'result-title ' + (data.passed ? 'pass' : 'fail');
+  title.textContent = data.passed ? 'Passed!' : 'Not Passed';
+  document.getElementById('resultScore').innerHTML = `<b>${data.score} / ${data.total}</b> correct`;
   document.getElementById('resultList').innerHTML = data.details.map(d => `
     <div class="ritem ${d.correct ? 'ok' : 'bad'}">
       <span class="rq">${escapeHtml(d.prompt)}</span>
-      <span class="ra">${escapeHtml(d.given || '—')}${d.correct ? '' : ' (→ ' + escapeHtml(d.expected) + ')'}</span>
+      <span class="ra">
+        <svg class="ritem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${d.correct ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}</svg>
+        ${escapeHtml(d.given || '—')}${d.correct ? '' : ` <span class="rexp">(→ ${escapeHtml(d.expected)})</span>`}
+      </span>
     </div>
   `).join('');
   show('viewResult');
