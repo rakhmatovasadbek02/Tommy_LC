@@ -701,12 +701,16 @@ function shortUnitLabel(name) {
   if (!m) return name.slice(0, 6);
   return m[1] + (name.match(/Practical/) && !/[A-C]$/.test(m[1]) ? ' PE' : '');
 }
-// Book order: 1A, 1B, 1C, 1 Practical English, 2A, 2B, ... — not creation order.
+// Book order. Practical English lessons are numbered 1-6 in the PDF but each actually
+// sits right after an odd module's C unit: PE1 after 1C, PE2 after 3C, PE3 after 5C,
+// PE4 after 7C, PE5 after 9C, PE6 after 11C (module = 2*PE_number - 1).
 function unitSortKey(name) {
+  const pe = name.match(/^(\d{1,2})\s+Practical/);
+  if (pe) return [2 * parseInt(pe[1], 10) - 1, 2.5];
   const m = name.match(/^(\d{1,2})([A-C])?/);
   if (!m) return [999, 999];
   const module = parseInt(m[1], 10);
-  const sub = m[2] ? { A: 0, B: 1, C: 2 }[m[2]] : 2.5; // Practical English sits right after C
+  const sub = m[2] ? { A: 0, B: 1, C: 2 }[m[2]] : 999;
   return [module, sub];
 }
 function sortUnits(units) {
