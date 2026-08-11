@@ -694,8 +694,16 @@ tbody += '</tbody>';
 document.getElementById('attTable').innerHTML = thead + tbody;
 }
 // ── VOCABULARY ──
-// Passing bar: 80% correct.
-function vocabPassed(score, total) { return total > 0 && (score / total) >= 0.8; }
+// Passing bar: a max number of wrong answers, scaled to how many questions were actually
+// asked in the test (not the unit's full word count — sampling can ask fewer).
+function maxMistakesAllowed(total) {
+  if (total <= 6) return 0;
+  if (total <= 12) return 2;
+  if (total <= 20) return 3;
+  if (total <= 50) return 4;
+  return 5;
+}
+function vocabPassed(score, total) { return total > 0 && (total - score) <= maxMistakesAllowed(total); }
 function shortUnitLabel(name) {
   const m = name.match(/^(\d{1,2}[A-C])\b/) || name.match(/^(\d{1,2})\s+Practical/);
   if (!m) return name.slice(0, 6);
