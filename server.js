@@ -46,7 +46,7 @@ const ROLE_PERMS = {
   'CEO':        [...PAGE_PERMISSIONS, 'statistics', 'manreminders'],
   'Head Admin': ['dashboard','leads','students','groups','finance','finance_view_only','teachers','staff','archived','support','reminders','manreminders'],
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','support','reminders','manreminders'],
-  'Admin':      ['dashboard','leads','students','groups','teachers','reminders'],
+  'Admin':      ['dashboard','leads','students','groups','teachers','support','reminders'],
   'Teacher':    ['dashboard','groups','reminders'],
   'Support Teacher': ['dashboard','support','reminders'],
 };
@@ -446,6 +446,17 @@ async function initDB() {
       await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify(perms), u.id]);
     }
   } catch(e) { console.warn('Manager permission migration skipped:', e.message); }
+
+  // Grant 'support' to existing Admin users so they can assign support lessons too.
+  try {
+    const admins = await pool.query(`SELECT id, permissions FROM users WHERE title='Admin' OR roles @> '["Admin"]'::jsonb`);
+    for (const u of admins.rows) {
+      const perms = Array.isArray(u.permissions) ? u.permissions : [];
+      if (!perms.includes('support')) {
+        await pool.query('UPDATE users SET permissions=$1 WHERE id=$2', [JSON.stringify([...perms,'support']), u.id]);
+      }
+    }
+  } catch(e) { console.warn('Admin support-permission migration skipped:', e.message); }
 
   // Strip 'students' permission from all Teacher accounts (teachers access students via group page only).
   try {
