@@ -37,6 +37,12 @@ input[type="text"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255
 .phone-wrap:focus-within { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255,0,0,0.10); }
 .phone-prefix { padding: 14px 14px; background: #FFF0F0; font-size: 15px; font-weight: 700; color: #330000; border-right: 1.5px solid #FFD0D0; user-select: none; display: flex; align-items: center; }
 .phone-wrap input { border: none; outline: none; flex: 1; padding: 14px 14px; font-size: 16px; font-family: 'Inter', sans-serif; color: #1A0000; background: #fff; letter-spacing: 1px; min-width: 0; }
+.phone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.phone-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: #b06060; }
+.phone-sublabel { font-size: 12px; font-weight: 600; color: #994444; margin-bottom: 5px; }
+.phone-grid .phone-wrap .phone-prefix { padding: 12px 10px; font-size: 13px; }
+.phone-grid .phone-wrap input { padding: 12px 10px; font-size: 15px; }
+@media(max-width:400px){ .phone-grid { grid-template-columns: 1fr; } }
 .error-msg {
   background: #FFF0F0; color: #8B1228; border: 1px solid #FFD0D0; border-radius: 9px;
   padding: 10px 14px; font-size: 13px; font-weight: 500; margin-bottom: 16px;
@@ -124,11 +130,38 @@ input[type="text"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255
       <input type="text" id="fLast" placeholder="Smith" autocomplete="family-name">
     </div>
     <div class="form-group">
-      <label>Phone Number</label>
-      <div class="phone-wrap">
-        <span class="phone-prefix">+998</span>
-        <input type="text" inputmode="numeric" id="fPhone" placeholder="90 123 45 67" autocomplete="tel">
+      <label>Phone Numbers <span class="phone-hint">(at least 2 required)</span></label>
+      <div class="phone-grid">
+        <div>
+          <div class="phone-sublabel">👤 Student</div>
+          <div class="phone-wrap">
+            <span class="phone-prefix">+998</span>
+            <input type="text" inputmode="numeric" id="fPhoneStudent" placeholder="90 123 45 67" autocomplete="tel">
+          </div>
+        </div>
+        <div>
+          <div class="phone-sublabel">👨 Father</div>
+          <div class="phone-wrap">
+            <span class="phone-prefix">+998</span>
+            <input type="text" inputmode="numeric" id="fPhoneFather" placeholder="90 123 45 67" autocomplete="tel">
+          </div>
+        </div>
+        <div>
+          <div class="phone-sublabel">👩 Mother</div>
+          <div class="phone-wrap">
+            <span class="phone-prefix">+998</span>
+            <input type="text" inputmode="numeric" id="fPhoneMother" placeholder="90 123 45 67" autocomplete="tel">
+          </div>
+        </div>
+        <div>
+          <div class="phone-sublabel">👥 Other</div>
+          <div class="phone-wrap">
+            <span class="phone-prefix">+998</span>
+            <input type="text" inputmode="numeric" id="fPhoneOther" placeholder="90 123 45 67" autocomplete="tel">
+          </div>
+        </div>
       </div>
+      <div class="error-msg" id="phoneError" style="margin-top:10px">⚠️ Please enter at least 2 phone numbers.</div>
     </div>
 
     <button class="btn-submit" id="submitBtn" onclick="submitRegistration()">Register</button>
@@ -177,7 +210,8 @@ function fmtPhone(input) {
   if (v.length>7) o += ' ' + v.slice(7,9);
   input.value = o;
 }
-document.getElementById('fPhone').addEventListener('input', function() { fmtPhone(this); });
+const PHONE_FIELDS = ['fPhoneStudent', 'fPhoneFather', 'fPhoneMother', 'fPhoneOther'];
+PHONE_FIELDS.forEach(id => document.getElementById(id).addEventListener('input', function() { fmtPhone(this); }));
 
 function showError(msg) {
   const el = document.getElementById('errorMsg');
@@ -193,12 +227,24 @@ let _currentLeadId = null;
 
 async function submitRegistration() {
   clearError();
+  document.getElementById('phoneError').classList.remove('show');
   const firstName = document.getElementById('fFirst').value.trim();
   const lastName = document.getElementById('fLast').value.trim();
-  const phoneStudent = document.getElementById('fPhone').value.trim();
+  const phones = {
+    phoneStudent: document.getElementById('fPhoneStudent').value.trim(),
+    phoneFather: document.getElementById('fPhoneFather').value.trim(),
+    phoneMother: document.getElementById('fPhoneMother').value.trim(),
+    phoneOther: document.getElementById('fPhoneOther').value.trim(),
+  };
 
   if (!firstName || !lastName) { showError('Please enter your first and last name.'); return; }
-  if (phoneStudent.replace(/\D/g,'').length < 9) { showError('Please enter a valid phone number.'); return; }
+  const filled = Object.values(phones).filter(Boolean);
+  if (filled.some(p => p.replace(/\D/g,'').length < 9)) { showError('Please enter complete phone numbers (or leave a field blank).'); return; }
+  if (filled.length < 2) {
+    document.getElementById('phoneError').classList.add('show');
+    showError('Please enter at least 2 phone numbers.');
+    return;
+  }
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true; btn.textContent = 'Submitting…';
@@ -206,7 +252,7 @@ async function submitRegistration() {
     const res = await fetch('/api/public/lead-signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName, lastName, phoneStudent })
+      body: JSON.stringify({ firstName, lastName, ...phones })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
@@ -455,7 +501,8 @@ function resetForm() {
   clearTimeout(_autoResetTimer);
   document.getElementById('fFirst').value = '';
   document.getElementById('fLast').value = '';
-  document.getElementById('fPhone').value = '';
+  PHONE_FIELDS.forEach(id => document.getElementById(id).value = '');
+  document.getElementById('phoneError').classList.remove('show');
   clearError();
   _currentLeadId = null;
   document.getElementById('successView').classList.remove('show');

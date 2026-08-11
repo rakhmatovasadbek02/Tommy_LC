@@ -2183,14 +2183,18 @@ app.post('/api/public/lead-signup', async (req, res) => {
     const firstName = String(req.body.firstName || '').trim().slice(0, 80);
     const lastName = String(req.body.lastName || '').trim().slice(0, 80);
     const phoneStudent = String(req.body.phoneStudent || '').trim().slice(0, 20);
-    if (!firstName || !lastName || !phoneStudent) {
-      return res.status(400).json({ error: 'Name and phone are required.' });
+    const phoneFather = String(req.body.phoneFather || '').trim().slice(0, 20);
+    const phoneMother = String(req.body.phoneMother || '').trim().slice(0, 20);
+    const phoneOther = String(req.body.phoneOther || '').trim().slice(0, 20);
+    const phoneCount = [phoneStudent, phoneFather, phoneMother, phoneOther].filter(Boolean).length;
+    if (!firstName || !lastName || phoneCount < 2) {
+      return res.status(400).json({ error: 'Name and at least 2 phone numbers are required.' });
     }
     const id = 'lead_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     await pool.query(
-      `INSERT INTO leads(id,first_name,last_name,phone_student,notes,status)
-       VALUES($1,$2,$3,$4,$5,'Registration')`,
-      [id, firstName, lastName, phoneStudent, 'Self-registered at front desk']
+      `INSERT INTO leads(id,first_name,last_name,phone_student,phone_father,phone_mother,phone_other,notes,status)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,'Registration')`,
+      [id, firstName, lastName, phoneStudent||null, phoneFather||null, phoneMother||null, phoneOther||null, 'Self-registered at front desk']
     );
     await notifyRole('staff', 'new_lead', 'New lead registered',
       `${lastName} ${firstName} self-registered`, 'leads.html');
