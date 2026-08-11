@@ -68,6 +68,38 @@ input[type="text"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255
   cursor: pointer; transition: all 0.16s;
 }
 .btn-again:hover { border-color: #FF0000; background: #FFF0F0; }
+.btn-secondary-row { display: flex; flex-direction: column; gap: 10px; }
+
+/* Level test */
+.test-view, .result-view { display: none; text-align: left; }
+.test-view.show, .result-view.show { display: block; }
+.test-intro { text-align: center; }
+.test-intro .success-icon { background: #FFF0F0; color: #990000; }
+.test-progress-wrap { background: #FFF0F0; border-radius: 100px; height: 8px; overflow: hidden; margin-bottom: 22px; }
+.test-progress-bar { height: 100%; background: #FF0000; border-radius: 100px; transition: width 0.25s; }
+.test-counter { font-size: 12px; font-weight: 700; color: #994444; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.test-question { font-size: 18px; font-weight: 800; line-height: 1.4; margin-bottom: 22px; }
+.test-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.test-option {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid #FFD0D0;
+  border-radius: 11px; cursor: pointer; transition: all 0.14s; font-size: 15px; color: #1A0000;
+}
+.test-option:hover { border-color: #FF9090; background: #FFF8F8; }
+.test-option.selected { border-color: #FF0000; background: #FFF0F0; font-weight: 700; }
+.test-option .letter {
+  width: 26px; height: 26px; border-radius: 50%; background: #FFF0F0; color: #990000;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0;
+}
+.test-option.selected .letter { background: #FF0000; color: #fff; }
+.btn-next { width: 100%; padding: 15px; background: #FF0000; color: #fff; border: none; border-radius: 11px; font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.18s; }
+.btn-next:hover { background: #CC0000; }
+.btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
+.result-view { text-align: center; }
+.result-level-badge {
+  display: inline-block; padding: 10px 26px; border-radius: 100px; background: #990000; color: #fff;
+  font-size: 20px; font-weight: 900; margin: 6px 0 20px;
+}
+.result-score { font-size: 13px; color: #994444; margin-bottom: 24px; }
 </style>
 </head>
 <body>
@@ -108,8 +140,32 @@ input[type="text"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </div>
     <h2>Thank you!</h2>
-    <p>We've received your details. A member of our team will contact you soon.</p>
-    <button class="btn-again" onclick="resetForm()">Register another student</button>
+    <p>We've received your details. Want to check your English level now? It only takes a few minutes.</p>
+    <div class="btn-secondary-row">
+      <button class="btn-submit" style="margin-top:0" onclick="startTest()">Start Level Test →</button>
+      <button class="btn-again" onclick="resetForm()">Skip — Register another student</button>
+    </div>
+  </div>
+
+  <div class="test-view" id="testView">
+    <div class="test-progress-wrap"><div class="test-progress-bar" id="testProgressBar" style="width:0%"></div></div>
+    <div class="test-counter" id="testCounter">Question 1 of 21</div>
+    <div class="test-question" id="testQuestion"></div>
+    <div class="test-options" id="testOptions"></div>
+    <button class="btn-next" id="testNextBtn" onclick="nextQuestion()" disabled>Next</button>
+  </div>
+
+  <div class="result-view" id="resultView">
+    <div class="success-icon">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    </div>
+    <h2>All done!</h2>
+    <div class="result-level-badge" id="resultLevel"></div>
+    <div class="result-score" id="resultScore"></div>
+    <p>Thanks for taking the test — our team will use this to place you in the right class.</p>
+    <div class="btn-secondary-row" style="margin-top:20px">
+      <button class="btn-again" onclick="resetForm()">Register another student</button>
+    </div>
   </div>
 </div>
 <script>
@@ -133,6 +189,7 @@ function clearError() {
 }
 
 let _autoResetTimer = null;
+let _currentLeadId = null;
 
 async function submitRegistration() {
   clearError();
@@ -154,13 +211,113 @@ async function submitRegistration() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
 
+    _currentLeadId = data.leadId || null;
     document.getElementById('formView').classList.add('hide');
     document.getElementById('successView').classList.add('show');
-    _autoResetTimer = setTimeout(resetForm, 12000);
+    _autoResetTimer = setTimeout(resetForm, 60000);
   } catch (e) {
     showError(e.message || 'Something went wrong. Please try again.');
   } finally {
     btn.disabled = false; btn.textContent = 'Register';
+  }
+}
+
+/* ── Level-check test: 21 questions, 3 per level band, easy → hard ── */
+const LEVEL_BANDS = ['RoundUp','Beginner','Elementary','Pre-Intermediate','Intermediate','CEFR','IELTS'];
+const TEST_QUESTIONS = [
+  // RoundUp
+  { level:'RoundUp', q:'I ___ a student.', options:['am','is','are','be'], correct:0 },
+  { level:'RoundUp', q:'Choose the correct word for 🐱', options:['Dog','Cat','Car','Book'], correct:1 },
+  { level:'RoundUp', q:'She ___ to school every day.', options:['go','goes','going','gone'], correct:1 },
+  // Beginner
+  { level:'Beginner', q:'There ___ two books on the table.', options:['is','are','be','was'], correct:1 },
+  { level:'Beginner', q:'What is the opposite of "big"?', options:['Small','Tall','Fast','Happy'], correct:0 },
+  { level:'Beginner', q:'___ you like tea?', options:['Do','Does','Are','Is'], correct:0 },
+  // Elementary
+  { level:'Elementary', q:'I ___ my homework yesterday.', options:['do','did','done','does'], correct:1 },
+  { level:'Elementary', q:'He is ___ than his brother.', options:['tall','taller','tallest','more tall'], correct:1 },
+  { level:'Elementary', q:'Which word means the same as "happy"?', options:['Sad','Glad','Angry','Tired'], correct:1 },
+  // Pre-Intermediate
+  { level:'Pre-Intermediate', q:'If it rains, I ___ stay home.', options:['will','would','was','am'], correct:0 },
+  { level:'Pre-Intermediate', q:'She has ___ finished her work.', options:['already','yet','still','ago'], correct:0 },
+  { level:'Pre-Intermediate', q:'This book is ___ interesting than that one.', options:['more','most','much','very'], correct:0 },
+  // Intermediate
+  { level:'Intermediate', q:'By the time we arrived, the movie ___.', options:['already started','had already started','already starts','has already start'], correct:1 },
+  { level:'Intermediate', q:'I wish I ___ more time.', options:['have','had','has','having'], correct:1 },
+  { level:'Intermediate', q:'He denied ___ the money.', options:['to steal','stealing','steal','stolen'], correct:1 },
+  // CEFR (upper-intermediate/advanced)
+  { level:'CEFR', q:'Not only ___ the exam, but she also got the highest score.', options:['she passed','did she pass','she did pass','passed she'], correct:1 },
+  { level:'CEFR', q:'Which word is closest in meaning to "meticulous"?', options:['Careless','Careful','Quick','Lazy'], correct:1 },
+  { level:'CEFR', q:'Had I known about the meeting, I ___ attended.', options:['would have','will have','would','had'], correct:0 },
+  // IELTS (exam-level)
+  { level:'IELTS', q:"The report's findings were ___ with previous research.", options:['consistent','insistent','persistent','resistant'], correct:0 },
+  { level:'IELTS', q:'It is essential that he ___ present at the meeting.', options:['is','be','was','being'], correct:1 },
+  { level:'IELTS', q:'Despite ___ warned repeatedly, he continued the risky behavior.', options:['being','be','to be','been'], correct:0 },
+];
+let _testIdx = 0;
+let _testAnswers = [];
+
+function startTest() {
+  clearTimeout(_autoResetTimer);
+  _testIdx = 0;
+  _testAnswers = new Array(TEST_QUESTIONS.length).fill(null);
+  document.getElementById('successView').classList.remove('show');
+  document.getElementById('testView').classList.add('show');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = TEST_QUESTIONS[_testIdx];
+  document.getElementById('testProgressBar').style.width = Math.round((_testIdx / TEST_QUESTIONS.length) * 100) + '%';
+  document.getElementById('testCounter').textContent = `Question ${_testIdx + 1} of ${TEST_QUESTIONS.length}`;
+  document.getElementById('testQuestion').textContent = q.q;
+  const letters = ['A','B','C','D'];
+  const optsEl = document.getElementById('testOptions');
+  optsEl.innerHTML = q.options.map((opt, i) => `
+    <div class="test-option${_testAnswers[_testIdx]===i?' selected':''}" onclick="selectOption(${i})">
+      <span class="letter">${letters[i]}</span><span>${opt}</span>
+    </div>`).join('');
+  const nextBtn = document.getElementById('testNextBtn');
+  nextBtn.disabled = _testAnswers[_testIdx] === null;
+  nextBtn.textContent = _testIdx === TEST_QUESTIONS.length - 1 ? 'Finish' : 'Next';
+}
+
+function selectOption(i) {
+  _testAnswers[_testIdx] = i;
+  renderQuestion();
+}
+
+function nextQuestion() {
+  if (_testAnswers[_testIdx] === null) return;
+  if (_testIdx < TEST_QUESTIONS.length - 1) {
+    _testIdx++;
+    renderQuestion();
+  } else {
+    finishTest();
+  }
+}
+
+function computeLevel(score) {
+  // 3 questions per band; every 3 correct unlocks the next band.
+  const bandIdx = Math.min(Math.floor(score / 3), LEVEL_BANDS.length - 1);
+  return LEVEL_BANDS[bandIdx];
+}
+
+async function finishTest() {
+  const score = _testAnswers.reduce((sum, ans, i) => sum + (ans === TEST_QUESTIONS[i].correct ? 1 : 0), 0);
+  const level = computeLevel(score);
+  document.getElementById('testView').classList.remove('show');
+  document.getElementById('resultView').classList.add('show');
+  document.getElementById('resultLevel').textContent = level;
+  document.getElementById('resultScore').textContent = `${score} / ${TEST_QUESTIONS.length} correct`;
+  if (_currentLeadId) {
+    try {
+      await fetch('/api/public/lead-test/' + encodeURIComponent(_currentLeadId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level, testResult: `${score}/${TEST_QUESTIONS.length} (auto placement test)` })
+      });
+    } catch (e) { /* result still shown to the student even if the save fails */ }
   }
 }
 
@@ -170,7 +327,10 @@ function resetForm() {
   document.getElementById('fLast').value = '';
   document.getElementById('fPhone').value = '';
   clearError();
+  _currentLeadId = null;
   document.getElementById('successView').classList.remove('show');
+  document.getElementById('testView').classList.remove('show');
+  document.getElementById('resultView').classList.remove('show');
   document.getElementById('formView').classList.remove('hide');
   document.getElementById('fFirst').focus();
 }

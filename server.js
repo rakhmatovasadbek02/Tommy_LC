@@ -648,6 +648,7 @@ app.use('/api', async (req, res, next) => {
   try {
     if (req.path.startsWith('/auth/')) return next();
     if (req.path === '/public/lead-signup' && req.method === 'POST') return next();
+    if (req.path.startsWith('/public/lead-test/') && req.method === 'PUT') return next();
     const hdr = req.headers.authorization || '';
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
     const userId = token && verifyToken(token);
@@ -2193,6 +2194,25 @@ app.post('/api/public/lead-signup', async (req, res) => {
     );
     await notifyRole('staff', 'new_lead', 'New lead registered',
       `${lastName} ${firstName} self-registered`, 'leads.html');
+    broadcast('leads');
+    res.json({ ok: true, leadId: id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public, unauthenticated: saves the kiosk level-check test result onto the lead just created
+// above. Scoped tightly — only touches current_level/test_result, and only while the lead is
+// still sitting in Registration status, so it can't be used to edit an unrelated/older lead.
+app.put('/api/public/lead-test/:id', async (req, res) => {
+  try {
+    const LEVELS = ['RoundUp','Beginner','Elementary','Pre-Intermediate','Intermediate','CEFR','IELTS'];
+    const level = String(req.body.level || '');
+    const testResult = String(req.body.testResult || '').trim().slice(0, 100);
+    if (!LEVELS.includes(level)) return res.status(400).json({ error: 'Invalid level.' });
+    const { rowCount } = await pool.query(
+      `UPDATE leads SET current_level=$1, test_result=$2 WHERE id=$3 AND status='Registration'`,
+      [level, testResult, req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Lead not found.' });
     broadcast('leads');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
