@@ -100,6 +100,7 @@
       <input type="hidden" id="uId">
       <div class="form-row">
         <div class="form-group"><label>Unit / Theme name *</label><input type="text" id="uName" placeholder="Unit 4 — Food"></div>
+        <div class="form-group"><label>Level *</label><select id="uLevel"></select></div>
       </div>
       <div class="form-group">
         <label>Words * <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(English / Russian / Uzbek)</span></label>
@@ -122,17 +123,20 @@
 requireAuth('vocab');
 renderSidebar('vocab');
 
-let UNITS = [], STUDENTS = [], ACCESS = [], ATTEMPTS = [];
+let UNITS = [], STUDENTS = [], ACCESS = [], ATTEMPTS = [], LEVELS = [];
 let SELECTED_UNIT_IDS = new Set();
+let SELECTED_STUDENT_LEVEL = null;
 const canManage = can('vocab');
 
 async function loadAll() {
-  [UNITS, STUDENTS, ACCESS, ATTEMPTS] = await Promise.all([
+  [UNITS, STUDENTS, ACCESS, ATTEMPTS, LEVELS] = await Promise.all([
     apiGet('/api/vocab/units'),
     apiGet('/api/students'),
     apiGet('/api/vocab/access'),
     apiGet('/api/vocab/attempts'),
+    apiGet('/api/levels').catch(() => []),
   ]);
+  document.getElementById('uLevel').innerHTML = LEVELS.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
   renderUnitPickList();
   renderPending();
   renderHistory();
@@ -163,13 +167,15 @@ function toggleUnit(id, checked) {
 
 function renderUnitPickList() {
   const el = document.getElementById('unitPickList');
+  const list = SELECTED_STUDENT_LEVEL ? UNITS.filter(u => u.level === SELECTED_STUDENT_LEVEL) : UNITS;
   if (!UNITS.length) { el.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px">No units yet — create one below.</div>'; return; }
-  el.innerHTML = UNITS.map(u => `
+  if (!list.length) { el.innerHTML = `<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px">No ${escapeHtml(SELECTED_STUDENT_LEVEL)} units yet.</div>`; return; }
+  el.innerHTML = list.map(u => `
     <label class="unit-pick-item">
       <input type="checkbox" ${SELECTED_UNIT_IDS.has(u.id)?'checked':''} onchange="toggleUnit('${u.id}', this.checked)">
       <div>
         <div class="unit-pick-name">${escapeHtml(u.name)}</div>
-        <div class="unit-pick-sub">${u.wordCount} word${u.wordCount===1?'':'s'}</div>
+        <div class="unit-pick-sub">${u.wordCount} word${u.wordCount===1?'':'s'} · ${escapeHtml(u.level)}</div>
       </div>
       ${canManage ? `<div class="unit-pick-edit">
         <button type="button" class="unit-pick-icon" title="Edit" onclick="event.preventDefault();editUnit('${u.id}')">${IC.edit}</button>
@@ -191,6 +197,10 @@ function pickStudent(id, name) {
   document.getElementById('grantStudentId').value = id;
   document.getElementById('grantStudentQuery').value = name;
   document.getElementById('studentPickList').classList.remove('open');
+  const s = STUDENTS.find(x => x.id === id);
+  SELECTED_STUDENT_LEVEL = s?.groups?.[0]?.level || null;
+  SELECTED_UNIT_IDS = new Set(); // previous picks may not match the new student's level
+  renderUnitPickList();
 }
 document.addEventListener('click', e => {
   if (!e.target.closest('.student-pick')) document.getElementById('studentPickList').classList.remove('open');
@@ -207,6 +217,7 @@ async function grantAccess() {
     document.getElementById('grantStudentQuery').value = '';
     document.getElementById('grantStudentId').value = '';
     SELECTED_UNIT_IDS = new Set();
+    SELECTED_STUDENT_LEVEL = null;
     await loadAll();
   } catch(e) { showToast(e.message, 'error'); }
 }
@@ -261,6 +272,7 @@ function editUnit(id) {
   document.getElementById('unitModalTitle').textContent = 'Edit Unit';
   document.getElementById('uId').value = u.id;
   document.getElementById('uName').value = u.name;
+  document.getElementById('uLevel').value = u.level;
   document.getElementById('wordRows').innerHTML = '';
   u.words.forEach(w => addWordRow(w.en, w.enAlt, w.ru, w.ruAlt, w.uz, w.uzAlt));
   openModal('unitModal');
@@ -280,16 +292,17 @@ function parseWordCell(v) {
 async function saveUnit() {
   const id = document.getElementById('uId').value;
   const name = document.getElementById('uName').value.trim();
+  const level = document.getElementById('uLevel').value;
   const words = [...document.querySelectorAll('#wordRows .word-pair-row')].map(row => {
     const en = parseWordCell(row.querySelector('.w-en').value);
     const ru = parseWordCell(row.querySelector('.w-ru').value);
     const uz = parseWordCell(row.querySelector('.w-uz').value);
     return { en: en.main, enAlt: en.alts, ru: ru.main, ruAlt: ru.alts, uz: uz.main, uzAlt: uz.alts };
   }).filter(w => w.en && w.ru && w.uz);
-  if (!name || !words.length) return showToast('Name and at least one complete word (English + Russian + Uzbek) are required.', 'error');
+  if (!name || !level || !words.length) return showToast('Name, level, and at least one complete word (English + Russian + Uzbek) are required.', 'error');
   try {
-    if (id) await apiPut('/api/vocab/units/'+id, { name, words });
-    else await apiPost('/api/vocab/units', { name, words });
+    if (id) await apiPut('/api/vocab/units/'+id, { name, level, words });
+    else await apiPost('/api/vocab/units', { name, level, words });
     closeModal('unitModal');
     await loadAll();
     showToast('Saved.', 'success');

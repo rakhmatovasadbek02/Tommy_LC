@@ -321,6 +321,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS vocab_units (
       id            TEXT PRIMARY KEY,
       name          TEXT NOT NULL,
+      level         TEXT NOT NULL DEFAULT 'Elementary',
       words         JSONB NOT NULL DEFAULT '[]',
       created_at    TIMESTAMPTZ DEFAULT NOW()
     );
@@ -369,6 +370,10 @@ async function initDB() {
   // unit to the access grant instead. No real unit data existed under the old shape.
   await pool.query(`ALTER TABLE vocab_units DROP COLUMN IF EXISTS language_pair`).catch(() => {});
   await pool.query(`ALTER TABLE vocab_access ADD COLUMN IF NOT EXISTS language_pair TEXT NOT NULL DEFAULT 'RU-ENG'`).catch(() => {});
+
+  // Units are tagged with a course level (e.g. "Elementary") so Grant Access only offers
+  // units matching the student's group level.
+  await pool.query(`ALTER TABLE vocab_units ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'Elementary'`).catch(() => {});
 
   // student_history table (added as separate migration for safety)
   await pool.query(`CREATE TABLE IF NOT EXISTS student_history (
@@ -2216,7 +2221,7 @@ app.get('/api/vocab/units', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM vocab_units ORDER BY created_at DESC');
     res.json(rows.map(u => ({
-      id: u.id, name: u.name,
+      id: u.id, name: u.name, level: u.level,
       words: u.words || [], wordCount: (u.words || []).length, createdAt: u.created_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2225,13 +2230,15 @@ app.get('/api/vocab/units', async (req, res) => {
 app.post('/api/vocab/units', async (req, res) => {
   try {
     const name = String(req.body.name || '').trim().slice(0, 120);
+    const level = String(req.body.level || '').trim().slice(0, 40);
     const words = cleanWords(req.body.words);
     if (!name) return res.status(400).json({ error: 'Unit name is required.' });
+    if (!level) return res.status(400).json({ error: 'Level is required.' });
     if (!words.length) return res.status(400).json({ error: 'At least one word (with English, Russian and Uzbek) is required.' });
     const id = genVocabId('vunit');
     await pool.query(
-      `INSERT INTO vocab_units(id, name, words) VALUES($1,$2,$3)`,
-      [id, name, JSON.stringify(words)]
+      `INSERT INTO vocab_units(id, name, level, words) VALUES($1,$2,$3,$4)`,
+      [id, name, level, JSON.stringify(words)]
     );
     broadcast('vocab');
     res.json({ ok: true, id });
@@ -2241,12 +2248,14 @@ app.post('/api/vocab/units', async (req, res) => {
 app.put('/api/vocab/units/:id', async (req, res) => {
   try {
     const name = String(req.body.name || '').trim().slice(0, 120);
+    const level = String(req.body.level || '').trim().slice(0, 40);
     const words = cleanWords(req.body.words);
     if (!name) return res.status(400).json({ error: 'Unit name is required.' });
+    if (!level) return res.status(400).json({ error: 'Level is required.' });
     if (!words.length) return res.status(400).json({ error: 'At least one word (with English, Russian and Uzbek) is required.' });
     const { rowCount } = await pool.query(
-      `UPDATE vocab_units SET name=$1, words=$2 WHERE id=$3`,
-      [name, JSON.stringify(words), req.params.id]
+      `UPDATE vocab_units SET name=$1, level=$2, words=$3 WHERE id=$4`,
+      [name, level, JSON.stringify(words), req.params.id]
     );
     if (!rowCount) return res.status(404).json({ error: 'Unit not found.' });
     broadcast('vocab');
@@ -2302,13 +2311,18 @@ app.post('/api/vocab/access', async (req, res) => {
     if (!studentId || !unitIds.length) return res.status(400).json({ error: 'studentId and at least one unit are required.' });
     const [stu, units, groupR] = await Promise.all([
       pool.query('SELECT id FROM students WHERE id=$1', [studentId]),
-      pool.query('SELECT id FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
+      pool.query('SELECT id, level FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
       // The group's instruction language decides the pair: a UZ-medium group tests
       // ENG-UZ, an RU-medium group tests RU-ENG. Ungrouped/unknown students default RU-ENG.
-      pool.query(`SELECT lang FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]),
+      // The group's level restricts which units may be picked at all.
+      pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]),
     ]);
     if (!stu.rows[0]) return res.status(404).json({ error: 'Student not found.' });
     if (units.rows.length !== unitIds.length) return res.status(404).json({ error: 'One or more units were not found.' });
+    const studentLevel = groupR.rows[0]?.level || null;
+    if (studentLevel && units.rows.some(u => u.level !== studentLevel)) {
+      return res.status(400).json({ error: `This student's group is ${studentLevel} — pick units at that level.` });
+    }
     const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
     const id = genVocabId('vacc');
     let code;
