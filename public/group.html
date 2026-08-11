@@ -701,10 +701,24 @@ function shortUnitLabel(name) {
   if (!m) return name.slice(0, 6);
   return m[1] + (name.match(/Practical/) && !/[A-C]$/.test(m[1]) ? ' PE' : '');
 }
+// Book order: 1A, 1B, 1C, 1 Practical English, 2A, 2B, ... — not creation order.
+function unitSortKey(name) {
+  const m = name.match(/^(\d{1,2})([A-C])?/);
+  if (!m) return [999, 999];
+  const module = parseInt(m[1], 10);
+  const sub = m[2] ? { A: 0, B: 1, C: 2 }[m[2]] : 2.5; // Practical English sits right after C
+  return [module, sub];
+}
+function sortUnits(units) {
+  return [...units].sort((a, b) => {
+    const [am, as_] = unitSortKey(a.name), [bm, bs] = unitSortKey(b.name);
+    return am - bm || as_ - bs;
+  });
+}
 async function loadVocab() {
   try {
     const [units, attempts] = await Promise.all([apiGet('/api/vocab/units'), apiGet('/api/vocab/attempts')]);
-    VOCAB_UNITS = units.filter(u => u.level === group.level);
+    VOCAB_UNITS = sortUnits(units.filter(u => u.level === group.level));
     VOCAB_ATTEMPTS = attempts;
     renderVocab();
   } catch(e) {
