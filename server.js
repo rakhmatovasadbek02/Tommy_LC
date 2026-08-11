@@ -316,10 +316,11 @@ async function initDB() {
 
     -- Vocabulary test: units of words (a theme), plus one-time admin-granted access codes
     -- students use to take a test, plus a record of completed attempts.
+    -- Each word carries all 3 languages (en/ru/uz); which pair a given test quizzes
+    -- (RU-ENG or ENG-UZ) is chosen per grant, not baked into the unit.
     CREATE TABLE IF NOT EXISTS vocab_units (
       id            TEXT PRIMARY KEY,
       name          TEXT NOT NULL,
-      language_pair TEXT NOT NULL DEFAULT 'RU-ENG',
       words         JSONB NOT NULL DEFAULT '[]',
       created_at    TIMESTAMPTZ DEFAULT NOW()
     );
@@ -329,6 +330,7 @@ async function initDB() {
       code          TEXT UNIQUE NOT NULL,
       student_id    TEXT NOT NULL,
       unit_ids      JSONB NOT NULL DEFAULT '[]',
+      language_pair TEXT NOT NULL DEFAULT 'RU-ENG',
       granted_by    TEXT,
       question_set  JSONB,
       used          BOOLEAN DEFAULT FALSE,
@@ -362,6 +364,11 @@ async function initDB() {
   `).catch(() => {});
   await pool.query(`ALTER TABLE vocab_access DROP COLUMN IF EXISTS unit_id`).catch(() => {});
   await pool.query(`ALTER TABLE vocab_attempts DROP COLUMN IF EXISTS unit_id`).catch(() => {});
+
+  // Units are now trilingual (en/ru/uz per word); the RU-ENG/ENG-UZ pair moved from the
+  // unit to the access grant instead. No real unit data existed under the old shape.
+  await pool.query(`ALTER TABLE vocab_units DROP COLUMN IF EXISTS language_pair`).catch(() => {});
+  await pool.query(`ALTER TABLE vocab_access ADD COLUMN IF NOT EXISTS language_pair TEXT NOT NULL DEFAULT 'RU-ENG'`).catch(() => {});
 
   // student_history table (added as separate migration for safety)
   await pool.query(`CREATE TABLE IF NOT EXISTS student_history (
@@ -2179,20 +2186,37 @@ app.get('/api/students/:id/attendance', async (req, res) => {
 
 /* ══════════════════════════════════════
    VOCABULARY TEST
-   - vocab_units: admin-managed word banks per theme ("unit"), each tagged with a
-     fixed language pair (RU-ENG or ENG-UZ).
-   - vocab_access: a single-use code an admin/teacher grants a student; the student
-     enters the code on the standalone public test page (not linked in app nav yet).
+   - vocab_units: admin-managed word banks per theme ("unit"). Each word carries all 3
+     languages (en/ru/uz, each with optional alternate accepted answers).
+   - vocab_access: a single-use code an admin/teacher grants a student, covering one or
+     more units and a chosen language pair (RU-ENG or ENG-UZ). The student enters the
+     code on the standalone public test page (not linked in app nav yet).
    - vocab_attempts: completed results, for admin review.
 ══════════════════════════════════════ */
 function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function genVocabCode() { return String(Math.floor(100000 + Math.random() * 900000)); } // 6 digits
 
+function cleanWordField(v) {
+  return String(v || '').trim().slice(0, 150);
+}
+function cleanWordAlts(v) {
+  return Array.isArray(v) ? v.map(s => String(s).trim().slice(0, 150)).filter(Boolean) : [];
+}
+function cleanWords(words) {
+  return Array.isArray(words) ? words
+    .map(w => ({
+      en: cleanWordField(w.en), enAlt: cleanWordAlts(w.enAlt),
+      ru: cleanWordField(w.ru), ruAlt: cleanWordAlts(w.ruAlt),
+      uz: cleanWordField(w.uz), uzAlt: cleanWordAlts(w.uzAlt),
+    }))
+    .filter(w => w.en && w.ru && w.uz) : [];
+}
+
 app.get('/api/vocab/units', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM vocab_units ORDER BY created_at DESC');
     res.json(rows.map(u => ({
-      id: u.id, name: u.name, languagePair: u.language_pair,
+      id: u.id, name: u.name,
       words: u.words || [], wordCount: (u.words || []).length, createdAt: u.created_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2201,21 +2225,13 @@ app.get('/api/vocab/units', async (req, res) => {
 app.post('/api/vocab/units', async (req, res) => {
   try {
     const name = String(req.body.name || '').trim().slice(0, 120);
-    const languagePair = ['RU-ENG', 'ENG-UZ'].includes(req.body.languagePair) ? req.body.languagePair : 'RU-ENG';
-    const words = Array.isArray(req.body.words) ? req.body.words
-      .map(w => ({
-        front: String(w.front || '').trim().slice(0, 100),
-        back: String(w.back || '').trim().slice(0, 100),
-        altFront: Array.isArray(w.altFront) ? w.altFront.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
-        altBack: Array.isArray(w.altBack) ? w.altBack.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
-      }))
-      .filter(w => w.front && w.back) : [];
+    const words = cleanWords(req.body.words);
     if (!name) return res.status(400).json({ error: 'Unit name is required.' });
-    if (!words.length) return res.status(400).json({ error: 'At least one word pair is required.' });
+    if (!words.length) return res.status(400).json({ error: 'At least one word (with English, Russian and Uzbek) is required.' });
     const id = genVocabId('vunit');
     await pool.query(
-      `INSERT INTO vocab_units(id, name, language_pair, words) VALUES($1,$2,$3,$4)`,
-      [id, name, languagePair, JSON.stringify(words)]
+      `INSERT INTO vocab_units(id, name, words) VALUES($1,$2,$3)`,
+      [id, name, JSON.stringify(words)]
     );
     broadcast('vocab');
     res.json({ ok: true, id });
@@ -2225,20 +2241,12 @@ app.post('/api/vocab/units', async (req, res) => {
 app.put('/api/vocab/units/:id', async (req, res) => {
   try {
     const name = String(req.body.name || '').trim().slice(0, 120);
-    const languagePair = ['RU-ENG', 'ENG-UZ'].includes(req.body.languagePair) ? req.body.languagePair : 'RU-ENG';
-    const words = Array.isArray(req.body.words) ? req.body.words
-      .map(w => ({
-        front: String(w.front || '').trim().slice(0, 100),
-        back: String(w.back || '').trim().slice(0, 100),
-        altFront: Array.isArray(w.altFront) ? w.altFront.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
-        altBack: Array.isArray(w.altBack) ? w.altBack.map(s => String(s).trim().slice(0, 100)).filter(Boolean) : [],
-      }))
-      .filter(w => w.front && w.back) : [];
+    const words = cleanWords(req.body.words);
     if (!name) return res.status(400).json({ error: 'Unit name is required.' });
-    if (!words.length) return res.status(400).json({ error: 'At least one word pair is required.' });
+    if (!words.length) return res.status(400).json({ error: 'At least one word (with English, Russian and Uzbek) is required.' });
     const { rowCount } = await pool.query(
-      `UPDATE vocab_units SET name=$1, language_pair=$2, words=$3 WHERE id=$4`,
-      [name, languagePair, JSON.stringify(words), req.params.id]
+      `UPDATE vocab_units SET name=$1, words=$2 WHERE id=$3`,
+      [name, JSON.stringify(words), req.params.id]
     );
     if (!rowCount) return res.status(404).json({ error: 'Unit not found.' });
     broadcast('vocab');
@@ -2281,6 +2289,7 @@ app.get('/api/vocab/access', async (req, res) => {
       studentName: a.s_first ? `${a.s_last} ${a.s_first}` : '(deleted student)',
       unitIds: a.unit_ids || [],
       unitNames: (a.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
+      languagePair: a.language_pair,
       grantedBy: a.granted_by, used: a.used, usedAt: a.used_at, createdAt: a.created_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2290,7 +2299,9 @@ app.post('/api/vocab/access', async (req, res) => {
   try {
     const { studentId } = req.body;
     const unitIds = Array.isArray(req.body.unitIds) ? [...new Set(req.body.unitIds.filter(Boolean))] : [];
+    const languagePair = ['RU-ENG', 'ENG-UZ'].includes(req.body.languagePair) ? req.body.languagePair : null;
     if (!studentId || !unitIds.length) return res.status(400).json({ error: 'studentId and at least one unit are required.' });
+    if (!languagePair) return res.status(400).json({ error: 'A language pair (RU-ENG or ENG-UZ) is required.' });
     const [stu, units] = await Promise.all([
       pool.query('SELECT id FROM students WHERE id=$1', [studentId]),
       pool.query('SELECT id FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
@@ -2306,8 +2317,8 @@ app.post('/api/vocab/access', async (req, res) => {
     }
     const actor = req.user ? `${req.user.last_name} ${req.user.first_name}` : 'Someone';
     await pool.query(
-      `INSERT INTO vocab_access(id, code, student_id, unit_ids, granted_by) VALUES($1,$2,$3,$4,$5)`,
-      [id, code, studentId, JSON.stringify(unitIds), actor]
+      `INSERT INTO vocab_access(id, code, student_id, unit_ids, language_pair, granted_by) VALUES($1,$2,$3,$4,$5,$6)`,
+      [id, code, studentId, JSON.stringify(unitIds), languagePair, actor]
     );
     broadcast('vocab');
     res.json({ ok: true, id, code });
@@ -2350,7 +2361,7 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
     const { rows } = await pool.query(`
-      SELECT a.id, a.used, a.unit_ids, s.first_name, s.last_name
+      SELECT a.id, a.used, a.unit_ids, a.language_pair, s.first_name, s.last_name
       FROM vocab_access a
       JOIN students s ON s.id = a.student_id
       WHERE a.code = $1
@@ -2358,13 +2369,12 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
     const row = rows[0];
     if (!row) return res.status(404).json({ error: 'Invalid code.' });
     if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
-    const units = await pool.query('SELECT name, language_pair, words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
+    const units = await pool.query('SELECT name, words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
     if (!units.rows.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
     const unitNames = units.rows.map(u => u.name);
-    const languagePairs = [...new Set(units.rows.map(u => u.language_pair))];
     const wordCount = units.rows.reduce((sum, u) => sum + (u.words || []).length, 0);
     res.json({
-      accessId: row.id, unitNames, languagePair: languagePairs.length === 1 ? languagePairs[0] : 'mixed',
+      accessId: row.id, unitNames, languagePair: row.language_pair,
       wordCount, studentName: `${row.first_name} ${row.last_name}`
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2386,8 +2396,12 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
       const units = await pool.query('SELECT words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
       const words = units.rows.flatMap(u => u.words || []);
       if (!words.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
+      // language_pair picks which two of the word's 3 languages this test quizzes.
+      const frontKey = 'en', frontAltKey = 'enAlt';
+      const backKey = row.language_pair === 'ENG-UZ' ? 'uz' : 'ru';
+      const backAltKey = row.language_pair === 'ENG-UZ' ? 'uzAlt' : 'ruAlt';
       questionSet = words.map(w => ({
-        front: w.front, back: w.back, altFront: w.altFront || [], altBack: w.altBack || [],
+        front: w[frontKey], back: w[backKey], altFront: w[frontAltKey] || [], altBack: w[backAltKey] || [],
         direction: Math.random() < 0.5 ? 'f2b' : 'b2f', // front→back or back→front
       }));
       // shuffle order

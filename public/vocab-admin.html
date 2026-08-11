@@ -34,8 +34,10 @@
     .student-pick-list.open{display:block}
     .student-pick-item{padding:9px 13px;cursor:pointer;font-size:13.5px}
     .student-pick-item:hover{background:var(--surface)}
-    .word-pair-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
+    .word-pair-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
     .word-pair-row input{margin:0}
+    .word-col-labels{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:4px}
+    .word-col-labels span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
     .unit-pick-list{border:1.5px solid var(--border);border-radius:10px;max-height:260px;overflow:auto}
     .unit-pick-item{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer}
     .unit-pick-item:last-child{border-bottom:none}
@@ -73,6 +75,13 @@
           <label>Units / Themes <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(pick one or more — the test mixes all their words together)</span></label>
           <div class="unit-pick-list" id="unitPickList"></div>
         </div>
+        <div class="form-group">
+          <label>Language pair</label>
+          <select id="grantLangPair">
+            <option value="RU-ENG">Russian ↔ English</option>
+            <option value="ENG-UZ">English ↔ Uzbek</option>
+          </select>
+        </div>
         <button class="btn btn-primary" onclick="grantAccess()">Generate Code</button>
         <div id="grantResult"></div>
       </div>
@@ -89,7 +98,7 @@
 </div>
 
 <div class="modal-overlay" id="unitModal">
-  <div class="modal" style="width:640px">
+  <div class="modal" style="width:820px">
     <div class="modal-header">
       <div class="modal-title" id="unitModalTitle">New Unit</div>
       <button class="modal-close" onclick="closeModal('unitModal')">✕</button>
@@ -98,16 +107,10 @@
       <input type="hidden" id="uId">
       <div class="form-row">
         <div class="form-group"><label>Unit / Theme name *</label><input type="text" id="uName" placeholder="Unit 4 — Food"></div>
-        <div class="form-group">
-          <label>Language pair *</label>
-          <select id="uPair">
-            <option value="RU-ENG">Russian ↔ English</option>
-            <option value="ENG-UZ">English ↔ Uzbek</option>
-          </select>
-        </div>
       </div>
       <div class="form-group">
-        <label id="uColLabel">Word pairs *</label>
+        <label>Words * <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(English / Russian / Uzbek)</span></label>
+        <div class="word-col-labels"><span>English</span><span>Russian</span><span>Uzbek</span><span></span></div>
         <div id="wordRows"></div>
         <button class="btn btn-outline" type="button" onclick="addWordRow()" style="margin-top:4px">+ Add word</button>
         <div style="font-size:12px;color:var(--muted);margin-top:8px">Alternate accepted answers can be separated with "/" (e.g. <code>hi/hello</code>).</div>
@@ -173,7 +176,7 @@ function renderUnitPickList() {
       <input type="checkbox" ${SELECTED_UNIT_IDS.has(u.id)?'checked':''} onchange="toggleUnit('${u.id}', this.checked)">
       <div>
         <div class="unit-pick-name">${escapeHtml(u.name)}</div>
-        <div class="unit-pick-sub">${u.wordCount} word${u.wordCount===1?'':'s'} · ${u.languagePair === 'RU-ENG' ? 'RU ↔ ENG' : 'ENG ↔ UZ'}</div>
+        <div class="unit-pick-sub">${u.wordCount} word${u.wordCount===1?'':'s'}</div>
       </div>
       ${canManage ? `<div class="unit-pick-edit">
         <button type="button" class="unit-pick-icon" title="Edit" onclick="event.preventDefault();editUnit('${u.id}')">${IC.edit}</button>
@@ -203,10 +206,11 @@ document.addEventListener('click', e => {
 async function grantAccess() {
   const studentId = document.getElementById('grantStudentId').value;
   const unitIds = [...SELECTED_UNIT_IDS];
+  const languagePair = document.getElementById('grantLangPair').value;
   if (!studentId) return showToast('Pick a student first.', 'error');
   if (!unitIds.length) return showToast('Pick at least one unit.', 'error');
   try {
-    const r = await apiPost('/api/vocab/access', { studentId, unitIds });
+    const r = await apiPost('/api/vocab/access', { studentId, unitIds, languagePair });
     document.getElementById('grantResult').innerHTML = `<div class="vcode-box">${r.code}</div><div style="text-align:center;color:var(--muted);font-size:12px">Give this code to the student on vocab-test.html. Single use.</div>`;
     document.getElementById('grantStudentQuery').value = '';
     document.getElementById('grantStudentId').value = '';
@@ -246,13 +250,15 @@ function renderHistory() {
 }
 
 /* ---- Unit create/edit modal ---- */
-function addWordRow(front, back, altFront, altBack) {
+function joinAlt(main, alts) { return (main||'') + (alts && alts.length ? ('/'+alts.join('/')) : ''); }
+function addWordRow(en, enAlt, ru, ruAlt, uz, uzAlt) {
   const wrap = document.getElementById('wordRows');
   const row = document.createElement('div');
   row.className = 'word-pair-row';
   row.innerHTML = `
-    <input type="text" class="w-front" placeholder="front word (+ /alt)" value="${escapeAttr((front||'')+(altFront&&altFront.length?('/'+altFront.join('/')):''))}">
-    <input type="text" class="w-back" placeholder="translation (+ /alt)" value="${escapeAttr((back||'')+(altBack&&altBack.length?('/'+altBack.join('/')):''))}">
+    <input type="text" class="w-en" placeholder="English (+ /alt)" value="${escapeAttr(joinAlt(en, enAlt))}">
+    <input type="text" class="w-ru" placeholder="Russian (+ /alt)" value="${escapeAttr(joinAlt(ru, ruAlt))}">
+    <input type="text" class="w-uz" placeholder="Uzbek (+ /alt)" value="${escapeAttr(joinAlt(uz, uzAlt))}">
     <button class="btn btn-outline" type="button" onclick="this.parentElement.remove()">✕</button>
   `;
   wrap.appendChild(row);
@@ -263,9 +269,8 @@ function editUnit(id) {
   document.getElementById('unitModalTitle').textContent = 'Edit Unit';
   document.getElementById('uId').value = u.id;
   document.getElementById('uName').value = u.name;
-  document.getElementById('uPair').value = u.languagePair;
   document.getElementById('wordRows').innerHTML = '';
-  u.words.forEach(w => addWordRow(w.front, w.back, w.altFront, w.altBack));
+  u.words.forEach(w => addWordRow(w.en, w.enAlt, w.ru, w.ruAlt, w.uz, w.uzAlt));
   openModal('unitModal');
 }
 async function deleteUnit(id) {
@@ -283,16 +288,16 @@ function parseWordCell(v) {
 async function saveUnit() {
   const id = document.getElementById('uId').value;
   const name = document.getElementById('uName').value.trim();
-  const languagePair = document.getElementById('uPair').value;
   const words = [...document.querySelectorAll('#wordRows .word-pair-row')].map(row => {
-    const f = parseWordCell(row.querySelector('.w-front').value);
-    const b = parseWordCell(row.querySelector('.w-back').value);
-    return { front: f.main, back: b.main, altFront: f.alts, altBack: b.alts };
-  }).filter(w => w.front && w.back);
-  if (!name || !words.length) return showToast('Name and at least one word pair are required.', 'error');
+    const en = parseWordCell(row.querySelector('.w-en').value);
+    const ru = parseWordCell(row.querySelector('.w-ru').value);
+    const uz = parseWordCell(row.querySelector('.w-uz').value);
+    return { en: en.main, enAlt: en.alts, ru: ru.main, ruAlt: ru.alts, uz: uz.main, uzAlt: uz.alts };
+  }).filter(w => w.en && w.ru && w.uz);
+  if (!name || !words.length) return showToast('Name and at least one complete word (English + Russian + Uzbek) are required.', 'error');
   try {
-    if (id) await apiPut('/api/vocab/units/'+id, { name, languagePair, words });
-    else await apiPost('/api/vocab/units', { name, languagePair, words });
+    if (id) await apiPut('/api/vocab/units/'+id, { name, words });
+    else await apiPost('/api/vocab/units', { name, words });
     closeModal('unitModal');
     await loadAll();
     showToast('Saved.', 'success');
