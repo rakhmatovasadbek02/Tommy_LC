@@ -2204,7 +2204,7 @@ app.post('/api/public/lead-signup', async (req, res) => {
 // still sitting in Registration status, so it can't be used to edit an unrelated/older lead.
 app.put('/api/public/lead-test/:id', async (req, res) => {
   try {
-    const LEVELS = ['RoundUp','Beginner','Elementary','Pre-Intermediate','Intermediate','CEFR','IELTS'];
+    const LEVELS = ['Beginner','Elementary','Pre-Intermediate','Intermediate'];
     const level = String(req.body.level || '');
     const testResult = String(req.body.testResult || '').trim().slice(0, 100);
     if (!LEVELS.includes(level)) return res.status(400).json({ error: 'Invalid level.' });

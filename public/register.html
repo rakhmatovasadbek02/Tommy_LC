@@ -149,7 +149,7 @@ input[type="text"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255
 
   <div class="test-view" id="testView">
     <div class="test-progress-wrap"><div class="test-progress-bar" id="testProgressBar" style="width:0%"></div></div>
-    <div class="test-counter" id="testCounter">Question 1 of 21</div>
+    <div class="test-counter" id="testCounter">Question 1 of 30</div>
     <div class="test-question" id="testQuestion"></div>
     <div class="test-options" id="testOptions"></div>
     <button class="btn-next" id="testNextBtn" onclick="nextQuestion()" disabled>Next</button>
@@ -222,43 +222,171 @@ async function submitRegistration() {
   }
 }
 
-/* ── Level-check test: 21 questions, 3 per level band, easy → hard ── */
-const LEVEL_BANDS = ['RoundUp','Beginner','Elementary','Pre-Intermediate','Intermediate','CEFR','IELTS'];
-const TEST_QUESTIONS = [
-  // RoundUp
-  { level:'RoundUp', q:'I ___ a student.', options:['am','is','are','be'], correct:0 },
-  { level:'RoundUp', q:'Choose the correct word for 🐱', options:['Dog','Cat','Car','Book'], correct:1 },
-  { level:'RoundUp', q:'She ___ to school every day.', options:['go','goes','going','gone'], correct:1 },
-  // Beginner
-  { level:'Beginner', q:'There ___ two books on the table.', options:['is','are','be','was'], correct:1 },
-  { level:'Beginner', q:'What is the opposite of "big"?', options:['Small','Tall','Fast','Happy'], correct:0 },
-  { level:'Beginner', q:'___ you like tea?', options:['Do','Does','Are','Is'], correct:0 },
-  // Elementary
-  { level:'Elementary', q:'I ___ my homework yesterday.', options:['do','did','done','does'], correct:1 },
-  { level:'Elementary', q:'He is ___ than his brother.', options:['tall','taller','tallest','more tall'], correct:1 },
-  { level:'Elementary', q:'Which word means the same as "happy"?', options:['Sad','Glad','Angry','Tired'], correct:1 },
-  // Pre-Intermediate
-  { level:'Pre-Intermediate', q:'If it rains, I ___ stay home.', options:['will','would','was','am'], correct:0 },
-  { level:'Pre-Intermediate', q:'She has ___ finished her work.', options:['already','yet','still','ago'], correct:0 },
-  { level:'Pre-Intermediate', q:'This book is ___ interesting than that one.', options:['more','most','much','very'], correct:0 },
-  // Intermediate
-  { level:'Intermediate', q:'By the time we arrived, the movie ___.', options:['already started','had already started','already starts','has already start'], correct:1 },
-  { level:'Intermediate', q:'I wish I ___ more time.', options:['have','had','has','having'], correct:1 },
-  { level:'Intermediate', q:'He denied ___ the money.', options:['to steal','stealing','steal','stolen'], correct:1 },
-  // CEFR (upper-intermediate/advanced)
-  { level:'CEFR', q:'Not only ___ the exam, but she also got the highest score.', options:['she passed','did she pass','she did pass','passed she'], correct:1 },
-  { level:'CEFR', q:'Which word is closest in meaning to "meticulous"?', options:['Careless','Careful','Quick','Lazy'], correct:1 },
-  { level:'CEFR', q:'Had I known about the meeting, I ___ attended.', options:['would have','will have','would','had'], correct:0 },
-  // IELTS (exam-level)
-  { level:'IELTS', q:"The report's findings were ___ with previous research.", options:['consistent','insistent','persistent','resistant'], correct:0 },
-  { level:'IELTS', q:'It is essential that he ___ present at the meeting.', options:['is','be','was','being'], correct:1 },
-  { level:'IELTS', q:'Despite ___ warned repeatedly, he continued the risky behavior.', options:['being','be','to be','been'], correct:0 },
+/* ── Level-check test: 4 shuffled variants of 30 questions each, easy → hard.
+   Placement is limited to Beginner / Elementary / Pre-Intermediate / Intermediate —
+   the other cases (absolute beginners, advanced/exam-prep) are judged by staff. */
+const OUTPUT_LEVELS = ['Beginner','Elementary','Pre-Intermediate','Intermediate'];
+const VARIANTS = [
+  // ── Variant 1 ──
+  [
+    { level:'Beginner', q:'She ___ two brothers and one sister.', options:['have','has','having','to have'], correct:1 },
+    { level:'Beginner', q:'Look! It ___ outside.', options:['rain','rains','is raining','rained'], correct:2 },
+    { level:'Beginner', q:'This is ___ book, not yours.', options:['my','mine','I','me'], correct:0 },
+    { level:'Beginner', q:"There isn't ___ milk in the fridge.", options:['some','any','a','an'], correct:1 },
+    { level:'Beginner', q:'He can ___ French very well.', options:['speak','speaks','speaking','spoke'], correct:0 },
+    { level:'Beginner', q:'What time ___ you usually get up?', options:['do','does','are','is'], correct:0 },
+    { level:'Beginner', q:'The children are playing ___ the garden.', options:['in','on','at','to'], correct:0 },
+    { level:'Beginner', q:'My sister is younger ___ me.', options:['than','then','that','as'], correct:0 },
+    { level:'Elementary', q:'Yesterday we ___ to the cinema.', options:['go','goes','went','gone'], correct:2 },
+    { level:'Elementary', q:'This exercise is ___ than the last one.', options:['difficult','more difficult','most difficult','difficulter'], correct:1 },
+    { level:'Elementary', q:'I ___ my keys — have you seen them?', options:['lose','lost','have lost','losing'], correct:2 },
+    { level:'Elementary', q:'There ___ many people at the party last night.', options:['was','were','is','are'], correct:1 },
+    { level:'Elementary', q:'We ___ going to visit our grandparents next weekend.', options:['is','am','are','be'], correct:2 },
+    { level:'Elementary', q:'How ___ sugar do you want in your tea?', options:['many','much','a lot','few'], correct:1 },
+    { level:'Elementary', q:"You ___ smoke here — it's not allowed.", options:['must','mustn’t','don’t have to','can'], correct:1 },
+    { level:'Elementary', q:"She's the ___ student in our class.", options:['good','better','best','most good'], correct:2 },
+    { level:'Pre-Intermediate', q:'If I ___ more time, I would learn another language.', options:['have','had','has','will have'], correct:1 },
+    { level:'Pre-Intermediate', q:'The letter ___ by my colleague this morning.', options:['wrote','was written','has written','is writing'], correct:1 },
+    { level:'Pre-Intermediate', q:'The man ___ is standing over there is my uncle.', options:['who','which','whose','where'], correct:0 },
+    { level:'Pre-Intermediate', q:'I ___ tennis every Sunday when I was a child.', options:['used to play','use to play','was play','played to'], correct:0 },
+    { level:'Pre-Intermediate', q:'She has been working here ___ five years.', options:['since','for','during','from'], correct:1 },
+    { level:'Pre-Intermediate', q:'By next year, I ___ my studies.', options:['will finish','will have finished','finish','am finishing'], correct:1 },
+    { level:'Pre-Intermediate', q:'He asked me where ___.', options:['do I live','I live','did I live','I lived'], correct:3 },
+    { level:'Intermediate', q:'If I ___ known about the traffic, I would have left earlier.', options:['had','have','would','was'], correct:0 },
+    { level:'Intermediate', q:'She said that she ___ the report by Friday.', options:['will finish','would finish','finishes','finished'], correct:1 },
+    { level:'Intermediate', q:'He must ___ the meeting — he looks upset.', options:['miss','have missed','missing','missed'], correct:1 },
+    { level:'Intermediate', q:'___ the bad weather, the match went ahead.', options:['Although','Despite','However','Because'], correct:1 },
+    { level:'Intermediate', q:"The company's profits have ___ significantly this year.", options:['raised','risen','rose','raise'], correct:1 },
+    { level:'Intermediate', q:'She never gives ___ easily, no matter how hard it gets.', options:['in','up','out','off'], correct:0 },
+    { level:'Intermediate', q:"Had they ___ earlier, they wouldn't have missed the train.", options:['leave','left','leaving','to leave'], correct:1 },
+  ],
+  // ── Variant 2 ──
+  [
+    { level:'Beginner', q:'They ___ from Spain.', options:['is','am','are','be'], correct:2 },
+    { level:'Beginner', q:'___ you like coffee or tea?', options:['Do','Does','Is','Are'], correct:0 },
+    { level:'Beginner', q:"This is ___ car. It's very old.", options:['our','we','us','ours'], correct:0 },
+    { level:'Beginner', q:'There ___ a cat under the table.', options:['is','are','be','am'], correct:0 },
+    { level:'Beginner', q:'He usually ___ breakfast at 7 a.m.', options:['have','has','having','had'], correct:1 },
+    { level:'Beginner', q:"I don't have ___ brothers or sisters.", options:['some','any','no','a'], correct:1 },
+    { level:'Beginner', q:'Can you ___ the piano?', options:['play','plays','playing','played'], correct:0 },
+    { level:'Beginner', q:'My house is bigger ___ yours.', options:['that','than','then','as'], correct:1 },
+    { level:'Elementary', q:'Last summer, we ___ to Italy.', options:['travel','travels','travelled','travelling'], correct:2 },
+    { level:'Elementary', q:'This test is ___ than I expected.', options:['easy','easier','easiest','more easy'], correct:1 },
+    { level:'Elementary', q:"She ___ her phone somewhere — she's looking everywhere.", options:['lose','lost','has lost','losing'], correct:2 },
+    { level:'Elementary', q:'There ___ a lot of traffic this morning.', options:['was','were','is','are'], correct:0 },
+    { level:'Elementary', q:'We ___ meeting our friends this evening.', options:['is','am','are','be'], correct:2 },
+    { level:'Elementary', q:'How ___ apples do we need for the pie?', options:['much','many','a little','less'], correct:1 },
+    { level:'Elementary', q:"You ___ wear a seatbelt in the car — it's the law.", options:['must','mustn’t','could','might'], correct:0 },
+    { level:'Elementary', q:"This is the ___ film I've ever seen.", options:['bad','worse','worst','more bad'], correct:2 },
+    { level:'Pre-Intermediate', q:'If she ___ harder, she would pass the exam.', options:['study','studies','studied','will study'], correct:2 },
+    { level:'Pre-Intermediate', q:'The bridge ___ in 1990.', options:['built','was built','has built','is building'], correct:1 },
+    { level:'Pre-Intermediate', q:'The woman ___ car was stolen called the police.', options:['who','which','whose','that'], correct:2 },
+    { level:'Pre-Intermediate', q:'He ___ to smoke, but he quit two years ago.', options:['used','use to','used to','was used'], correct:2 },
+    { level:'Pre-Intermediate', q:"I haven't seen her ___ last month.", options:['for','since','during','ago'], correct:1 },
+    { level:'Pre-Intermediate', q:'By the time you arrive, we ___ dinner.', options:['will cook','will have cooked','cook','are cooking'], correct:1 },
+    { level:'Pre-Intermediate', q:'She wanted to know when ___.', options:['the train arrives','does the train arrive','the train arrived','did the train arrive'], correct:2 },
+    { level:'Intermediate', q:'If they ___ earlier, they would have caught the flight.', options:['leave','left','had left','would leave'], correct:2 },
+    { level:'Intermediate', q:'He told me that he ___ tired after the long trip.', options:['is','was','be','being'], correct:1 },
+    { level:'Intermediate', q:"She can't have ___ the email — she replied within minutes.", options:['miss','missed','missing','to miss'], correct:1 },
+    { level:'Intermediate', q:'___ the heavy rain, the outdoor event continued.', options:['Because','Although','Despite','So'], correct:2 },
+    { level:'Intermediate', q:'Prices have ___ sharply over the last few months.', options:['rise','risen','raised','rose'], correct:1 },
+    { level:'Intermediate', q:'He decided to give ___ smoking for good.', options:['in','up','out','away'], correct:1 },
+    { level:'Intermediate', q:"Had she ___ the instructions, she wouldn't have made that mistake.", options:['follow','followed','following','follows'], correct:1 },
+  ],
+  // ── Variant 3 ──
+  [
+    { level:'Beginner', q:'We ___ happy today.', options:['is','am','are','be'], correct:2 },
+    { level:'Beginner', q:'___ she like pizza?', options:['Do','Does','Is','Are'], correct:1 },
+    { level:'Beginner', q:'Is this ___ bag?', options:['you','your','yours','you’re'], correct:1 },
+    { level:'Beginner', q:'There ___ some apples in the basket.', options:['is','are','be','was'], correct:1 },
+    { level:'Beginner', q:'My father ___ to work by bus.', options:['go','goes','going','gone'], correct:1 },
+    { level:'Beginner', q:"There isn't ___ bread left.", options:['some','any','a','many'], correct:1 },
+    { level:'Beginner', q:'She can ___ very fast.', options:['run','runs','running','ran'], correct:0 },
+    { level:'Beginner', q:'Winter is colder ___ summer.', options:['that','than','then','as'], correct:1 },
+    { level:'Elementary', q:'We ___ a great movie last night.', options:['watch','watches','watched','watching'], correct:2 },
+    { level:'Elementary', q:'He is ___ than his older brother.', options:['strong','stronger','strongest','more strong'], correct:1 },
+    { level:'Elementary', q:'I ___ my umbrella somewhere on the bus.', options:['leave','left','have left','leaving'], correct:2 },
+    { level:'Elementary', q:'There ___ two students absent yesterday.', options:['was','were','is','are'], correct:1 },
+    { level:'Elementary', q:'They ___ having a party next Saturday.', options:['is','am','are','be'], correct:2 },
+    { level:'Elementary', q:"We don't have ___ time left before the exam.", options:['much','many','few','a few'], correct:0 },
+    { level:'Elementary', q:'Students ___ bring their ID cards to the test.', options:['mustn’t','must','might','could'], correct:1 },
+    { level:'Elementary', q:'It was the ___ day of my life.', options:['good','better','best','goodest'], correct:2 },
+    { level:'Pre-Intermediate', q:'If he ___ the truth, no one would be angry.', options:['tell','tells','told','will tell'], correct:2 },
+    { level:'Pre-Intermediate', q:'This song ___ by a famous singer.', options:['sang','was sung','has sang','is singing'], correct:1 },
+    { level:'Pre-Intermediate', q:'The book ___ I borrowed from you was excellent.', options:['who','which','whose','where'], correct:1 },
+    { level:'Pre-Intermediate', q:'She ___ live in London, but she moved away.', options:['used to','use to','was used to','uses to'], correct:0 },
+    { level:'Pre-Intermediate', q:'He has worked at this company ___ 2015.', options:['for','since','during','from'], correct:1 },
+    { level:'Pre-Intermediate', q:'By next month, she ___ her thesis.', options:['will write','will have written','writes','is writing'], correct:1 },
+    { level:'Pre-Intermediate', q:'I wondered what time the shop ___.', options:['closes','close','closed','did close'], correct:2 },
+    { level:'Intermediate', q:"If we ___ the map, we wouldn't have got lost.", options:['have','had','have had','had had'], correct:3 },
+    { level:'Intermediate', q:'He explained that he ___ the deadline the next day.', options:['will meet','would meet','meets','met'], correct:1 },
+    { level:'Intermediate', q:"She must ___ the message — she hasn't replied all day.", options:['not see','not have seen','not seeing','not to see'], correct:1 },
+    { level:'Intermediate', q:'___ he was exhausted, he kept working.', options:['Despite','Although','Because of','So'], correct:1 },
+    { level:'Intermediate', q:'The temperature has ___ steadily since morning.', options:['fall','fallen','fell','falling'], correct:1 },
+    { level:'Intermediate', q:'They finally managed to sort ___ their differences.', options:['out','up','off','in'], correct:0 },
+    { level:'Intermediate', q:"Had I ___ you were busy, I wouldn't have called.", options:['know','known','knowing','knew'], correct:1 },
+  ],
+  // ── Variant 4 ──
+  [
+    { level:'Beginner', q:'He ___ a doctor.', options:['is','am','are','be'], correct:0 },
+    { level:'Beginner', q:'___ they live near here?', options:['Do','Does','Is','Are'], correct:0 },
+    { level:'Beginner', q:'These are ___ shoes, not mine.', options:['his','he','him','he’s'], correct:0 },
+    { level:'Beginner', q:'There ___ an apple on the desk.', options:['is','are','be','am'], correct:0 },
+    { level:'Beginner', q:'My mother ___ dinner every evening.', options:['cook','cooks','cooking','cooked'], correct:1 },
+    { level:'Beginner', q:"We don't need ___ help, thanks.", options:['some','any','no','an'], correct:1 },
+    { level:'Beginner', q:'Can he ___ well?', options:['swim','swims','swimming','swam'], correct:0 },
+    { level:'Beginner', q:'This exam is harder ___ the last one.', options:['that','than','then','as'], correct:1 },
+    { level:'Elementary', q:'They ___ football yesterday afternoon.', options:['play','plays','played','playing'], correct:2 },
+    { level:'Elementary', q:'This road is ___ than the other one.', options:['busy','busier','busiest','more busy'], correct:1 },
+    { level:'Elementary', q:'I ___ my wallet — can you help me find it?', options:['lose','lost','have lost','losing'], correct:2 },
+    { level:'Elementary', q:'There ___ many cars in the car park this morning.', options:['was','were','is','are'], correct:1 },
+    { level:'Elementary', q:'We ___ travelling to Korea next spring.', options:['is','am','are','be'], correct:2 },
+    { level:'Elementary', q:'How ___ water should I drink every day?', options:['much','many','a few','several'], correct:0 },
+    { level:'Elementary', q:'Passengers ___ fasten their seatbelts during takeoff.', options:['mustn’t','must','might','could'], correct:1 },
+    { level:'Elementary', q:"This is the ___ cake I've ever tasted.", options:['good','better','best','goodest'], correct:2 },
+    { level:'Pre-Intermediate', q:'If you ___ me, I would help you.', options:['ask','asks','asked','had asked'], correct:2 },
+    { level:'Pre-Intermediate', q:'The window ___ by the wind last night.', options:['broke','was broken','has broken','is breaking'], correct:1 },
+    { level:'Pre-Intermediate', q:"The teacher ___ class I'm in is very strict.", options:['who','which','whose','where'], correct:2 },
+    { level:'Pre-Intermediate', q:'She ___ play the violin when she was young.', options:['used to','use to','was use to','uses to'], correct:0 },
+    { level:'Pre-Intermediate', q:"We haven't spoken ___ our last argument.", options:['for','since','during','ago'], correct:1 },
+    { level:'Pre-Intermediate', q:'By the end of the year, they ___ the new building.', options:['will complete','will have completed','complete','are completing'], correct:1 },
+    { level:'Pre-Intermediate', q:'He asked her whether she ___ tired.', options:['is','was','be','being'], correct:1 },
+    { level:'Intermediate', q:"If she ___ the alarm, she wouldn't have overslept.", options:['hear','heard','had heard','would hear'], correct:2 },
+    { level:'Intermediate', q:'They announced that the flight ___ delayed.', options:['is','was','be','been'], correct:1 },
+    { level:'Intermediate', q:"He can't have ___ that on purpose — he's usually so careful.", options:['do','done','did','doing'], correct:1 },
+    { level:'Intermediate', q:'___ the traffic, we arrived on time.', options:['Because of','Although','Despite','So'], correct:2 },
+    { level:'Intermediate', q:'Costs have ___ dramatically this quarter.', options:['increase','increased','increasing','increases'], correct:1 },
+    { level:'Intermediate', q:'She refused to back ___ from her decision.', options:['down','up','out','off'], correct:0 },
+    { level:'Intermediate', q:"Had he ___ more carefully, he wouldn't have made that error.", options:['read','reads','reading','to read'], correct:0 },
+  ],
 ];
+let TEST_QUESTIONS = [];
 let _testIdx = 0;
 let _testAnswers = [];
 
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+// Shuffle each question's A/B/C/D order (fresh copy — never mutates the source bank).
+function shuffleQuestionOptions(q) {
+  const order = shuffleArray([0, 1, 2, 3]);
+  return {
+    level: q.level,
+    q: q.q,
+    options: order.map(i => q.options[i]),
+    correct: order.indexOf(q.correct),
+  };
+}
+
 function startTest() {
   clearTimeout(_autoResetTimer);
+  const variant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
+  TEST_QUESTIONS = variant.map(shuffleQuestionOptions);
   _testIdx = 0;
   _testAnswers = new Array(TEST_QUESTIONS.length).fill(null);
   document.getElementById('successView').classList.remove('show');
@@ -298,9 +426,11 @@ function nextQuestion() {
 }
 
 function computeLevel(score) {
-  // 3 questions per band; every 3 correct unlocks the next band.
-  const bandIdx = Math.min(Math.floor(score / 3), LEVEL_BANDS.length - 1);
-  return LEVEL_BANDS[bandIdx];
+  // Out of 30 questions.
+  if (score <= 7) return 'Beginner';
+  if (score <= 15) return 'Elementary';
+  if (score <= 22) return 'Pre-Intermediate';
+  return 'Intermediate';
 }
 
 async function finishTest() {
