@@ -511,6 +511,7 @@ const NAV_ICONS = {
  todolist: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
  reminders: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
  statistics: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+ vocab: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M10 8h6M10 12h4"/></svg>`,
 };
 
 const IC = {
@@ -543,6 +544,7 @@ function renderSidebar(activePage) {
    { feature:'manreminders', href:'reminders.html',  iconKey:'reminders', label:'Reminders'  },
    { feature:'students',  href:'students.html',   iconKey:'students',  label:'Students'   },
    { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
+   { feature:'vocab',     href:'vocab-admin.html',iconKey:'vocab',     label:'Vocabulary' },
    { feature:'payments',  href:'finance.html',    iconKey:'payments',  label:'Finance'    },
    { feature:'settings',  href:'users.html',      iconKey:'settings',  label:'Staff'      },
    { feature:'archived',  href:'archived.html',   iconKey:'archived',  label:'Archived'   },
