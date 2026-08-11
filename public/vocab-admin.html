@@ -72,7 +72,6 @@
         <div class="form-group">
           <label>Units / Themes <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(pick one or more — the test mixes all their words together)</span></label>
           <div class="unit-pick-list" id="unitPickList"></div>
-          <button class="btn btn-outline" type="button" onclick="openUnitModal()" style="margin-top:8px" id="newUnitBtn">+ New Unit</button>
         </div>
         <button class="btn btn-primary" onclick="grantAccess()">Generate Code</button>
         <div id="grantResult"></div>
@@ -130,7 +129,6 @@ renderSidebar('vocab');
 let UNITS = [], STUDENTS = [], ACCESS = [], ATTEMPTS = [];
 let SELECTED_UNIT_IDS = new Set();
 const canManage = can('vocab');
-document.getElementById('newUnitBtn').style.display = canManage ? '' : 'none';
 
 async function loadAll() {
   [UNITS, STUDENTS, ACCESS, ATTEMPTS] = await Promise.all([
@@ -258,15 +256,6 @@ function addWordRow(front, back, altFront, altBack) {
     <button class="btn btn-outline" type="button" onclick="this.parentElement.remove()">✕</button>
   `;
   wrap.appendChild(row);
-}
-function openUnitModal() {
-  document.getElementById('unitModalTitle').textContent = 'New Unit';
-  document.getElementById('uId').value = '';
-  document.getElementById('uName').value = '';
-  document.getElementById('uPair').value = 'RU-ENG';
-  document.getElementById('wordRows').innerHTML = '';
-  addWordRow(); addWordRow(); addWordRow();
-  openModal('unitModal');
 }
 function editUnit(id) {
   const u = UNITS.find(x => x.id === id);
