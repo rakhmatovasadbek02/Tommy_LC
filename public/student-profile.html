@@ -35,10 +35,15 @@
     .pc2-icon-btn { width:32px; height:32px; border-radius:50%; border:1.5px solid var(--border); background:white; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--muted); transition:all 0.15s; flex-shrink:0; }
     .pc2-icon-btn:hover { border-color:var(--crimson); color:var(--crimson); background:var(--crimson-soft); transform:translateY(-1px); box-shadow:0 3px 8px rgba(153,0,0,.15); }
     .pc2-icon-btn.danger:hover { border-color:#dc2626; color:#dc2626; background:#fef2f2; }
-    .pc2-bottom-actions { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:16px; }
-    .pc2-action-btn { display:flex; flex-direction:column; align-items:center; gap:6px; padding:11px 6px; border-radius:12px; border:1.5px solid var(--border); background:white; color:var(--muted); cursor:pointer; font-size:11px; font-weight:700; transition:all 0.15s; }
+    .pc2-bottom-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:16px; }
+    .pc2-action-btn { display:flex; flex-direction:column; align-items:center; gap:4px; padding:7px 4px; border-radius:9px; border:1.5px solid var(--border); background:white; color:var(--muted); cursor:pointer; font-size:9.5px; font-weight:700; transition:all 0.15s; }
+    .pc2-action-btn svg { width:13px; height:13px; }
     .pc2-action-btn:hover { border-color:var(--crimson); color:var(--crimson); background:var(--crimson-soft); transform:translateY(-1px); box-shadow:0 3px 8px rgba(153,0,0,.12); }
     .pc2-action-btn.danger:hover { border-color:#dc2626; color:#dc2626; background:#fef2f2; box-shadow:0 3px 8px rgba(220,38,38,.12); }
+
+    .pc2-vocab-btn { display:flex; align-items:center; gap:6px; padding:8px 14px 8px 10px; border-radius:99px; border:none; background:linear-gradient(135deg,var(--crimson),var(--crimson-dark)); color:white; cursor:pointer; font-size:12px; font-weight:700; transition:all 0.15s; box-shadow:0 3px 10px rgba(153,0,0,.3); }
+    .pc2-vocab-btn:hover { transform:translateY(-1px); box-shadow:0 5px 14px rgba(153,0,0,.4); }
+    .pc2-vocab-btn svg { flex-shrink:0; }
     .pc2-name-row { display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:12px; }
     .pc2-name { font-size:20px; font-weight:800; color:var(--text); letter-spacing:-.2px; }
     .pc2-id { font-size:12px; color:var(--muted); margin-top:3px; font-variant-numeric:tabular-nums; }
@@ -165,8 +170,9 @@
             <div class="pc2-top">
               <div class="pc2-avatar" id="profAvatar"></div>
               <div class="pc2-actions">
-                <button class="pc2-icon-btn" id="vocabTestBtn" onclick="location.href='vocab-admin.html?studentId='+encodeURIComponent(STUDENT_ID)" title="Vocabulary test" style="display:none">
+                <button class="pc2-vocab-btn" id="vocabTestBtn" onclick="location.href='vocab-admin.html?studentId='+encodeURIComponent(STUDENT_ID)" title="Vocabulary test" style="display:none">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M10 8h6M10 12h4"/></svg>
+                  Vocab
                 </button>
               </div>
             </div>
@@ -263,7 +269,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                 Comments
               </button>
-              <button class="pc2-action-btn danger" onclick="openArchiveModal()" title="Archive student" style="grid-column:1 / -1">
+              <button class="pc2-action-btn danger" onclick="openArchiveModal()" title="Archive student">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 Archive
               </button>
