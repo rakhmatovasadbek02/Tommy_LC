@@ -2155,11 +2155,15 @@ app.get('/api/support-dashboard', async (req, res) => {
 // Batch: all attendance for a date across every group (one round-trip for the dashboard).
 app.get('/api/attendance/day/:date', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT group_id, student_id, status FROM attendance WHERE date=$1',
-      [req.params.date]
-    );
-    res.json(rows.map(r => ({ groupId: r.group_id, studentId: r.student_id, status: r.status })));
+    // Merge in support-lesson attendance so "who's absent today" agrees everywhere,
+    // not just for regular group classes (see PUT /api/support/:id/attend).
+    const [attR, supR] = await Promise.all([
+      pool.query('SELECT group_id, student_id, status FROM attendance WHERE date=$1', [req.params.date]),
+      pool.query('SELECT student_id, attended FROM support_sessions WHERE date=$1 AND attended IS NOT NULL', [req.params.date]),
+    ]);
+    const rows = attR.rows.map(r => ({ groupId: r.group_id, studentId: r.student_id, status: r.status }));
+    supR.rows.forEach(r => rows.push({ groupId: null, studentId: r.student_id, status: r.attended ? 'present' : 'absent' }));
+    res.json(rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2178,16 +2182,25 @@ app.get('/api/students/:id/history', async (req, res) => {
 
 app.get('/api/students/:id/attendance', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT a.date, a.status, a.group_id, g.name AS group_name
-       FROM attendance a
-       LEFT JOIN groups g ON g.id = a.group_id
-       WHERE a.student_id = $1
-       ORDER BY a.date DESC
-       LIMIT 120`,
-      [req.params.id]
-    );
-    res.json(rows.map(r => ({ date: r.date, status: r.status, groupId: r.group_id, groupName: r.group_name })));
+    // Merged with support-lesson attendance so a student's history/rate agrees with
+    // what's marked in support.html, not just regular group classes.
+    const [attR, supR] = await Promise.all([
+      pool.query(
+        `SELECT a.date, a.status, a.group_id, g.name AS group_name
+         FROM attendance a
+         LEFT JOIN groups g ON g.id = a.group_id
+         WHERE a.student_id = $1`,
+        [req.params.id]
+      ),
+      pool.query(
+        `SELECT date, attended FROM support_sessions WHERE student_id=$1 AND attended IS NOT NULL`,
+        [req.params.id]
+      ),
+    ]);
+    const rows = attR.rows.map(r => ({ date: r.date, status: r.status, groupId: r.group_id, groupName: r.group_name }));
+    supR.rows.forEach(r => rows.push({ date: r.date, status: r.attended ? 'present' : 'absent', groupId: null, groupName: 'Support' }));
+    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json(rows.slice(0, 120));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2852,12 +2865,15 @@ app.get('/api/dashboard', async (req, res) => {
     const today = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }))
       .toISOString().split('T')[0];
 
-    const [grpR, stuR, invR, leadR, attR] = await Promise.all([
+    const [grpR, stuR, invR, leadR, attR, supAbsR] = await Promise.all([
       pool.query('SELECT id,name,teacher,room,level,lang,time,duration,sched_type,custom_days,current_unit,student_ids FROM groups ORDER BY created_at DESC'),
       pool.query("SELECT id,status,balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial')"),
       pool.query("SELECT COUNT(*)::int n FROM invoices WHERE status='Paid'"),
       pool.query('SELECT status, COUNT(*)::int n FROM leads GROUP BY status'),
       pool.query("SELECT group_id, student_id FROM attendance WHERE date=$1 AND status='absent'", [today]),
+      // Support-lesson absences count toward "Absent Today" too — same student, same day,
+      // just a different kind of session (see PUT /api/support/:id/attend).
+      pool.query("SELECT student_id, teacher FROM support_sessions WHERE date=$1 AND attended=FALSE", [today]),
     ]);
 
     const enrolledAll = new Set(grpR.rows.flatMap(g => g.student_ids || []));
@@ -2875,6 +2891,7 @@ app.get('/api/dashboard', async (req, res) => {
     const absentIds = new Set();
     const ownGrp = new Set(groups.map(g=>g.id));
     attR.rows.forEach(r => { if (!teacher || ownGrp.has(r.group_id)) absentIds.add(r.student_id); });
+    supAbsR.rows.forEach(r => { if (!teacher || r.teacher === myName) absentIds.add(r.student_id); });
 
     res.json({
       stats: { activeStudents, debtors, paidCount: invR.rows[0].n, leads: leadCount, trial, absentToday: absentIds.size },
