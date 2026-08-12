@@ -523,9 +523,6 @@ function absentCardHTML(s, absentGroupId) {
   const balStr   = (bal < 0 ? '−' : '+') + Math.abs(bal).toLocaleString('ru-RU') + ' UZS';
 
   const absentGroup = (s.groups || []).find(g => g.id === absentGroupId);
-  const supportAbsentHTML = (absentGroupId === null) ? `<div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;margin-bottom:6px">
-      <div style="font-size:12px;font-weight:700;color:var(--text)">Support lesson <span style="color:#c0392b;font-size:10px">(absent today)</span></div>
-    </div>` : '';
   const groupsHTML = (s.groups || []).map(g => {
     const isAbsent = g.id === absentGroupId;
     return `<div style="background:${isAbsent?'#fff5f5':'#f8f9ff'};border:1px solid ${isAbsent?'#fca5a5':'#e0e7ff'};border-radius:8px;padding:8px 12px">
@@ -554,7 +551,7 @@ function absentCardHTML(s, absentGroupId) {
       </div>
     </div>
 
-    ${(supportAbsentHTML || (s.groups && s.groups.length)) ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${supportAbsentHTML}${groupsHTML}</div>` : ''}
+    ${s.groups && s.groups.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${groupsHTML}</div>` : ''}
 
     <div style="margin-bottom:10px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px">Last Comment</div>
