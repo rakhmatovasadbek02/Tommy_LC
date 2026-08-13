@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light only">
+<title>My Profile — Tommy LC Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="student-shared.css">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+<div id="spHeader"></div>
+<div class="sp-main">
+  <div id="content" class="sp-loading">Loading your profile…</div>
+</div>
+<script src="student-shared.js"></script>
+<script>
+spRequireAuth();
+spRenderHeader('home');
+
+function statusBadge(status) {
+  const cls = status === 'Active' ? 'green' : status === 'Frozen' ? 'amber' : 'red';
+  return `<span class="sp-badge ${cls}">${spEscapeHtml(status)}</span>`;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function fmtMoney(n) { return Number(n||0).toLocaleString('en-US') + ' UZS'; }
+
+async function load() {
+  const el = document.getElementById('content');
+  try {
+    const me = await spGet('/api/student/me');
+    const g = me.groups[0];
+    const attTotal = me.attendance.length;
+    const attPresent = me.attendance.filter(a => a.status === 'Present' || a.status === 'present').length;
+    const attPct = attTotal ? Math.round((attPresent/attTotal)*100) : null;
+
+    el.innerHTML = `
+      <div class="sp-title">Hi, ${spEscapeHtml(me.firstName)} 👋</div>
+      <div class="sp-subtitle">This is your information on file — for any changes, please contact your admin.</div>
+
+      <div class="sp-tiles">
+        <a class="sp-tile" href="student-vocab.html">
+          <div class="sp-tile-title">📚 Practice Vocabulary</div>
+          <div class="sp-tile-sub">Pick any unit at your level and practice as many times as you like.</div>
+          <div class="sp-tile-arrow">Start practicing →</div>
+        </a>
+        <a class="sp-tile" href="student-support.html">
+          <div class="sp-tile-title">🗓️ Book Support Session</div>
+          <div class="sp-tile-sub">One free session a day with a support teacher.</div>
+          <div class="sp-tile-arrow">Book now →</div>
+        </a>
+      </div>
+
+      <div class="sp-card">
+        <div class="sp-card-title">My Info ${statusBadge(me.status)}</div>
+        <div class="sp-grid">
+          <div class="sp-field"><div class="sp-field-label">Full Name</div><div class="sp-field-value">${spEscapeHtml(me.lastName)} ${spEscapeHtml(me.firstName)}</div></div>
+          <div class="sp-field"><div class="sp-field-label">Phone</div><div class="sp-field-value">${spEscapeHtml(me.phone||'—')}</div></div>
+          <div class="sp-field"><div class="sp-field-label">Level</div><div class="sp-field-value">${spEscapeHtml(me.level||'—')}</div></div>
+          <div class="sp-field"><div class="sp-field-label">Balance</div><div class="sp-field-value">${fmtMoney(me.balance)}</div></div>
+          ${me.school ? `<div class="sp-field"><div class="sp-field-label">School</div><div class="sp-field-value">${spEscapeHtml(me.school)}</div></div>` : ''}
+          ${me.grade ? `<div class="sp-field"><div class="sp-field-label">Grade</div><div class="sp-field-value">${spEscapeHtml(me.grade)}</div></div>` : ''}
+          ${me.exam ? `<div class="sp-field"><div class="sp-field-label">Exam</div><div class="sp-field-value">${spEscapeHtml(me.exam)}${me.examDate?' · '+fmtDate(me.examDate):''}</div></div>` : ''}
+        </div>
+      </div>
+
+      ${g ? `
+      <div class="sp-card">
+        <div class="sp-card-title">My Group</div>
+        <div class="sp-grid">
+          <div class="sp-field"><div class="sp-field-label">Group</div><div class="sp-field-value">${spEscapeHtml(g.name)}</div></div>
+          <div class="sp-field"><div class="sp-field-label">Room</div><div class="sp-field-value">${spEscapeHtml(g.room||'—')}</div></div>
+          <div class="sp-field"><div class="sp-field-label">Schedule</div><div class="sp-field-value">${g.schedType==='odd'?'Mon/Wed/Fri':g.schedType==='even'?'Tue/Thu/Sat':spEscapeHtml(g.schedType||'—')} ${spEscapeHtml(g.time||'')}</div></div>
+          <div class="sp-field"><div class="sp-field-label">Current Unit</div><div class="sp-field-value">${spEscapeHtml(g.currentUnit||'—')}</div></div>
+        </div>
+      </div>` : ''}
+
+      <div class="sp-card">
+        <div class="sp-card-title">Attendance ${attPct!==null ? `<span class="sp-badge ${attPct>=80?'green':attPct>=50?'amber':'red'}">${attPct}% present</span>` : ''}</div>
+        <table class="sp-table">
+          <thead><tr><th>Date</th><th>Group</th><th>Status</th></tr></thead>
+          <tbody>
+            ${me.attendance.slice(0,10).map(a => `<tr><td>${fmtDate(a.date)}</td><td>${spEscapeHtml(a.groupName||'—')}</td><td>${spEscapeHtml(a.status)}</td></tr>`).join('') || `<tr><td colspan="3" class="sp-empty">No attendance recorded yet.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`;
+  }
+}
+load();
+</script>
+</body>
+</html>

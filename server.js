@@ -455,6 +455,51 @@ async function initDB() {
       month TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`,
+
+    // ── Student portal: self-service registration, vocab practice, support booking ──
+    `CREATE TABLE IF NOT EXISTS student_portal_codes (
+      id          TEXT PRIMARY KEY,
+      code        TEXT UNIQUE NOT NULL,
+      student_id  TEXT NOT NULL,
+      used        BOOLEAN DEFAULT FALSE,
+      used_at     TIMESTAMPTZ,
+      granted_by  TEXT,
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS student_logins (
+      student_id  TEXT PRIMARY KEY,
+      username    TEXT NOT NULL UNIQUE,
+      password    TEXT NOT NULL,
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    // Ephemeral holder for a generated practice question set (correct answers included) —
+    // deleted once the student submits, so answers never sit around longer than needed.
+    `CREATE TABLE IF NOT EXISTS vocab_practice_sessions (
+      id            TEXT PRIMARY KEY,
+      student_id    TEXT NOT NULL,
+      unit_ids      JSONB NOT NULL DEFAULT '[]',
+      language_pair TEXT NOT NULL DEFAULT 'RU-ENG',
+      question_set  JSONB NOT NULL,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    // Free-practice history — separate from admin-graded vocab_attempts so it never
+    // affects admin reporting on formal (code-granted) tests.
+    `CREATE TABLE IF NOT EXISTS vocab_practice_attempts (
+      id            TEXT PRIMARY KEY,
+      student_id    TEXT NOT NULL,
+      unit_ids      JSONB NOT NULL DEFAULT '[]',
+      language_pair TEXT NOT NULL DEFAULT 'RU-ENG',
+      score         INT NOT NULL,
+      total         INT NOT NULL,
+      passed        BOOLEAN,
+      completed_at  TIMESTAMPTZ DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_student_portal_codes_student ON student_portal_codes(student_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_vocab_practice_attempts_student ON vocab_practice_attempts(student_id)`,
+    // Login moved from phone number to a student-chosen username — rename in place for
+    // any database that already created the table under the old shape.
+    `ALTER TABLE student_logins RENAME COLUMN phone TO username`,
+    `ALTER TABLE student_logins ADD CONSTRAINT student_logins_username_key UNIQUE (username)`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -712,6 +757,7 @@ function requiredPerm(method, p) {
   if (top === 'attendance') return write ? 'groups'     : null;
   if (top === 'support')    return write ? 'support'    : null;
   if (top === 'vocab')      return write ? 'vocab'      : null;
+  if (top === 'student-codes') return write ? 'students' : null;
   if (top === 'admin')      return 'finance';
   return null;
 }
@@ -731,6 +777,8 @@ app.use('/api', async (req, res, next) => {
     if (req.path === '/public/lead-signup' && req.method === 'POST') return next();
     if (req.path.startsWith('/public/lead-test/') && req.method === 'PUT') return next();
     if (req.path.startsWith('/public/vocab/')) return next();
+    if (req.path.startsWith('/public/student/')) return next();
+    if (req.path.startsWith('/student/')) return next(); // handled by studentAuthMiddleware below
     const hdr = req.headers.authorization || '';
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
     const userId = token && verifyToken(token);
@@ -764,6 +812,23 @@ app.use('/api', async (req, res, next) => {
     if (need && !perms.includes(need)) {
       return res.status(403).json({ error: 'You do not have permission for this action.' });
     }
+    next();
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Student portal auth — fully separate from the staff `users` token/permission system above.
+// Student tokens sign 'stu:'+studentId so they can never be confused with a staff token.
+function signStudentToken(studentId) { return signToken('stu:' + studentId); }
+app.use('/api/student', async (req, res, next) => {
+  try {
+    const hdr = req.headers.authorization || '';
+    const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
+    const signed = token && verifyToken(token);
+    if (!signed || !signed.startsWith('stu:')) return res.status(401).json({ error: 'Not authenticated' });
+    const studentId = signed.slice(4);
+    const r = await pool.query('SELECT * FROM students WHERE id=$1', [studentId]);
+    if (!r.rows[0]) return res.status(401).json({ error: 'Session no longer valid' });
+    req.student = r.rows[0];
     next();
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1876,6 +1941,55 @@ app.delete('/api/spendings/:id', async (req, res) => {
 /* SUPPORT SESSIONS — one-time lessons, one room, max 2 teachers at a time */
 function toMin(t){ const [h,m]=String(t||'0:0').split(':').map(Number); return (h||0)*60+(m||0); }
 function dateDayType(dateStr){ const dow=new Date(dateStr+'T00:00:00').getDay(); if([1,3,5].includes(dow))return 'odd'; if([2,4,6].includes(dow))return 'even'; return null; }
+// Students may only self-book for today or up to 2 days ahead (admins booking on the
+// staff side are not subject to this — see POST /api/support).
+function studentMaxBookingDate(nowTz) {
+  const d = new Date(nowTz); d.setDate(d.getDate() + 2);
+  return d.toISOString().split('T')[0];
+}
+
+// Shared validation + insert for booking a support session — used by both the admin
+// booking route (POST /api/support) and the student self-booking route
+// (POST /api/student/support/book). Throws { status, message } on any rule violation.
+async function createSupportSession({ id, date, time, duration, teacher, studentId, theme }) {
+  if (!date || !time || !teacher || !studentId) throw { status: 400, message: 'Date, time, teacher and student are required.' };
+  if (!theme || !theme.trim()) throw { status: 400, message: 'Theme is required.' };
+  // Block past times
+  const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+  const todayISO = nowTz.toISOString().split('T')[0];
+  if (date < todayISO) throw { status: 409, message: 'Cannot book sessions in the past.' };
+  if (date === todayISO) {
+    const [hh, mm] = time.split(':').map(Number);
+    const slotMin = hh * 60 + mm;
+    const nowMin = nowTz.getHours() * 60 + nowTz.getMinutes();
+    if (slotMin <= nowMin) throw { status: 409, message: 'This time slot has already passed.' };
+  }
+  const dur = Number(duration) === 60 ? 60 : 30;
+  const start = toMin(time), end = start + dur;
+  // Enforce the teacher's working shift for this day type (odd/even).
+  const tRes = await pool.query("SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE (title='Support Teacher' OR roles @> '[\"Support Teacher\"]') AND (first_name||' '||last_name)=$1 LIMIT 1", [teacher]);
+  const sh = tRes.rows[0];
+  if (sh) {
+    const dt = dateDayType(date);
+    const shiftStart = dt==='odd' ? sh.support_odd_start : dt==='even' ? sh.support_even_start : null;
+    const shiftEnd   = dt==='odd' ? sh.support_odd_end   : dt==='even' ? sh.support_even_end   : null;
+    if (!shiftStart) throw { status: 409, message: 'This teacher does not work on this day.' };
+    if (start < toMin(shiftStart) || end > toMin(shiftEnd)) throw { status: 409, message: "Outside this teacher's working hours." };
+  }
+  // Block fined students
+  const fineCheck = await pool.query('SELECT 1 FROM support_fines WHERE student_id=$1 AND blocked_until > NOW() LIMIT 1', [studentId]);
+  if (fineCheck.rows.length) throw { status: 409, message: 'This student is currently fined and cannot book support sessions.' };
+
+  const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
+  const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });
+  if (overlap.length >= 2) throw { status: 409, message: 'Both support slots are already taken at this time.' };
+  if (overlap.some(s => s.teacher === teacher)) throw { status: 409, message: 'This teacher already has a session at this time.' };
+  await pool.query(
+    'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme) VALUES($1,$2,$3,$4,$5,$6,$7)',
+    [id, date, time, dur, teacher, studentId, theme.trim()]
+  );
+  broadcast('support');
+}
 
 app.get('/api/support-teachers', async (req, res) => {
   try {
@@ -1914,46 +2028,12 @@ app.get('/api/support/:date', async (req, res) => {
 
 app.post('/api/support', async (req, res) => {
   try {
-    const { id, date, time, duration, teacher, studentId, theme } = req.body;
-    if (!date || !time || !teacher || !studentId) return res.status(400).json({ error: 'Date, time, teacher and student are required.' });
-    if (!theme || !theme.trim()) return res.status(400).json({ error: 'Theme is required.' });
-    // Block past times
-    const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
-    const todayISO = nowTz.toISOString().split('T')[0];
-    if (date < todayISO) return res.status(409).json({ error: 'Cannot book sessions in the past.' });
-    if (date === todayISO) {
-      const [hh, mm] = time.split(':').map(Number);
-      const slotMin = hh * 60 + mm;
-      const nowMin = nowTz.getHours() * 60 + nowTz.getMinutes();
-      if (slotMin <= nowMin) return res.status(409).json({ error: 'This time slot has already passed.' });
-    }
-    const dur = Number(duration) === 60 ? 60 : 30;
-    const start = toMin(time), end = start + dur;
-    // Enforce the teacher's working shift for this day type (odd/even).
-    const tRes = await pool.query("SELECT support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE (title='Support Teacher' OR roles @> '[\"Support Teacher\"]') AND (first_name||' '||last_name)=$1 LIMIT 1", [teacher]);
-    const sh = tRes.rows[0];
-    if (sh) {
-      const dt = dateDayType(date);
-      const shiftStart = dt==='odd' ? sh.support_odd_start : dt==='even' ? sh.support_even_start : null;
-      const shiftEnd   = dt==='odd' ? sh.support_odd_end   : dt==='even' ? sh.support_even_end   : null;
-      if (!shiftStart) return res.status(409).json({ error: 'This teacher does not work on this day.' });
-      if (start < toMin(shiftStart) || end > toMin(shiftEnd)) return res.status(409).json({ error: "Outside this teacher's working hours." });
-    }
-    // Block fined students
-    const fineCheck = await pool.query('SELECT 1 FROM support_fines WHERE student_id=$1 AND blocked_until > NOW() LIMIT 1', [studentId]);
-    if (fineCheck.rows.length) return res.status(409).json({ error: 'This student is currently fined and cannot book support sessions.' });
-
-    const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
-    const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });
-    if (overlap.length >= 2) return res.status(409).json({ error: 'Both support slots are already taken at this time.' });
-    if (overlap.some(s => s.teacher === teacher)) return res.status(409).json({ error: 'This teacher already has a session at this time.' });
-    await pool.query(
-      'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme) VALUES($1,$2,$3,$4,$5,$6,$7)',
-      [id, date, time, dur, teacher, studentId, theme.trim()]
-    );
-    broadcast('support');
+    await createSupportSession(req.body);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) {
+    if (e && e.status) return res.status(e.status).json({ error: e.message });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.delete('/api/support/:id', async (req, res) => {
@@ -2215,6 +2295,65 @@ function maxMistakesAllowed(total) {
 }
 function vocabPassed(score, total) { return total > 0 && (total - score) <= maxMistakesAllowed(total); }
 
+// Shared by the admin-graded test flow (/api/public/vocab/test/*) and the student
+// self-practice flow (/api/student/vocab/practice/*) — builds a shuffled, mixed-direction
+// question set (with correct answers embedded) from a pool of trilingual words.
+function buildQuestionSet(allWords, languagePair) {
+  const backKey = languagePair === 'ENG-UZ' ? 'uz' : 'ru';
+  const backAltKey = languagePair === 'ENG-UZ' ? 'uzAlt' : 'ruAlt';
+  const allEnglish = [...new Set(allWords.map(w => w.en))];
+  // Sample size: 20 or fewer words -> ask all of them. More than 50 -> cap at 80% of
+  // 50 (= 40), even if the unit has far more words. In between, 80% of the actual count.
+  const n = allWords.length;
+  const sampleSize = n <= 20 ? n : (n > 50 ? 40 : Math.ceil(n * 0.8));
+  const shuffledWords = [...allWords];
+  for (let i = shuffledWords.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
+  }
+  const words = shuffledWords.slice(0, sampleSize);
+  const questionSet = words.map(w => {
+    const isPhrase = w.en.trim().includes(' ');
+    let options = null;
+    if (isPhrase) {
+      // Multiple choice for multi-word answers — typing a whole phrase is slow.
+      const distractorPool = allEnglish.filter(e => e !== w.en);
+      for (let i = distractorPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [distractorPool[i], distractorPool[j]] = [distractorPool[j], distractorPool[i]];
+      }
+      options = [w.en, ...distractorPool.slice(0, 3)];
+      for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
+      }
+    }
+    return { prompt: w[backKey], promptAlt: w[backAltKey] || [], en: w.en, enAlt: w.enAlt || [], options };
+  });
+  // shuffle order
+  for (let i = questionSet.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [questionSet[i], questionSet[j]] = [questionSet[j], questionSet[i]];
+  }
+  return questionSet;
+}
+
+// Scores a submitted answer set against a stored question set. Returns { score, total, passed, details }.
+function scoreQuestionSet(questionSet, submittedAnswers) {
+  const norm = s => String(s || '').trim().toLowerCase();
+  const givenByQid = new Map((Array.isArray(submittedAnswers) ? submittedAnswers : []).map(a => [a.qid, a.given]));
+  let score = 0;
+  const details = questionSet.map((q, qid) => {
+    const accepted = [q.en, ...(q.enAlt || [])].map(norm);
+    const given = givenByQid.get(qid);
+    const correct = accepted.includes(norm(given));
+    if (correct) score++;
+    return { qid, prompt: q.prompt, given: given || '', expected: q.en, correct };
+  });
+  const total = questionSet.length;
+  return { score, total, passed: vocabPassed(score, total), details };
+}
+
 function cleanWordField(v) {
   return String(v || '').trim().slice(0, 150);
 }
@@ -2387,6 +2526,348 @@ app.get('/api/vocab/attempts', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+/* ══════════════════════════════════════
+   STUDENT PORTAL — registration codes (admin side)
+   Same one-time-code pattern as vocab_access: an admin picks an existing student and
+   generates a random code; the student redeems it on student-register.html to set up
+   their own phone+password login (see student_logins / student_portal_codes tables).
+══════════════════════════════════════ */
+function genStudentCode() {
+  // 8 chars, uppercase letters+digits, no ambiguous 0/O/1/I — easy to read out loud.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return code;
+}
+
+app.get('/api/student-codes', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT c.*, s.first_name AS s_first, s.last_name AS s_last
+      FROM student_portal_codes c
+      LEFT JOIN students s ON s.id = c.student_id
+      ORDER BY c.created_at DESC LIMIT 300
+    `);
+    res.json(rows.map(c => ({
+      id: c.id, code: c.code, studentId: c.student_id,
+      studentName: c.s_first ? `${c.s_last} ${c.s_first}` : '(deleted student)',
+      grantedBy: c.granted_by, used: c.used, usedAt: c.used_at, createdAt: c.created_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/student-codes', async (req, res) => {
+  try {
+    const { studentId } = req.body;
+    if (!studentId) return res.status(400).json({ error: 'studentId is required.' });
+    const stu = await pool.query('SELECT id FROM students WHERE id=$1', [studentId]);
+    if (!stu.rows[0]) return res.status(404).json({ error: 'Student not found.' });
+    const id = genVocabId('spc');
+    let code;
+    for (let i = 0; i < 10; i++) {
+      code = genStudentCode();
+      const clash = await pool.query('SELECT 1 FROM student_portal_codes WHERE code=$1', [code]);
+      if (!clash.rows[0]) break;
+    }
+    const actor = req.user ? `${req.user.last_name} ${req.user.first_name}` : 'Someone';
+    await pool.query(
+      `INSERT INTO student_portal_codes(id, code, student_id, granted_by) VALUES($1,$2,$3,$4)`,
+      [id, code, studentId, actor]
+    );
+    res.json({ ok: true, id, code });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/student-codes/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM student_portal_codes WHERE id=$1 AND used IS NOT TRUE', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════
+   STUDENT PORTAL — public (unauthenticated) registration + login
+══════════════════════════════════════ */
+app.post('/api/public/student/redeem', async (req, res) => {
+  try {
+    const code = String(req.body.code || '').trim().toUpperCase();
+    const username = String(req.body.username || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!code || !username || !password) return res.status(400).json({ error: 'Code, username and password are required.' });
+    if (!/^[a-z0-9_.]{3,24}$/.test(username)) return res.status(400).json({ error: 'Username must be 3-24 characters: letters, numbers, "_" or "." only.' });
+    if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+    const { rows } = await pool.query('SELECT * FROM student_portal_codes WHERE code=$1', [code]);
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Invalid code.' });
+    if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
+    const stu = await pool.query('SELECT id, first_name, last_name FROM students WHERE id=$1', [row.student_id]);
+    if (!stu.rows[0]) return res.status(404).json({ error: 'The student record for this code no longer exists.' });
+    const taken = await pool.query('SELECT 1 FROM student_logins WHERE username=$1 AND student_id<>$2', [username, row.student_id]);
+    if (taken.rows.length) return res.status(409).json({ error: 'That username is already taken — pick another.' });
+    await pool.query(
+      `INSERT INTO student_logins(student_id, username, password) VALUES($1,$2,$3)
+       ON CONFLICT (student_id) DO UPDATE SET username=$2, password=$3`,
+      [row.student_id, username, password]
+    );
+    await pool.query('UPDATE student_portal_codes SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+    res.json({ ok: true, token: signStudentToken(row.student_id), name: `${stu.rows[0].first_name} ${stu.rows[0].last_name}` });
+  } catch(e) {
+    if (e && e.code === '23505') return res.status(409).json({ error: 'That username is already taken — pick another.' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/public/student/login', async (req, res) => {
+  try {
+    const username = String(req.body.username || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    const { rows } = await pool.query(
+      `SELECT l.student_id, s.first_name, s.last_name FROM student_logins l
+       JOIN students s ON s.id = l.student_id
+       WHERE l.username=$1 AND l.password=$2`,
+      [username, password]
+    );
+    if (!rows.length) return res.status(401).json({ error: 'Invalid username or password.' });
+    const r = rows[0];
+    res.json({ ok: true, token: signStudentToken(r.student_id), name: `${r.first_name} ${r.last_name}` });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Dev-only shortcut: skips the code/username/password flow entirely and logs straight
+// into a reusable throwaway student record. Gated on the request host being localhost —
+// refuses on any real domain, so this can never be used against the live site even
+// though it shares the same database as production.
+app.post('/api/public/student/dev-login', async (req, res) => {
+  try {
+    const host = String(req.hostname || '');
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return res.status(403).json({ error: 'Dev login is only available on localhost.' });
+    }
+    const id = 'dev_test_student';
+    await pool.query(
+      `INSERT INTO students(id, first_name, last_name, phone, level, status, balance)
+       VALUES($1,'Dev','Student','90 000 00 00','Elementary','Active',0)
+       ON CONFLICT (id) DO NOTHING`,
+      [id]
+    );
+    res.json({ ok: true, token: signStudentToken(id), name: 'Dev Student' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════
+   STUDENT PORTAL — authenticated student-facing routes
+   Everything below reads/writes only req.student.id (set by the studentAuthMiddleware
+   above) — a student can never pass a studentId to act on someone else's data.
+══════════════════════════════════════ */
+app.get('/api/student/me', async (req, res) => {
+  try {
+    const s = req.student;
+    const [enr, groupsR, attR] = await Promise.all([
+      pool.query('SELECT 1 FROM groups WHERE student_ids @> $1::jsonb LIMIT 1', [JSON.stringify([s.id])]),
+      pool.query(`SELECT * FROM groups WHERE student_ids @> $1::jsonb ORDER BY created_at DESC`, [JSON.stringify([s.id])]),
+      pool.query(
+        `SELECT a.date, a.status, a.group_id, g.name AS group_name FROM attendance a
+         LEFT JOIN groups g ON g.id = a.group_id WHERE a.student_id=$1 ORDER BY a.date DESC LIMIT 120`,
+        [s.id]
+      ),
+    ]);
+    res.json({
+      id: s.id, firstName: s.first_name, lastName: s.last_name,
+      phone: s.phone, phoneParent: s.phone_parent, phoneMother: s.phone_mother, phoneOther: s.phone_other,
+      level: s.level, status: enr.rows.length ? (s.status === 'Frozen' ? 'Frozen' : 'Active') : 'Inactive',
+      balance: Number(s.balance || 0), exam: s.exam, examDate: s.exam_date,
+      school: s.school, grade: s.grade, address: s.address,
+      groups: groupsR.rows.map(g => ({
+        id: g.id, name: g.name, teacher: g.teacher, room: g.room, level: g.level,
+        schedType: g.sched_type, time: g.time, duration: g.duration, startDate: g.start_date,
+        currentUnit: g.current_unit,
+      })),
+      attendance: attR.rows.map(r => ({ date: r.date, status: r.status, groupId: r.group_id, groupName: r.group_name })),
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Which units this student may practice: only units matching their group's level (same
+// restriction admins already get when granting a graded test — see POST /api/vocab/access).
+app.get('/api/student/vocab/units', async (req, res) => {
+  try {
+    const groupR = await pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]);
+    const level = groupR.rows[0]?.level || null;
+    const { rows } = level
+      ? await pool.query('SELECT id, name, level, words FROM vocab_units WHERE level=$1 ORDER BY name', [level])
+      : await pool.query('SELECT id, name, level, words FROM vocab_units ORDER BY name');
+    res.json(rows.map(u => ({ id: u.id, name: u.name, level: u.level, wordCount: (u.words || []).length })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/student/vocab/practice/start', async (req, res) => {
+  try {
+    const unitIds = Array.isArray(req.body.unitIds) ? [...new Set(req.body.unitIds.filter(Boolean))] : [];
+    if (!unitIds.length) return res.status(400).json({ error: 'Pick at least one unit.' });
+    const [units, groupR] = await Promise.all([
+      pool.query('SELECT id, level, words FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
+      pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]),
+    ]);
+    if (units.rows.length !== unitIds.length) return res.status(404).json({ error: 'One or more units were not found.' });
+    const studentLevel = groupR.rows[0]?.level || null;
+    if (studentLevel && units.rows.some(u => u.level !== studentLevel)) {
+      return res.status(400).json({ error: `Pick units at your level (${studentLevel}).` });
+    }
+    const allWords = units.rows.flatMap(u => u.words || []);
+    if (!allWords.length) return res.status(404).json({ error: 'These units have no words yet.' });
+    const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
+    const questionSet = buildQuestionSet(allWords, languagePair);
+    const id = genVocabId('vprac');
+    await pool.query(
+      `INSERT INTO vocab_practice_sessions(id, student_id, unit_ids, language_pair, question_set) VALUES($1,$2,$3,$4,$5)`,
+      [id, req.student.id, JSON.stringify(unitIds), languagePair, JSON.stringify(questionSet)]
+    );
+    const questions = questionSet.map((q, qid) => ({ qid, prompt: q.prompt, options: q.options }));
+    res.json({ sessionId: id, questions, languagePair });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/student/vocab/practice/:sessionId/submit', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM vocab_practice_sessions WHERE id=$1 AND student_id=$2',
+      [req.params.sessionId, req.student.id]
+    );
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Practice session not found.' });
+    const { score, total, passed, details } = scoreQuestionSet(row.question_set, req.body.answers);
+    const attemptId = genVocabId('vpatt');
+    await pool.query(
+      `INSERT INTO vocab_practice_attempts(id, student_id, unit_ids, language_pair, score, total, passed) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+      [attemptId, req.student.id, JSON.stringify(row.unit_ids), row.language_pair, score, total, passed]
+    );
+    await pool.query('DELETE FROM vocab_practice_sessions WHERE id=$1', [row.id]);
+    res.json({ ok: true, score, total, passed, details });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/student/vocab/history', async (req, res) => {
+  try {
+    const [attemptsR, unitsR] = await Promise.all([
+      pool.query('SELECT * FROM vocab_practice_attempts WHERE student_id=$1 ORDER BY completed_at DESC LIMIT 100', [req.student.id]),
+      pool.query('SELECT id, name FROM vocab_units'),
+    ]);
+    const unitNames = new Map(unitsR.rows.map(u => [u.id, u.name]));
+    res.json(attemptsR.rows.map(t => ({
+      id: t.id, unitIds: t.unit_ids || [],
+      unitNames: (t.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
+      score: t.score, total: t.total, passed: t.passed, completedAt: t.completed_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/student/support/teachers', async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name");
+    res.json(rows.map(u => ({
+      name: u.first_name + ' ' + u.last_name,
+      odd:  u.support_odd_start  ? { start: u.support_odd_start,  end: u.support_odd_end  } : null,
+      even: u.support_even_start ? { start: u.support_even_start, end: u.support_even_end } : null,
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Available slots for a given day + duration — the actual bookable (time, teacher) pairs
+// once shift hours, existing bookings (both the per-teacher and the 2-slots-at-once cap),
+// and past times are all accounted for. Lets the student just pick from what's open
+// instead of guessing a time and getting rejected.
+app.get('/api/student/support/slots', async (req, res) => {
+  try {
+    const date = String(req.query.date || '');
+    const duration = Number(req.query.duration) === 60 ? 60 : 30;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Invalid date.' });
+
+    const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+    const todayISO = nowTz.toISOString().split('T')[0];
+    const maxISO = studentMaxBookingDate(nowTz);
+    if (date < todayISO || date > maxISO) return res.json([]);
+    const isToday = date === todayISO;
+    const nowMin = isToday ? nowTz.getHours() * 60 + nowTz.getMinutes() : 0;
+
+    const [teachersR, sessionsR] = await Promise.all([
+      pool.query("SELECT first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name"),
+      pool.query('SELECT time, duration, teacher FROM support_sessions WHERE date=$1', [date]),
+    ]);
+    const dt = dateDayType(date);
+    const existing = sessionsR.rows.map(s => ({ start: toMin(s.time), end: toMin(s.time) + Number(s.duration || 30), teacher: s.teacher }));
+
+    const slots = [];
+    for (const t of teachersR.rows) {
+      const shiftStart = dt === 'odd' ? t.support_odd_start : dt === 'even' ? t.support_even_start : null;
+      const shiftEnd   = dt === 'odd' ? t.support_odd_end   : dt === 'even' ? t.support_even_end   : null;
+      if (!shiftStart) continue;
+      const name = t.first_name + ' ' + t.last_name;
+      const lo = toMin(shiftStart), hi = toMin(shiftEnd);
+      for (let start = lo; start <= hi - duration; start += 30) {
+        if (isToday && start <= nowMin) continue;
+        const end = start + duration;
+        const overlap = existing.filter(s => start < s.end && s.start < end);
+        if (overlap.length >= 2) continue; // both concurrent slots taken
+        if (overlap.some(s => s.teacher === name)) continue; // this teacher already busy
+        const hh = String(Math.floor(start / 60)).padStart(2, '0'), mm = String(start % 60).padStart(2, '0');
+        slots.push({ time: `${hh}:${mm}`, teacher: name });
+      }
+    }
+    slots.sort((a, b) => a.time.localeCompare(b.time) || a.teacher.localeCompare(b.teacher));
+    res.json(slots);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Active fine + "already booked today" — drives the booking UI's blocked/limit state.
+app.get('/api/student/support/status', async (req, res) => {
+  try {
+    const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+    const todayISO = nowTz.toISOString().split('T')[0];
+    const [fineR, todayR] = await Promise.all([
+      pool.query('SELECT blocked_until FROM support_fines WHERE student_id=$1 AND blocked_until > NOW() ORDER BY blocked_until DESC LIMIT 1', [req.student.id]),
+      pool.query("SELECT id, to_char(date,'YYYY-MM-DD') AS date, time, duration, teacher, theme, attended FROM support_sessions WHERE student_id=$1 AND date=$2", [req.student.id, todayISO]),
+    ]);
+    res.json({
+      blockedUntil: fineR.rows[0]?.blocked_until || null,
+      bookedToday: todayR.rows[0] || null,
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/student/support/book', async (req, res) => {
+  try {
+    const { date, time, duration, teacher, theme } = req.body;
+    const studentId = req.student.id;
+    if (!date) return res.status(400).json({ error: 'Date is required.' });
+    const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+    const todayISO = nowTz.toISOString().split('T')[0];
+    const maxISO = studentMaxBookingDate(nowTz);
+    if (date < todayISO || date > maxISO) return res.status(409).json({ error: 'You can only book for today or up to 2 days ahead.' });
+    // One session per day, on top of the shared shift/overlap/fine rules.
+    const already = await pool.query('SELECT 1 FROM support_sessions WHERE student_id=$1 AND date=$2 LIMIT 1', [studentId, date]);
+    if (already.rows.length) return res.status(409).json({ error: 'You already booked a support session today.' });
+    const id = genVocabId('sup');
+    await createSupportSession({ id, date, time, duration, teacher, studentId, theme });
+    res.json({ ok: true });
+  } catch(e) {
+    if (e && e.status) return res.status(e.status).json({ error: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/student/support/history', async (req, res) => {
+  try {
+    // Cast date to text in SQL rather than letting node-postgres hand back a JS Date —
+    // serializing that to JSON re-interprets it through the server process's local
+    // timezone and can shift the calendar date by a day.
+    const { rows } = await pool.query(
+      "SELECT id, to_char(date,'YYYY-MM-DD') AS date, time, duration, teacher, theme, attended FROM support_sessions WHERE student_id=$1 ORDER BY date DESC, time DESC LIMIT 100",
+      [req.student.id]
+    );
+    res.json(rows.map(s => ({ id: s.id, date: s.date, time: s.time, duration: s.duration, teacher: s.teacher, theme: s.theme, attended: s.attended })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Public, unauthenticated: standalone vocab-test.html. Student enters the code an
 // admin/teacher granted them. Bypassed in the /api auth middleware above.
 app.get('/api/public/vocab/access/:code', async (req, res) => {
@@ -2429,42 +2910,7 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
       const allWords = units.rows.flatMap(u => u.words || []);
       if (!allWords.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
       // language_pair picks which of RU/UZ is shown; the student always answers in English.
-      const backKey = row.language_pair === 'ENG-UZ' ? 'uz' : 'ru';
-      const backAltKey = row.language_pair === 'ENG-UZ' ? 'uzAlt' : 'ruAlt';
-      const allEnglish = [...new Set(allWords.map(w => w.en))];
-      // Sample size: 20 or fewer words -> ask all of them. More than 50 -> cap at 80% of
-      // 50 (= 40), even if the unit has far more words. In between, 80% of the actual count.
-      const n = allWords.length;
-      const sampleSize = n <= 20 ? n : (n > 50 ? 40 : Math.ceil(n * 0.8));
-      const shuffledWords = [...allWords];
-      for (let i = shuffledWords.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
-      }
-      const words = shuffledWords.slice(0, sampleSize);
-      questionSet = words.map(w => {
-        const isPhrase = w.en.trim().includes(' ');
-        let options = null;
-        if (isPhrase) {
-          // Multiple choice for multi-word answers — typing a whole phrase is slow.
-          const distractorPool = allEnglish.filter(e => e !== w.en);
-          for (let i = distractorPool.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [distractorPool[i], distractorPool[j]] = [distractorPool[j], distractorPool[i]];
-          }
-          options = [w.en, ...distractorPool.slice(0, 3)];
-          for (let i = options.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [options[i], options[j]] = [options[j], options[i]];
-          }
-        }
-        return { prompt: w[backKey], promptAlt: w[backAltKey] || [], en: w.en, enAlt: w.enAlt || [], options };
-      });
-      // shuffle order
-      for (let i = questionSet.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [questionSet[i], questionSet[j]] = [questionSet[j], questionSet[i]];
-      }
+      questionSet = buildQuestionSet(allWords, row.language_pair);
       await pool.query('UPDATE vocab_access SET question_set=$1 WHERE id=$2', [JSON.stringify(questionSet), req.params.accessId]);
     }
     const questions = questionSet.map((q, qid) => ({ qid, prompt: q.prompt, options: q.options }));
@@ -2480,20 +2926,7 @@ app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
     if (row.used) return res.status(410).json({ error: 'This test was already completed.' });
     if (!row.question_set) return res.status(400).json({ error: 'Test was never started.' });
 
-    const norm = s => String(s || '').trim().toLowerCase();
-    const submitted = Array.isArray(req.body.answers) ? req.body.answers : [];
-    const givenByQid = new Map(submitted.map(a => [a.qid, a.given]));
-
-    let score = 0;
-    const details = row.question_set.map((q, qid) => {
-      const accepted = [q.en, ...(q.enAlt || [])].map(norm);
-      const given = givenByQid.get(qid);
-      const correct = accepted.includes(norm(given));
-      if (correct) score++;
-      return { qid, prompt: q.prompt, given: given || '', expected: q.en, correct };
-    });
-    const total = row.question_set.length;
-    const passed = vocabPassed(score, total);
+    const { score, total, passed, details } = scoreQuestionSet(row.question_set, req.body.answers);
     const attemptId = genVocabId('vatt');
     await pool.query(
       `INSERT INTO vocab_attempts(id, access_id, student_id, unit_ids, score, total, passed, answers) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,

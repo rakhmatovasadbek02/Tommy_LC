@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light only">
+<title>Student Registration — Tommy LC</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+html { color-scheme: light; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif; min-height: 100vh; color: #1A0000;
+  background: linear-gradient(155deg, #B00000 0%, #8a0000 55%, #5c0000 100%);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.card { width: 100%; max-width: 440px; background: #fff; border-radius: 20px; box-shadow: 0 24px 64px rgba(0,0,0,0.35); padding: 40px 36px; text-align: center; }
+.logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 22px; }
+.logo-row .name { font-size: 22px; font-weight: 900; color: #990000; text-align: left; line-height: 1.1; }
+.logo-row .name span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #b06060; margin-top: 2px; }
+h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.4px; margin-bottom: 8px; }
+.subtitle { font-size: 13.5px; color: #994444; margin-bottom: 26px; line-height: 1.5; }
+.form-group { margin-bottom: 16px; text-align: left; }
+label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #994444; margin-bottom: 7px; }
+input[type="text"], input[type="password"] {
+  width: 100%; padding: 13px 16px; border: 1.5px solid #FFD0D0; border-radius: 11px; font-size: 15px;
+  font-family: 'Inter', sans-serif; color: #1A0000; background: #fff; outline: none;
+  transition: border-color 0.16s, box-shadow 0.16s;
+}
+#code { text-align: center; letter-spacing: 4px; font-weight: 800; text-transform: uppercase; font-family: ui-monospace, monospace; }
+input:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255,0,0,0.10); }
+.error-msg { background: #FFF0F0; color: #8B1228; border: 1px solid #FFD0D0; border-radius: 9px; padding: 10px 14px; font-size: 13px; font-weight: 500; margin-bottom: 16px; display: none; align-items: center; gap: 8px; text-align: left; }
+.error-msg.show { display: flex; }
+.btn-submit { width: 100%; padding: 15px; background: #FF0000; color: #fff; border: none; border-radius: 11px; font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.18s; margin-top: 6px; }
+.btn-submit:hover { background: #CC0000; transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,0,0,0.30); }
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+.foot-link { text-align: center; margin-top: 20px; font-size: 13px; color: #994444; }
+.foot-link a { color: #CC0000; font-weight: 700; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-row">
+    <img src="logo.png" width="44" height="44" alt="Tommy LC" style="display:block;flex-shrink:0">
+    <div class="name">Tommy LC<span>STUDENT PORTAL</span></div>
+  </div>
+  <h1>Set Up Your Account</h1>
+  <div class="subtitle">Enter the registration code your admin gave you, then choose a username and password to sign in with.</div>
+  <div class="error-msg" id="errorMsg"></div>
+  <form id="regForm" onsubmit="return doRedeem(event)">
+    <div class="form-group">
+      <label>Registration Code</label>
+      <input type="text" id="code" placeholder="ABCD1234" required maxlength="8" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Choose a Username</label>
+      <input type="text" id="username" placeholder="e.g. john.doe" required minlength="3" maxlength="24" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Choose a Password</label>
+      <input type="password" id="password" placeholder="At least 4 characters" required minlength="4" autocomplete="new-password">
+    </div>
+    <button type="submit" class="btn-submit" id="submitBtn">Create Account</button>
+  </form>
+  <div class="foot-link">Already registered? <a href="student-login.html">Sign in</a></div>
+</div>
+<script>
+function showError(msg) { const e = document.getElementById('errorMsg'); e.textContent = msg; e.classList.add('show'); }
+function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
+async function doRedeem(ev) {
+  ev.preventDefault();
+  hideError();
+  const btn = document.getElementById('submitBtn');
+  const code = document.getElementById('code').value.trim().toUpperCase();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    const r = await fetch('/api/public/student/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, username, password })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Could not register.');
+    localStorage.setItem('lc_student_session', JSON.stringify({ token: data.token, name: data.name }));
+    window.location.href = 'student-portal.html';
+  } catch (e) {
+    showError(e.message);
+    btn.disabled = false; btn.textContent = 'Create Account';
+  }
+  return false;
+}
+</script>
+</body>
+</html>

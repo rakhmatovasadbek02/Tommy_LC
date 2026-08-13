@@ -545,6 +545,7 @@ function renderSidebar(activePage) {
    { feature:'students',  href:'students.html',   iconKey:'students',  label:'Students'   },
    { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
    { feature:'vocab',     href:'vocab-admin.html',iconKey:'vocab',     label:'Vocabulary' },
+   { feature:'students',  href:'student-codes.html',iconKey:'vocab',   label:'Portal Codes' },
    { feature:'payments',  href:'finance.html',    iconKey:'payments',  label:'Finance'    },
    { feature:'settings',  href:'users.html',      iconKey:'settings',  label:'Staff'      },
    { feature:'archived',  href:'archived.html',   iconKey:'archived',  label:'Archived'   },

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light only">
+<title>Support Sessions — Tommy LC Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="student-shared.css">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+.sp-steps { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+.sp-step-dot { width: 26px; height: 26px; border-radius: 50%; background: #FFE0E0; color: #b06060; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sp-step-dot.on { background: #FF0000; color: #fff; }
+.sp-step-dot.done { background: #990000; color: #fff; }
+.sp-step-line { flex: 1; height: 2px; background: #FFE0E0; }
+.sp-step-line.done { background: #990000; }
+.sp-slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+.sp-slot-btn { padding: 12px 8px; border-radius: 11px; border: 1.5px solid #FFD0D0; background: #fff; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700; color: #990000; }
+.sp-slot-btn:hover { border-color: #FF0000; background: #FFF7F7; }
+.sp-slot-teachers { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.sp-slot-group-time { font-size: 12px; font-weight: 700; color: #994444; text-transform: uppercase; letter-spacing: .5px; margin: 12px 0 6px; }
+.sp-confirm-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #FFF0F0; font-size: 14px; }
+.sp-confirm-row:last-child { border-bottom: none; }
+.sp-confirm-label { color: #994444; font-weight: 600; }
+.sp-confirm-value { font-weight: 700; text-align: right; }
+.sp-step-actions { display: flex; gap: 10px; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div id="spHeader"></div>
+<div class="sp-main">
+  <div id="content" class="sp-loading">Loading…</div>
+</div>
+<script src="student-shared.js"></script>
+<script>
+spRequireAuth();
+spRenderHeader('support');
+
+const DUR = 30; // Only 30-minute support sessions are offered.
+const nowTashkent = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
+const todayISO = nowTashkent.toISOString().split('T')[0];
+// Students may only self-book for today or up to 2 days ahead.
+const maxDateISO = (() => { const d = new Date(nowTashkent); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0]; })();
+let STATUS = null;
+let STEP = 1; // 1=date, 2=slot, 3=theme, 4=confirm
+let selDate = todayISO;
+let selSlot = null; // { time, teacher }
+let theme = '';
+
+async function load() {
+  const el = document.getElementById('content');
+  try {
+    STATUS = await spGet('/api/student/support/status');
+  } catch (e) { el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`; return; }
+  render();
+}
+
+function fmtDateTime(d) { return new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }); }
+function fmtDate(d) { return new Date(String(d).slice(0,10)+'T00:00:00').toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'2-digit' }); }
+function fmtDateLong(d) { return new Date(String(d).slice(0,10)+'T00:00:00').toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }); }
+
+function stepsHtml() {
+  const labels = ['Date', 'Slot', 'Details', 'Confirm'];
+  return `<div class="sp-steps">${labels.map((l, idx) => {
+    const n = idx + 1;
+    const cls = n < STEP ? 'done' : n === STEP ? 'on' : '';
+    const dot = `<div class="sp-step-dot ${cls}" title="${l}">${n < STEP ? '✓' : n}</div>`;
+    return n < labels.length ? dot + `<div class="sp-step-line ${n < STEP ? 'done' : ''}"></div>` : dot;
+  }).join('')}</div>`;
+}
+
+function render() {
+  const el = document.getElementById('content');
+  const blocked = !!STATUS.blockedUntil || !!STATUS.bookedToday;
+  let banner = '';
+  if (STATUS.blockedUntil) {
+    banner = `<div class="sp-banner red">You're blocked from booking support sessions until <b>${fmtDateTime(STATUS.blockedUntil)}</b> (missed too many sessions).</div>`;
+  } else if (STATUS.bookedToday) {
+    banner = `<div class="sp-banner amber">You already have a support session booked today at <b>${STATUS.bookedToday.time}</b> with <b>${spEscapeHtml(STATUS.bookedToday.teacher)}</b>. One session per day.</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="sp-title">Support Sessions</div>
+    <div class="sp-subtitle">Book one free 30-minute support session a day. Missing two sessions in a month blocks booking for 30 days.</div>
+    ${banner}
+    ${blocked ? '' : `<div class="sp-card" id="bookCard"></div>`}
+    <div class="sp-card">
+      <div class="sp-card-title">My Sessions</div>
+      <div id="historyBox"><div class="sp-empty">Loading…</div></div>
+    </div>
+  `;
+  if (!blocked) renderStep();
+  loadHistory();
+}
+
+function renderStep() {
+  const card = document.getElementById('bookCard');
+  if (!card) return;
+  card.innerHTML = `${stepsHtml()}<div id="stepBody"></div>`;
+  const body = document.getElementById('stepBody');
+  if (STEP === 1) {
+    body.innerHTML = `
+      <div class="sp-form-group">
+        <label>Choose a Date</label>
+        <input type="date" class="sp-input" id="dateInput" value="${selDate}" min="${todayISO}" max="${maxDateISO}">
+      </div>
+      <div class="sp-step-actions">
+        <button class="sp-btn sp-btn-primary" onclick="goToSlots()">Next →</button>
+      </div>
+    `;
+    return;
+  }
+  if (STEP === 2) {
+    body.innerHTML = `
+      <div class="sp-field-label" style="margin-bottom:10px">${spEscapeHtml(fmtDateLong(selDate))}</div>
+      <div id="slotGrid"><div class="sp-empty">Loading…</div></div>
+      <div class="sp-step-actions">
+        <button class="sp-btn sp-btn-outline" onclick="STEP=1;renderStep()">← Back</button>
+      </div>
+    `;
+    loadSlots();
+    return;
+  }
+  if (STEP === 3) {
+    body.innerHTML = `
+      <div class="sp-form-group">
+        <label>What do you need help with?</label>
+        <input type="text" class="sp-input" id="themeInput" placeholder="e.g. Unit 5 grammar, essay feedback…" maxlength="200" value="${spEscapeHtml(theme)}">
+      </div>
+      <div class="sp-step-actions">
+        <button class="sp-btn sp-btn-outline" onclick="STEP=2;renderStep()">← Back</button>
+        <button class="sp-btn sp-btn-primary" onclick="goToConfirm()">Next →</button>
+      </div>
+    `;
+    setTimeout(() => document.getElementById('themeInput')?.focus(), 30);
+    return;
+  }
+  if (STEP === 4) {
+    body.innerHTML = `
+      <div class="sp-confirm-row"><span class="sp-confirm-label">Date</span><span class="sp-confirm-value">${spEscapeHtml(fmtDateLong(selDate))}</span></div>
+      <div class="sp-confirm-row"><span class="sp-confirm-label">Time</span><span class="sp-confirm-value">${spEscapeHtml(selSlot.time)} (30 min)</span></div>
+      <div class="sp-confirm-row"><span class="sp-confirm-label">Teacher</span><span class="sp-confirm-value">${spEscapeHtml(selSlot.teacher)}</span></div>
+      <div class="sp-confirm-row"><span class="sp-confirm-label">Topic</span><span class="sp-confirm-value">${spEscapeHtml(theme)}</span></div>
+      <div class="sp-step-actions">
+        <button class="sp-btn sp-btn-outline" onclick="STEP=3;renderStep()">← Back</button>
+        <button class="sp-btn sp-btn-primary" id="confirmBtn" onclick="confirmBook()">Confirm Booking</button>
+      </div>
+    `;
+  }
+}
+
+function goToSlots() {
+  selDate = document.getElementById('dateInput').value;
+  if (!selDate) return spToast('Pick a date first.', 'error');
+  if (selDate < todayISO || selDate > maxDateISO) return spToast('You can only book for today or up to 2 days ahead.', 'error');
+  selSlot = null;
+  STEP = 2;
+  renderStep();
+}
+
+async function loadSlots() {
+  const grid = document.getElementById('slotGrid');
+  if (!grid) return;
+  grid.innerHTML = `<div class="sp-empty">Loading…</div>`;
+  let slots = [];
+  try {
+    slots = await spGet(`/api/student/support/slots?date=${encodeURIComponent(selDate)}&duration=${DUR}`);
+  } catch (e) { grid.innerHTML = `<div class="sp-empty">Could not load times.</div>`; return; }
+  if (!slots.length) { grid.innerHTML = `<div class="sp-empty">No open times on this day — try another date.</div>`; return; }
+  // Group by time so same-time slots across teachers read as one row.
+  const byTime = new Map();
+  slots.forEach(s => { if (!byTime.has(s.time)) byTime.set(s.time, []); byTime.get(s.time).push(s.teacher); });
+  grid.innerHTML = [...byTime.entries()].map(([time, teachers]) => `
+    <div class="sp-slot-group-time">${spEscapeHtml(time)}</div>
+    <div class="sp-slot-grid">
+      ${teachers.map(t => `<button type="button" class="sp-slot-btn" onclick='pickSlot(${JSON.stringify({time, teacher: t})})'>${spEscapeHtml(t)}</button>`).join('')}
+    </div>
+  `).join('');
+}
+
+function pickSlot(slot) {
+  selSlot = slot;
+  theme = '';
+  STEP = 3;
+  renderStep();
+}
+
+function goToConfirm() {
+  theme = document.getElementById('themeInput').value.trim();
+  if (!theme) return spToast('Tell us what you need help with.', 'error');
+  STEP = 4;
+  renderStep();
+}
+
+async function confirmBook() {
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = true; btn.textContent = 'Booking…';
+  try {
+    await spPost('/api/student/support/book', { date: selDate, time: selSlot.time, duration: DUR, teacher: selSlot.teacher, theme });
+    spToast('Session booked!');
+    STEP = 1; selSlot = null; theme = '';
+    STATUS = await spGet('/api/student/support/status');
+    render();
+  } catch (e) {
+    spToast(e.message, 'error');
+    btn.disabled = false; btn.textContent = 'Confirm Booking';
+  }
+}
+
+async function loadHistory() {
+  const box = document.getElementById('historyBox');
+  try {
+    const hist = await spGet('/api/student/support/history');
+    box.innerHTML = hist.length ? `
+      <table class="sp-table">
+        <thead><tr><th>Date</th><th>Time</th><th>Teacher</th><th>Topic</th><th>Attended</th></tr></thead>
+        <tbody>
+          ${hist.map(h => `<tr>
+            <td>${fmtDate(h.date)}</td>
+            <td>${spEscapeHtml(h.time)}</td>
+            <td>${spEscapeHtml(h.teacher)}</td>
+            <td>${spEscapeHtml(h.theme||'—')}</td>
+            <td>${h.attended===true?'<span class="sp-badge green">Yes</span>':h.attended===false?'<span class="sp-badge red">Missed</span>':'<span class="sp-badge">Pending</span>'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : `<div class="sp-empty">No sessions booked yet.</div>`;
+  } catch (e) { box.innerHTML = `<div class="sp-empty">Could not load history.</div>`; }
+}
+
+load();
+</script>
+</body>
+</html>

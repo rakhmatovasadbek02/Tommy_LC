@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light only">
+<title>Vocabulary Practice — Tommy LC Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="student-shared.css">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+.sp-quiz-input { width: 100%; padding: 14px 16px; border: 1.5px solid #FFD0D0; border-radius: 11px; font-size: 16px; font-family: 'Inter', sans-serif; outline: none; }
+.sp-quiz-input:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255,0,0,0.10); }
+.sp-review-row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #FFF0F0; font-size: 13px; }
+.sp-review-row:last-child { border-bottom: none; }
+.sp-review-correct { color: #1D8A4C; }
+.sp-review-wrong { color: #C0202E; }
+</style>
+</head>
+<body>
+<div id="spHeader"></div>
+<div class="sp-main">
+  <div id="content" class="sp-loading">Loading…</div>
+</div>
+<script src="student-shared.js"></script>
+<script>
+spRequireAuth();
+spRenderHeader('vocab');
+
+let UNITS = [], SELECTED = new Set();
+let SESSION = null; // { sessionId, questions, languagePair }
+let ANSWERS = {};
+let CUR = 0;
+
+async function showPicker() {
+  const el = document.getElementById('content');
+  el.innerHTML = `<div class="sp-loading">Loading units…</div>`;
+  try {
+    UNITS = await spGet('/api/student/vocab/units');
+  } catch (e) { el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`; return; }
+  renderPicker();
+  loadHistory();
+}
+
+function renderPicker() {
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="sp-title">Vocabulary Practice</div>
+    <div class="sp-subtitle">Pick one or more units and practice — results only save to your own history.</div>
+    <div class="sp-card">
+      <div class="sp-card-title">Choose Unit(s)</div>
+      <div class="sp-pick-list" id="unitList"></div>
+      <button class="sp-btn sp-btn-primary" style="margin-top:14px" onclick="startPractice()">Start Practice</button>
+    </div>
+    <div class="sp-card">
+      <div class="sp-card-title">My Practice History</div>
+      <div id="historyBox"><div class="sp-empty">Loading…</div></div>
+    </div>
+  `;
+  const list = document.getElementById('unitList');
+  list.innerHTML = UNITS.length ? UNITS.map(u => `
+    <label class="sp-pick-item">
+      <input type="checkbox" ${SELECTED.has(u.id)?'checked':''} onchange="toggleUnit('${u.id}', this.checked)">
+      <div>
+        <div style="font-size:13.5px;font-weight:600">${spEscapeHtml(u.name)}</div>
+        <div style="font-size:11.5px;color:#b06060">${u.wordCount} word${u.wordCount===1?'':'s'} · ${spEscapeHtml(u.level)}</div>
+      </div>
+    </label>
+  `).join('') : `<div class="sp-empty">No units available for your level yet — ask your admin.</div>`;
+}
+function toggleUnit(id, checked) { if (checked) SELECTED.add(id); else SELECTED.delete(id); }
+
+async function loadHistory() {
+  const box = document.getElementById('historyBox');
+  try {
+    const hist = await spGet('/api/student/vocab/history');
+    box.innerHTML = hist.length ? `
+      <table class="sp-table">
+        <thead><tr><th>Units</th><th>Score</th><th>Result</th><th>Date</th></tr></thead>
+        <tbody>
+          ${hist.map(h => `<tr>
+            <td>${spEscapeHtml(h.unitNames.join(', '))}</td>
+            <td>${h.score} / ${h.total}</td>
+            <td>${h.passed ? '<span class="sp-badge green">Passed</span>' : '<span class="sp-badge red">Not yet</span>'}</td>
+            <td>${new Date(h.completedAt).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false })}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>` : `<div class="sp-empty">No practice attempts yet.</div>`;
+  } catch (e) { box.innerHTML = `<div class="sp-empty">Could not load history.</div>`; }
+}
+
+async function startPractice() {
+  if (!SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
+  try {
+    SESSION = await spPost('/api/student/vocab/practice/start', { unitIds: [...SELECTED] });
+    ANSWERS = {}; CUR = 0;
+    renderQuestion();
+  } catch (e) { spToast(e.message, 'error'); }
+}
+
+function renderQuestion() {
+  const el = document.getElementById('content');
+  const total = SESSION.questions.length;
+  const q = SESSION.questions[CUR];
+  el.innerHTML = `
+    <div class="sp-card">
+      <div class="sp-quiz-progress">Question ${CUR+1} of ${total}</div>
+      <div class="sp-quiz-prompt">${spEscapeHtml(q.prompt)}</div>
+      ${q.options ? `
+        <div class="sp-quiz-options" id="optWrap">
+          ${q.options.map(o => `<button type="button" class="sp-quiz-option" onclick="pickOption('${spEscapeHtml(o).replace(/'/g,"\\'")}', this)">${spEscapeHtml(o)}</button>`).join('')}
+        </div>
+      ` : `
+        <input type="text" class="sp-quiz-input" id="freeAnswer" placeholder="Type the English word…" autocomplete="off" autofocus onkeydown="if(event.key==='Enter')nextQuestion()">
+      `}
+      <div style="display:flex;justify-content:flex-end;margin-top:18px">
+        <button class="sp-btn sp-btn-primary" onclick="nextQuestion()">${CUR===total-1?'Finish':'Next →'}</button>
+      </div>
+    </div>
+  `;
+  if (!q.options) setTimeout(() => document.getElementById('freeAnswer')?.focus(), 30);
+}
+
+function pickOption(val, btn) {
+  ANSWERS[SESSION.questions[CUR].qid] = val;
+  document.querySelectorAll('#optWrap .sp-quiz-option').forEach(b => b.classList.remove('picked'));
+  btn.classList.add('picked');
+}
+
+async function nextQuestion() {
+  const q = SESSION.questions[CUR];
+  if (!q.options) {
+    const v = document.getElementById('freeAnswer').value.trim();
+    if (v) ANSWERS[q.qid] = v;
+  }
+  if (CUR < SESSION.questions.length - 1) { CUR++; renderQuestion(); return; }
+  await submitPractice();
+}
+
+async function submitPractice() {
+  const el = document.getElementById('content');
+  el.innerHTML = `<div class="sp-loading">Scoring…</div>`;
+  try {
+    const answers = Object.entries(ANSWERS).map(([qid, given]) => ({ qid: Number(qid), given }));
+    const r = await spPost(`/api/student/vocab/practice/${SESSION.sessionId}/submit`, { answers });
+    renderResult(r);
+  } catch (e) {
+    spToast(e.message, 'error');
+    showPicker();
+  }
+}
+
+function renderResult(r) {
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="sp-card">
+      <div class="sp-card-title">Result</div>
+      <div class="sp-result-score ${r.passed?'pass':'fail'}">${r.score} / ${r.total}</div>
+      <div style="text-align:center;margin-bottom:18px">${r.passed ? '<span class="sp-badge green">Passed 🎉</span>' : '<span class="sp-badge red">Keep practicing</span>'}</div>
+      <div id="reviewList">
+        ${r.details.map(d => `<div class="sp-review-row">
+          <span>${spEscapeHtml(d.prompt)}</span>
+          <span class="${d.correct?'sp-review-correct':'sp-review-wrong'}">${spEscapeHtml(d.given||'—')}${d.correct?'':' (→ '+spEscapeHtml(d.expected)+')'}</span>
+        </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button class="sp-btn sp-btn-outline" onclick="showPicker()">Back to Units</button>
+        <button class="sp-btn sp-btn-primary" onclick="startPractice()">Practice Again</button>
+      </div>
+    </div>
+  `;
+}
+
+showPicker();
+</script>
+</body>
+</html>

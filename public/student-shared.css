@@ -1,0 +1,108 @@
+/* Tommy LC — Student Portal shared styles (separate from shared.css, which is staff-only) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { color-scheme: light; }
+body {
+  font-family: 'Inter', sans-serif; color: #1A0000; background: #FBF5F5;
+  min-height: 100vh; padding-bottom: 60px;
+}
+a { color: inherit; text-decoration: none; }
+
+/* ── Header ── */
+#spHeader { background: #fff; border-bottom: 1px solid #FFD0D0; position: sticky; top: 0; z-index: 30; }
+.sp-header-inner { max-width: 980px; margin: 0 auto; display: flex; align-items: center; gap: 24px; padding: 14px 20px; }
+.sp-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.sp-brand-mark { width: 34px; height: 34px; border-radius: 9px; display: block; object-fit: contain; }
+.sp-brand-text { font-size: 15px; font-weight: 900; color: #990000; line-height: 1.1; }
+.sp-brand-text span { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 1.5px; color: #b06060; margin-top: 2px; text-transform: uppercase; }
+.sp-nav { display: flex; gap: 4px; flex: 1; }
+.sp-nav a { padding: 8px 14px; border-radius: 9px; font-size: 13.5px; font-weight: 700; color: #994444; }
+.sp-nav a:hover { background: #FFF0F0; }
+.sp-nav a.on { background: #FFE0E0; color: #990000; }
+.sp-header-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.sp-header-name { font-size: 13px; font-weight: 700; color: #330000; }
+.sp-logout-btn { border: 1.5px solid #FFD0D0; background: #fff; color: #994444; font-size: 12.5px; font-weight: 700; padding: 7px 13px; border-radius: 9px; cursor: pointer; font-family: 'Inter', sans-serif; }
+.sp-logout-btn:hover { background: #FFF0F0; }
+@media (max-width: 680px) {
+  .sp-header-inner { flex-wrap: wrap; gap: 10px; }
+  .sp-nav { order: 3; width: 100%; }
+}
+
+/* ── Layout ── */
+.sp-main { max-width: 980px; margin: 0 auto; padding: 26px 20px 40px; }
+.sp-title { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; margin-bottom: 4px; }
+.sp-subtitle { font-size: 13.5px; color: #994444; margin-bottom: 22px; }
+
+/* ── Cards ── */
+.sp-card { background: #fff; border: 1px solid #FFE0E0; border-radius: 16px; padding: 20px 22px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+.sp-card-title { font-size: 15px; font-weight: 800; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+.sp-field { }
+.sp-field-label { font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #b06060; margin-bottom: 5px; }
+.sp-field-value { font-size: 14.5px; font-weight: 600; color: #1A0000; }
+.sp-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; background: #F1F1F1; color: #555; }
+.sp-badge.green { background: #E4F8EC; color: #1D8A4C; }
+.sp-badge.red { background: #FFEAEA; color: #C0202E; }
+.sp-badge.amber { background: #FFF4DD; color: #96690B; }
+
+/* ── Tiles (portal home) ── */
+.sp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 16px; margin-bottom: 6px; }
+.sp-tile { background: linear-gradient(155deg,#B00000,#7a0000); color: #fff; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 26px rgba(153,0,0,.22); transition: transform .15s; }
+.sp-tile:hover { transform: translateY(-2px); }
+.sp-tile-title { font-size: 16.5px; font-weight: 800; }
+.sp-tile-sub { font-size: 12.5px; color: rgba(255,255,255,.75); line-height: 1.5; }
+.sp-tile-arrow { margin-top: auto; font-size: 13px; font-weight: 700; }
+
+/* ── Buttons ── */
+.sp-btn { padding: 12px 20px; border-radius: 11px; border: none; font-size: 14px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all .15s; }
+.sp-btn-primary { background: #FF0000; color: #fff; }
+.sp-btn-primary:hover { background: #CC0000; }
+.sp-btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+.sp-btn-outline { background: #fff; border: 1.5px solid #FFD0D0; color: #994444; }
+.sp-btn-outline:hover { background: #FFF0F0; }
+.sp-btn-outline.on { border-color: #FF0000; background: #FFE0E0; color: #990000; }
+
+/* ── Tables / lists ── */
+.sp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sp-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: #b06060; padding: 8px 10px; border-bottom: 1px solid #FFE0E0; }
+.sp-table td { padding: 9px 10px; border-bottom: 1px solid #FFF0F0; }
+.sp-empty { color: #b06060; text-align: center; padding: 18px; font-size: 13px; }
+
+/* ── Forms ── */
+.sp-form-group { margin-bottom: 16px; }
+.sp-form-group label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #994444; margin-bottom: 7px; }
+.sp-input, .sp-select {
+  width: 100%; padding: 12px 14px; border: 1.5px solid #FFD0D0; border-radius: 11px;
+  font-size: 14.5px; font-family: 'Inter', sans-serif; color: #1A0000; background: #fff; outline: none;
+  transition: border-color .16s, box-shadow .16s;
+}
+.sp-input:focus, .sp-select:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255,0,0,.10); }
+
+/* ── Toasts ── */
+.sp-toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
+.sp-toast { background: #1A0000; color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 13.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.25); opacity: 0; transform: translateY(8px); transition: all .2s; }
+.sp-toast.show { opacity: 1; transform: translateY(0); }
+.sp-toast-error { background: #8B1228; }
+
+/* ── Unit / slot pick lists ── */
+.sp-pick-list { border: 1.5px solid #FFE0E0; border-radius: 12px; max-height: 280px; overflow: auto; }
+.sp-pick-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #FFF0F0; cursor: pointer; }
+.sp-pick-item:last-child { border-bottom: none; }
+.sp-pick-item:hover { background: #FFF7F7; }
+.sp-pick-item input { width: 16px; height: 16px; accent-color: #FF0000; flex-shrink: 0; }
+
+/* ── Quiz ── */
+.sp-quiz-progress { font-size: 12.5px; color: #994444; font-weight: 700; margin-bottom: 10px; }
+.sp-quiz-prompt { font-size: 22px; font-weight: 800; margin-bottom: 18px; }
+.sp-quiz-options { display: flex; flex-direction: column; gap: 10px; }
+.sp-quiz-option { padding: 13px 16px; border: 1.5px solid #FFD0D0; border-radius: 11px; font-size: 14.5px; font-weight: 600; cursor: pointer; text-align: left; background: #fff; }
+.sp-quiz-option:hover { background: #FFF7F7; }
+.sp-quiz-option.picked { border-color: #FF0000; background: #FFE0E0; }
+.sp-result-score { font-size: 42px; font-weight: 900; text-align: center; margin: 10px 0 6px; }
+.sp-result-score.pass { color: #1D8A4C; }
+.sp-result-score.fail { color: #C0202E; }
+
+.sp-banner { border-radius: 12px; padding: 14px 16px; font-size: 13.5px; font-weight: 600; margin-bottom: 16px; }
+.sp-banner.red { background: #FFEAEA; color: #8B1228; border: 1px solid #FFC9C9; }
+.sp-banner.amber { background: #FFF4DD; color: #7A4E00; border: 1px solid #FFE2A8; }
+
+.sp-loading { text-align: center; color: #b06060; padding: 40px; font-size: 13.5px; }
