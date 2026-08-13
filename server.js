@@ -2689,14 +2689,29 @@ app.get('/api/student/me', async (req, res) => {
 
 // Which units this student may practice: only units matching their group's level (same
 // restriction admins already get when granting a graded test — see POST /api/vocab/access).
+// Natural sort for unit names like "1A Welcome to the class", "2A ...", "10A ...":
+// a plain string ORDER BY puts "10A" before "2A" since '1' < '2'. Pull the leading
+// number out and compare numerically first, falling back to the rest of the name.
+function naturalUnitCompare(a, b) {
+  const parse = s => {
+    const m = String(s || '').match(/^\s*(\d+)\s*(.*)$/);
+    return m ? [parseInt(m[1], 10), m[2]] : [Infinity, String(s || '')];
+  };
+  const [an, arest] = parse(a.name);
+  const [bn, brest] = parse(b.name);
+  return an !== bn ? an - bn : arest.localeCompare(brest);
+}
+
 app.get('/api/student/vocab/units', async (req, res) => {
   try {
     const groupR = await pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]);
     const level = groupR.rows[0]?.level || null;
     const { rows } = level
-      ? await pool.query('SELECT id, name, level, words FROM vocab_units WHERE level=$1 ORDER BY name', [level])
-      : await pool.query('SELECT id, name, level, words FROM vocab_units ORDER BY name');
-    res.json(rows.map(u => ({ id: u.id, name: u.name, level: u.level, wordCount: (u.words || []).length })));
+      ? await pool.query('SELECT id, name, level, words FROM vocab_units WHERE level=$1', [level])
+      : await pool.query('SELECT id, name, level, words FROM vocab_units');
+    const units = rows.map(u => ({ id: u.id, name: u.name, level: u.level, wordCount: (u.words || []).length }));
+    units.sort(naturalUnitCompare);
+    res.json(units);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
