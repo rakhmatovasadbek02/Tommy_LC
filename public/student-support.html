@@ -5,24 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light only">
 <title>Support Sessions — Tommy LC Student Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
 .sp-steps { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
-.sp-step-dot { width: 26px; height: 26px; border-radius: 50%; background: #FFE0E0; color: #b06060; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.sp-step-dot.on { background: #FF0000; color: #fff; }
-.sp-step-dot.done { background: #990000; color: #fff; }
-.sp-step-line { flex: 1; height: 2px; background: #FFE0E0; }
-.sp-step-line.done { background: #990000; }
+.sp-step-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-light); color: var(--text-tertiary); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sp-step-dot.on { background: var(--accent); color: #fff; }
+.sp-step-dot.done { background: var(--accent-dark); color: #fff; }
+.sp-step-line { flex: 1; height: 2px; background: var(--border); }
+.sp-step-line.done { background: var(--accent-dark); }
 .sp-slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
-.sp-slot-btn { padding: 12px 8px; border-radius: 11px; border: 1.5px solid #FFD0D0; background: #fff; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700; color: #990000; }
-.sp-slot-btn:hover { border-color: #FF0000; background: #FFF7F7; }
+.sp-slot-btn { padding: 12px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); }
+.sp-slot-btn:hover { border-color: var(--accent); background: var(--accent-light); }
 .sp-slot-teachers { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-.sp-slot-group-time { font-size: 12px; font-weight: 700; color: #994444; text-transform: uppercase; letter-spacing: .5px; margin: 12px 0 6px; }
-.sp-confirm-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid #FFF0F0; font-size: 14px; }
+.sp-slot-group-time { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; margin: 12px 0 6px; }
+.sp-confirm-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .sp-confirm-row:last-child { border-bottom: none; }
-.sp-confirm-label { color: #994444; font-weight: 600; }
+.sp-confirm-label { color: var(--text-secondary); font-weight: 500; }
 .sp-confirm-value { font-weight: 700; text-align: right; }
 .sp-step-actions { display: flex; gap: 10px; margin-top: 18px; }
 </style>
@@ -32,6 +33,7 @@
 <div class="sp-main">
   <div id="content" class="sp-loading">Loading…</div>
 </div>
+<div id="spTabbar" class="sp-tabbar"></div>
 <script src="student-shared.js"></script>
 <script>
 spRequireAuth();

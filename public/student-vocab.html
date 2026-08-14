@@ -5,16 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light only">
 <title>Vocabulary Practice — Tommy LC Student Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
-.sp-quiz-input { width: 100%; padding: 14px 16px; border: 1.5px solid #FFD0D0; border-radius: 11px; font-size: 16px; font-family: 'Inter', sans-serif; outline: none; }
-.sp-quiz-input:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255,0,0,0.10); }
-.sp-review-row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #FFF0F0; font-size: 13px; }
+.sp-quiz-input { width: 100%; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; font-size: 16px; font-family: 'Poppins', sans-serif; outline: none; }
+.sp-quiz-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.sp-review-row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .sp-review-row:last-child { border-bottom: none; }
-.sp-review-correct { color: #1D8A4C; }
-.sp-review-wrong { color: #C0202E; }
+.sp-review-correct { color: var(--green); }
+.sp-review-wrong { color: var(--red); }
 </style>
 </head>
 <body>
@@ -22,6 +23,7 @@
 <div class="sp-main">
   <div id="content" class="sp-loading">Loading…</div>
 </div>
+<div id="spTabbar" class="sp-tabbar"></div>
 <script src="student-shared.js"></script>
 <script>
 spRequireAuth();
@@ -71,12 +73,12 @@ function renderPicker() {
       <input type="checkbox" ${SELECTED.has(u.id)?'checked':''} onchange="toggleUnit('${u.id}', this.checked)">
       <div>
         <div style="font-size:13.5px;font-weight:600">${spEscapeHtml(u.name)}</div>
-        <div style="font-size:11.5px;color:#b06060">${u.wordCount} word${u.wordCount===1?'':'s'}${levels.length>1?'':' · '+spEscapeHtml(u.level)}</div>
+        <div style="font-size:11.5px;color:var(--text-tertiary)">${u.wordCount} word${u.wordCount===1?'':'s'}${levels.length>1?'':' · '+spEscapeHtml(u.level)}</div>
       </div>
     </label>`;
   list.innerHTML = levels.length > 1
     ? levels.map(lvl => `
-        <div style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#994444;background:#FFF7F7;border-bottom:1px solid #FFF0F0">${spEscapeHtml(lvl)}</div>
+        <div style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-tertiary);background:var(--accent-light);border-bottom:1px solid var(--border)">${spEscapeHtml(lvl)}</div>
         ${UNITS.filter(u => u.level === lvl).map(itemHtml).join('')}
       `).join('')
     : UNITS.map(itemHtml).join('');
