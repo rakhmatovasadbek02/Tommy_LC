@@ -19,12 +19,8 @@
 .sp-slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
 .sp-slot-btn { padding: 12px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); }
 .sp-slot-btn:hover { border-color: var(--accent); background: var(--accent-light); }
-.sp-day-block { margin-bottom: 18px; }
-.sp-day-block:last-child { margin-bottom: 0; }
-.sp-day-heading { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-.sp-day-heading span { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
-.sp-slot-group-time { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; margin: 10px 0 6px; }
-.sp-slot-group-time:first-child { margin-top: 0; }
+.sp-slot-teachers { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.sp-slot-group-time { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; margin: 12px 0 6px; }
 .sp-confirm-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .sp-confirm-row:last-child { border-bottom: none; }
 .sp-confirm-label { color: var(--text-secondary); font-weight: 500; }
@@ -46,13 +42,11 @@ spRenderHeader('support');
 const DUR = 30; // Only 30-minute support sessions are offered.
 const nowTashkent = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
 const todayISO = nowTashkent.toISOString().split('T')[0];
-// Students may only self-book for today or up to 2 days ahead — so that's exactly the
-// window of days we show slots for automatically, no date picker needed.
-const bookableDates = [0, 1, 2].map(n => { const d = new Date(nowTashkent); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]; });
-
+// Students may only self-book for today or up to 2 days ahead.
+const maxDateISO = (() => { const d = new Date(nowTashkent); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0]; })();
 let STATUS = null;
-let STEP = 1; // 1=slot, 2=details, 3=confirm
-let selDate = null;
+let STEP = 1; // 1=date, 2=slot, 3=theme, 4=confirm
+let selDate = todayISO;
 let selSlot = null; // { time, teacher }
 let theme = '';
 
@@ -67,14 +61,9 @@ async function load() {
 function fmtDateTime(d) { return new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }); }
 function fmtDate(d) { return new Date(String(d).slice(0,10)+'T00:00:00').toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'2-digit' }); }
 function fmtDateLong(d) { return new Date(String(d).slice(0,10)+'T00:00:00').toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }); }
-function dayHeading(iso) {
-  if (iso === bookableDates[0]) return 'Today';
-  if (iso === bookableDates[1]) return 'Tomorrow';
-  return new Date(iso+'T00:00:00').toLocaleDateString('en-GB', { weekday:'long' });
-}
 
 function stepsHtml() {
-  const labels = ['Slot', 'Details', 'Confirm'];
+  const labels = ['Date', 'Slot', 'Details', 'Confirm'];
   return `<div class="sp-steps">${labels.map((l, idx) => {
     const n = idx + 1;
     const cls = n < STEP ? 'done' : n === STEP ? 'on' : '';
@@ -113,83 +102,96 @@ function renderStep() {
   card.innerHTML = `${stepsHtml()}<div id="stepBody"></div>`;
   const body = document.getElementById('stepBody');
   if (STEP === 1) {
-    body.innerHTML = `<div id="slotDays"><div class="sp-empty">Loading available times…</div></div>`;
-    loadAllSlots();
+    body.innerHTML = `
+      <div class="sp-form-group">
+        <label>Choose a Date</label>
+        <input type="date" class="sp-input" id="dateInput" value="${selDate}" min="${todayISO}" max="${maxDateISO}">
+      </div>
+      <div class="sp-step-actions">
+        <button class="sp-btn sp-btn-primary" onclick="goToSlots()">Next →</button>
+      </div>
+    `;
     return;
   }
   if (STEP === 2) {
     body.innerHTML = `
-      <div class="sp-field-label" style="margin-bottom:10px">${spEscapeHtml(fmtDateLong(selDate))} · ${spEscapeHtml(selSlot.time)} · ${spEscapeHtml(selSlot.teacher)}</div>
+      <div class="sp-field-label" style="margin-bottom:10px">${spEscapeHtml(fmtDateLong(selDate))}</div>
+      <div id="slotGrid"><div class="sp-empty">Loading…</div></div>
+      <div class="sp-step-actions">
+        <button class="sp-btn sp-btn-outline" onclick="STEP=1;renderStep()">← Back</button>
+      </div>
+    `;
+    loadSlots();
+    return;
+  }
+  if (STEP === 3) {
+    body.innerHTML = `
       <div class="sp-form-group">
         <label>What do you need help with?</label>
         <input type="text" class="sp-input" id="themeInput" placeholder="e.g. Unit 5 grammar, essay feedback…" maxlength="200" value="${spEscapeHtml(theme)}">
       </div>
       <div class="sp-step-actions">
-        <button class="sp-btn sp-btn-outline" onclick="STEP=1;renderStep()">← Back</button>
+        <button class="sp-btn sp-btn-outline" onclick="STEP=2;renderStep()">← Back</button>
         <button class="sp-btn sp-btn-primary" onclick="goToConfirm()">Next →</button>
       </div>
     `;
     setTimeout(() => document.getElementById('themeInput')?.focus(), 30);
     return;
   }
-  if (STEP === 3) {
+  if (STEP === 4) {
     body.innerHTML = `
       <div class="sp-confirm-row"><span class="sp-confirm-label">Date</span><span class="sp-confirm-value">${spEscapeHtml(fmtDateLong(selDate))}</span></div>
       <div class="sp-confirm-row"><span class="sp-confirm-label">Time</span><span class="sp-confirm-value">${spEscapeHtml(selSlot.time)} (30 min)</span></div>
       <div class="sp-confirm-row"><span class="sp-confirm-label">Teacher</span><span class="sp-confirm-value">${spEscapeHtml(selSlot.teacher)}</span></div>
       <div class="sp-confirm-row"><span class="sp-confirm-label">Topic</span><span class="sp-confirm-value">${spEscapeHtml(theme)}</span></div>
       <div class="sp-step-actions">
-        <button class="sp-btn sp-btn-outline" onclick="STEP=2;renderStep()">← Back</button>
+        <button class="sp-btn sp-btn-outline" onclick="STEP=3;renderStep()">← Back</button>
         <button class="sp-btn sp-btn-primary" id="confirmBtn" onclick="confirmBook()">Confirm Booking</button>
       </div>
     `;
   }
 }
 
-// Fetches slots for today + the next 2 days in parallel and renders them grouped by day —
-// no date picker: the full 3-day booking window is just shown up front.
-async function loadAllSlots() {
-  const wrap = document.getElementById('slotDays');
-  if (!wrap) return;
-  let results;
+function goToSlots() {
+  selDate = document.getElementById('dateInput').value;
+  if (!selDate) return spToast('Pick a date first.', 'error');
+  if (selDate < todayISO || selDate > maxDateISO) return spToast('You can only book for today or up to 2 days ahead.', 'error');
+  selSlot = null;
+  STEP = 2;
+  renderStep();
+}
+
+async function loadSlots() {
+  const grid = document.getElementById('slotGrid');
+  if (!grid) return;
+  grid.innerHTML = `<div class="sp-empty">Loading…</div>`;
+  let slots = [];
   try {
-    results = await Promise.all(bookableDates.map(d =>
-      spGet(`/api/student/support/slots?date=${encodeURIComponent(d)}&duration=${DUR}`).then(slots => ({ date: d, slots }))
-    ));
-  } catch (e) { wrap.innerHTML = `<div class="sp-empty">Could not load times.</div>`; return; }
-
-  const withSlots = results.filter(r => r.slots.length);
-  if (!withSlots.length) { wrap.innerHTML = `<div class="sp-empty">No open times in the next 3 days.</div>`; return; }
-
-  wrap.innerHTML = withSlots.map(({ date, slots }) => {
-    const byTime = new Map();
-    slots.forEach(s => { if (!byTime.has(s.time)) byTime.set(s.time, []); byTime.get(s.time).push(s.teacher); });
-    return `
-      <div class="sp-day-block">
-        <div class="sp-day-heading">${spEscapeHtml(dayHeading(date))} <span>${spEscapeHtml(fmtDateLong(date))}</span></div>
-        ${[...byTime.entries()].map(([time, teachers]) => `
-          <div class="sp-slot-group-time">${spEscapeHtml(time)}</div>
-          <div class="sp-slot-grid">
-            ${teachers.map(t => `<button type="button" class="sp-slot-btn" onclick='pickSlot(${JSON.stringify({date, time, teacher: t})})'>${spEscapeHtml(t)}</button>`).join('')}
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }).join('');
+    slots = await spGet(`/api/student/support/slots?date=${encodeURIComponent(selDate)}&duration=${DUR}`);
+  } catch (e) { grid.innerHTML = `<div class="sp-empty">Could not load times.</div>`; return; }
+  if (!slots.length) { grid.innerHTML = `<div class="sp-empty">No open times on this day — try another date.</div>`; return; }
+  // Group by time so same-time slots across teachers read as one row.
+  const byTime = new Map();
+  slots.forEach(s => { if (!byTime.has(s.time)) byTime.set(s.time, []); byTime.get(s.time).push(s.teacher); });
+  grid.innerHTML = [...byTime.entries()].map(([time, teachers]) => `
+    <div class="sp-slot-group-time">${spEscapeHtml(time)}</div>
+    <div class="sp-slot-grid">
+      ${teachers.map(t => `<button type="button" class="sp-slot-btn" onclick='pickSlot(${JSON.stringify({time, teacher: t})})'>${spEscapeHtml(t)}</button>`).join('')}
+    </div>
+  `).join('');
 }
 
 function pickSlot(slot) {
-  selDate = slot.date;
-  selSlot = { time: slot.time, teacher: slot.teacher };
+  selSlot = slot;
   theme = '';
-  STEP = 2;
+  STEP = 3;
   renderStep();
 }
 
 function goToConfirm() {
   theme = document.getElementById('themeInput').value.trim();
   if (!theme) return spToast('Tell us what you need help with.', 'error');
-  STEP = 3;
+  STEP = 4;
   renderStep();
 }
 
@@ -199,7 +201,7 @@ async function confirmBook() {
   try {
     await spPost('/api/student/support/book', { date: selDate, time: selSlot.time, duration: DUR, teacher: selSlot.teacher, theme });
     spToast('Session booked!');
-    STEP = 1; selDate = null; selSlot = null; theme = '';
+    STEP = 1; selSlot = null; theme = '';
     STATUS = await spGet('/api/student/support/status');
     render();
   } catch (e) {
