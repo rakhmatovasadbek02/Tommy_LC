@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light only">
+<title>Profile — Tommy LC Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="student-shared.css">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+</head>
+<body>
+<div id="spHeader"></div>
+<div class="sp-main">
+  <div id="content" class="sp-loading">Loading your profile…</div>
+</div>
+<div id="spTabbar" class="sp-tabbar"></div>
+<script src="student-shared.js"></script>
+<script>
+spRequireAuth();
+spRenderHeader('profile');
+
+function statusBadge(status) {
+  const cls = status === 'Active' ? 'green' : status === 'Frozen' ? 'amber' : 'red';
+  return `<span class="sp-badge ${cls}">${spEscapeHtml(status)}</span>`;
+}
+function scheduleLabel(g) {
+  const days = g.schedType === 'odd' ? 'Mon / Wed / Fri' : g.schedType === 'even' ? 'Tue / Thu / Sat' : spEscapeHtml(g.schedType || '—');
+  return `${days}${g.time ? ' · ' + spEscapeHtml(g.time) : ''}`;
+}
+
+async function load() {
+  const el = document.getElementById('content');
+  try {
+    const me = await spGet('/api/student/me');
+    const g = me.groups[0];
+    const fullName = `${me.firstName} ${me.lastName}`;
+
+    el.innerHTML = `
+      <div class="sp-hero">
+        <div class="sp-avatar">${spInitials(fullName)}</div>
+        <div>
+          <div class="sp-hero-name">${spEscapeHtml(fullName)}</div>
+          <div class="sp-hero-badges">
+            ${statusBadge(me.status)}
+            ${me.level ? `<span class="sp-badge">${spEscapeHtml(me.level)}</span>` : ''}
+            ${g ? `<span class="sp-badge">${spEscapeHtml(g.name)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-cols">
+        <div class="sp-card">
+          <div class="sp-card-title">Personal Details</div>
+          <div class="sp-detail-row"><span class="sp-detail-label">Phone</span><span class="sp-detail-value">${spEscapeHtml(me.phone||'—')}</span></div>
+          ${me.school ? `<div class="sp-detail-row"><span class="sp-detail-label">School</span><span class="sp-detail-value">${spEscapeHtml(me.school)}</span></div>` : ''}
+          ${me.grade ? `<div class="sp-detail-row"><span class="sp-detail-label">Grade</span><span class="sp-detail-value">${spEscapeHtml(me.grade)}</span></div>` : ''}
+          ${me.address ? `<div class="sp-detail-row"><span class="sp-detail-label">Address</span><span class="sp-detail-value">${spEscapeHtml(me.address)}</span></div>` : ''}
+          ${!me.school && !me.grade && !me.address ? `<div class="sp-empty">No additional details on file.</div>` : ''}
+        </div>
+
+        <div class="sp-card">
+          <div class="sp-card-title">Group &amp; Schedule</div>
+          ${g ? `
+            <div class="sp-detail-row"><span class="sp-detail-label">Group</span><span class="sp-detail-value">${spEscapeHtml(g.name)}</span></div>
+            ${g.teacher ? `<div class="sp-detail-row"><span class="sp-detail-label">Teacher</span><span class="sp-detail-value">${spEscapeHtml(g.teacher)}</span></div>` : ''}
+            <div class="sp-detail-row"><span class="sp-detail-label">Room</span><span class="sp-detail-value">${spEscapeHtml(g.room||'—')}</span></div>
+            <div class="sp-detail-row"><span class="sp-detail-label">Schedule</span><span class="sp-detail-value">${scheduleLabel(g)}</span></div>
+          ` : `<div class="sp-empty">Not enrolled in a group yet.</div>`}
+        </div>
+      </div>
+
+      <button class="sp-btn sp-btn-outline sp-btn-block" onclick="spLogout()"><i class="fas fa-arrow-right-from-bracket"></i>&nbsp; Sign Out</button>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`;
+  }
+}
+load();
+</script>
+</body>
+</html>

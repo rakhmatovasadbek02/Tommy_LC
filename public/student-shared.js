@@ -55,25 +55,37 @@ function spToast(message, type) {
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 250); }, 3200);
 }
 
-// Renders the shared top header (logo + student name + logout) into #spHeader, if present.
+// Renders the lightweight top bar (brand + sign out) into #spHeader, if present, and the
+// bottom tab bar — the app's primary section navigation — into #spTabbar, if present.
+// Split in two (rather than one combined header) to match the "Tommy LC Student App"
+// design: a slim brand bar up top, navigation as an app-style tab bar at the bottom.
 function spRenderHeader(activeKey) {
-  const el = document.getElementById('spHeader');
-  if (!el) return;
-  const s = spGetSession();
-  el.innerHTML = `
-    <div class="sp-header-inner">
-      <a href="student-portal.html" class="sp-brand">
-        <img class="sp-brand-mark" src="logo.png" alt="Tommy LC">
-        <span class="sp-brand-text">Tommy LC<span>Student Portal</span></span>
-      </a>
-      <nav class="sp-nav">
-        <a href="student-portal.html" class="${activeKey==='home'?'on':''}">Profile</a>
-        <a href="student-vocab.html" class="${activeKey==='vocab'?'on':''}">Vocabulary</a>
-        <a href="student-support.html" class="${activeKey==='support'?'on':''}">Support</a>
-      </nav>
-      <div class="sp-header-right">
-        <span class="sp-header-name">${spEscapeHtml(s ? s.name : '')}</span>
-        <button class="sp-logout-btn" onclick="spLogout()">Sign out</button>
-      </div>
-    </div>`;
+  const top = document.getElementById('spHeader');
+  if (top) {
+    const s = spGetSession();
+    top.innerHTML = `
+      <div class="sp-header-inner">
+        <a href="student-portal.html" class="sp-brand">
+          <img class="sp-brand-mark" src="logo.png" alt="Tommy LC">
+          <span class="sp-brand-text">Tommy LC</span>
+        </a>
+        <div class="sp-header-right">
+          <span class="sp-header-name">${spEscapeHtml(s ? s.name : '')}</span>
+          <button class="sp-logout-btn" onclick="spLogout()" title="Sign out"><i class="fas fa-arrow-right-from-bracket"></i></button>
+        </div>
+      </div>`;
+  }
+  const tabs = document.getElementById('spTabbar');
+  if (tabs) {
+    const items = [
+      { key: 'home', href: 'student-portal.html', icon: 'fa-house', label: 'Home' },
+      { key: 'profile', href: 'student-account.html', icon: 'fa-user', label: 'Profile' },
+      { key: 'vocab', href: 'student-vocab.html', icon: 'fa-lightbulb', label: 'Vocab' },
+      { key: 'support', href: 'student-support.html', icon: 'fa-comments', label: 'Support' },
+    ];
+    tabs.innerHTML = `
+      <div class="sp-tabbar-inner">
+        ${items.map(it => `<a href="${it.href}" class="sp-tab${activeKey===it.key?' on':''}"><i class="fas ${it.icon}"></i>${it.label}</a>`).join('')}
+      </div>`;
+  }
 }
