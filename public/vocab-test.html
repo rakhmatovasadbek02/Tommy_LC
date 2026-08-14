@@ -8,21 +8,22 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Vocabulary Test — Tommy LC Student Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     color-scheme: light only;
-    /* Same brand tokens as student-shared.css's "Tommy LC Student App" design (Claude
-       Design project 1524c168-…): Poppins, crimson #b81c1c, glass cards. */
-    --crimson:#b81c1c; --crimson-dark:#8f1515; --crimson-light:#FFD0D0; --crimson-soft:#fff5f5;
+    /* Same brand tokens as shared.css / student-shared.css — this page used to run its
+       own slightly-off palette (muted grays, system font) that didn't match anywhere
+       else in the product. */
+    --crimson:#FF0000; --crimson-dark:#CC0000; --crimson-light:#FFD0D0; --crimson-soft:#FFF0F0;
     --green:#1E6B45; --green-soft:#D1EAD9; --green-dark:#12592c;
-    --border:#e5e7eb; --text:#1a1a1a; --muted:#6b7280; --bg:#fafbfc;
+    --border:#FFD0D0; --text:#1A0000; --muted:#994444; --bg:#FBF5F5;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
-    margin:0;font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    background: linear-gradient(155deg, #b81c1c 0%, #8f1515 55%, #5c0d0d 100%);
+    margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background: linear-gradient(155deg, #B00000 0%, #8a0000 55%, #5c0000 100%);
     color:var(--text);
     min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
     padding:28px;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;
@@ -50,8 +51,8 @@
      same image size, same two-line name+subtitle block, same colors, on every student page. */
   .logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:22px}
   .logo-mark{width:44px;height:44px;border-radius:10px;flex-shrink:0;object-fit:contain}
-  .logo{font-size:21px;font-weight:700;color:var(--crimson);text-align:left;line-height:1.1}
-  .logo span{display:block;font-size:9.5px;font-weight:600;letter-spacing:1.5px;color:var(--muted);margin-top:2px;text-transform:uppercase}
+  .logo{font-size:22px;font-weight:900;color:#990000;text-align:left;line-height:1.1}
+  .logo span{display:block;font-size:10px;font-weight:700;letter-spacing:2px;color:#b06060;margin-top:2px;text-transform:uppercase}
   h1{font-size:21px;margin:0 0 8px;text-align:center;font-weight:800}
   label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 
@@ -68,7 +69,7 @@
     display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:18px;
     border-radius:14px;border:none;background:var(--crimson);color:white;font-size:16px;font-weight:800;
     cursor:pointer;transition:transform .08s,background .15s,box-shadow .15s;
-    box-shadow:0 6px 18px rgba(184,28,28,.25);min-height:58px;
+    box-shadow:0 6px 18px rgba(255,0,0,.25);min-height:58px;
   }
   .btn:hover{background:var(--crimson-dark)}
   .btn:active{transform:scale(.97)}
@@ -118,7 +119,7 @@
     filter:blur(6px);opacity:0;z-index:0;
   }
   .result-glow.pass{background:radial-gradient(circle,rgba(26,122,60,.22) 0%,transparent 70%);animation:glowPulse 2.2s ease-in-out infinite}
-  .result-glow.fail{background:radial-gradient(circle,rgba(184,28,28,.14) 0%,transparent 70%)}
+  .result-glow.fail{background:radial-gradient(circle,rgba(255,0,0,.14) 0%,transparent 70%)}
   @keyframes glowPulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
   .result-badge{
     width:104px;height:104px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -127,7 +128,7 @@
   .result-badge svg{width:52px;height:52px}
   @keyframes badgeIn{from{opacity:0;transform:scale(.4) rotate(-15deg)}to{opacity:1;transform:scale(1) rotate(0)}}
   .result-badge.pass{background:linear-gradient(155deg,#22a355,var(--green));color:white;box-shadow:0 10px 28px rgba(26,122,60,.35)}
-  .result-badge.fail{background:linear-gradient(155deg,var(--crimson-light),var(--crimson-dark));color:white;box-shadow:0 10px 28px rgba(184,28,28,.3)}
+  .result-badge.fail{background:linear-gradient(155deg,var(--crimson-light),var(--crimson-dark));color:white;box-shadow:0 10px 28px rgba(255,0,0,.3)}
   .result-title{font-size:30px;font-weight:800;text-align:center;margin-bottom:6px;letter-spacing:-.3px}
   .result-title.pass{color:var(--green-dark)}
   .result-title.fail{color:var(--crimson-dark)}

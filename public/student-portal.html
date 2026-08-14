@@ -4,9 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light only">
-<title>Home — Tommy LC Student Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<title>My Profile — Tommy LC Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 </head>
@@ -15,19 +14,23 @@
 <div class="sp-main">
   <div id="content" class="sp-loading">Loading your profile…</div>
 </div>
-<div id="spTabbar" class="sp-tabbar"></div>
 <script src="student-shared.js"></script>
 <script>
 spRequireAuth();
 spRenderHeader('home');
 
+function statusBadge(status) {
+  const cls = status === 'Active' ? 'green' : status === 'Frozen' ? 'amber' : 'red';
+  return `<span class="sp-badge ${cls}">${spEscapeHtml(status)}</span>`;
+}
 function fmtDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric' });
 }
 function fmtMoney(n) { return Number(n||0).toLocaleString('en-US') + ' UZS'; }
-function todayLabel() {
-  return new Date().toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', weekday:'long', day:'numeric', month:'long' });
+function scheduleLabel(g) {
+  const days = g.schedType === 'odd' ? 'Mon / Wed / Fri' : g.schedType === 'even' ? 'Tue / Thu / Sat' : spEscapeHtml(g.schedType || '—');
+  return `${days}${g.time ? ' · ' + spEscapeHtml(g.time) : ''}`;
 }
 
 async function load() {
@@ -38,20 +41,31 @@ async function load() {
     const attTotal = me.attendance.length;
     const attPresent = me.attendance.filter(a => a.status === 'Present' || a.status === 'present').length;
     const attPct = attTotal ? Math.round((attPresent/attTotal)*100) : null;
+    const attClass = attPct===null ? '' : attPct>=80 ? 'green' : attPct>=50 ? 'amber' : '';
+    const fullName = `${me.firstName} ${me.lastName}`;
 
     el.innerHTML = `
-      <div class="sp-title">Welcome back, ${spEscapeHtml(me.firstName)}</div>
-      <div class="sp-subtitle">${spEscapeHtml(todayLabel())}</div>
+      <div class="sp-hero">
+        <div class="sp-avatar">${spInitials(fullName)}</div>
+        <div>
+          <div class="sp-hero-name">${spEscapeHtml(fullName)}</div>
+          <div class="sp-hero-badges">
+            ${statusBadge(me.status)}
+            ${me.level ? `<span class="sp-badge">${spEscapeHtml(me.level)}</span>` : ''}
+            ${g ? `<span class="sp-badge">${spEscapeHtml(g.name)}</span>` : ''}
+          </div>
+        </div>
+      </div>
 
       <div class="sp-stat-row">
         <div class="sp-stat">
           <div class="sp-stat-label">Balance</div>
-          <div class="sp-stat-value ${String(fmtMoney(me.balance)).length>10?'small':''}" style="${me.balance<0?'color:var(--red)':''}">${fmtMoney(me.balance)}</div>
+          <div class="sp-stat-value ${String(fmtMoney(me.balance)).length>10?'small':''}" style="${me.balance<0?'color:#C0202E':''}">${fmtMoney(me.balance)}</div>
         </div>
         <div class="sp-stat">
           <div class="sp-stat-label">Attendance</div>
           <div class="sp-stat-value">${attPct!==null ? attPct+'%' : '—'}</div>
-          ${attPct!==null ? `<div class="sp-progress-track"><div class="sp-progress-fill ${attPct>=80?'green':attPct>=50?'amber':''}" style="width:${attPct}%"></div></div>` : ''}
+          ${attPct!==null ? `<div class="sp-progress-track"><div class="sp-progress-fill ${attClass}" style="width:${attPct}%"></div></div>` : ''}
         </div>
         ${g ? `<div class="sp-stat">
           <div class="sp-stat-label">Current Unit</div>
@@ -65,15 +79,36 @@ async function load() {
 
       <div class="sp-tiles">
         <a class="sp-tile" href="student-vocab.html">
-          <div class="sp-tile-title"><i class="fas fa-lightbulb"></i> Practice Vocabulary</div>
+          <div class="sp-tile-title">📚 Practice Vocabulary</div>
           <div class="sp-tile-sub">Pick any unit at your level and practice as many times as you like.</div>
           <div class="sp-tile-arrow">Start practicing →</div>
         </a>
         <a class="sp-tile" href="student-support.html">
-          <div class="sp-tile-title"><i class="fas fa-comments"></i> Book Support Session</div>
+          <div class="sp-tile-title">🗓️ Book Support Session</div>
           <div class="sp-tile-sub">One free session a day with a support teacher.</div>
           <div class="sp-tile-arrow">Book now →</div>
         </a>
+      </div>
+
+      <div class="sp-cols">
+        <div class="sp-card">
+          <div class="sp-card-title">Personal Details</div>
+          <div class="sp-detail-row"><span class="sp-detail-label">Phone</span><span class="sp-detail-value">${spEscapeHtml(me.phone||'—')}</span></div>
+          ${me.school ? `<div class="sp-detail-row"><span class="sp-detail-label">School</span><span class="sp-detail-value">${spEscapeHtml(me.school)}</span></div>` : ''}
+          ${me.grade ? `<div class="sp-detail-row"><span class="sp-detail-label">Grade</span><span class="sp-detail-value">${spEscapeHtml(me.grade)}</span></div>` : ''}
+          ${me.address ? `<div class="sp-detail-row"><span class="sp-detail-label">Address</span><span class="sp-detail-value">${spEscapeHtml(me.address)}</span></div>` : ''}
+          ${!me.school && !me.grade && !me.address ? `<div class="sp-empty">No additional details on file.</div>` : ''}
+        </div>
+
+        <div class="sp-card">
+          <div class="sp-card-title">Group &amp; Schedule</div>
+          ${g ? `
+            <div class="sp-detail-row"><span class="sp-detail-label">Group</span><span class="sp-detail-value">${spEscapeHtml(g.name)}</span></div>
+            ${g.teacher ? `<div class="sp-detail-row"><span class="sp-detail-label">Teacher</span><span class="sp-detail-value">${spEscapeHtml(g.teacher)}</span></div>` : ''}
+            <div class="sp-detail-row"><span class="sp-detail-label">Room</span><span class="sp-detail-value">${spEscapeHtml(g.room||'—')}</span></div>
+            <div class="sp-detail-row"><span class="sp-detail-label">Schedule</span><span class="sp-detail-value">${scheduleLabel(g)}</span></div>
+          ` : `<div class="sp-empty">Not enrolled in a group yet.</div>`}
+        </div>
       </div>
     `;
   } catch (e) {
