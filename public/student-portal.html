@@ -28,11 +28,6 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric' });
 }
 function fmtMoney(n) { return Number(n||0).toLocaleString('en-US') + ' UZS'; }
-function attendanceBadge(status) {
-  const s = String(status || '').toLowerCase();
-  const cls = s === 'present' ? 'green' : s === 'absent' ? 'red' : '';
-  return `<span class="sp-badge ${cls}">${spEscapeHtml(status)}</span>`;
-}
 function scheduleLabel(g) {
   const days = g.schedType === 'odd' ? 'Mon / Wed / Fri' : g.schedType === 'even' ? 'Tue / Thu / Sat' : spEscapeHtml(g.schedType || '—');
   return `${days}${g.time ? ' · ' + spEscapeHtml(g.time) : ''}`;
@@ -114,16 +109,6 @@ async function load() {
             <div class="sp-detail-row"><span class="sp-detail-label">Schedule</span><span class="sp-detail-value">${scheduleLabel(g)}</span></div>
           ` : `<div class="sp-empty">Not enrolled in a group yet.</div>`}
         </div>
-      </div>
-
-      <div class="sp-card">
-        <div class="sp-card-title">Recent Attendance</div>
-        <table class="sp-table">
-          <thead><tr><th>Date</th><th>Group</th><th>Status</th></tr></thead>
-          <tbody>
-            ${me.attendance.slice(0,10).map(a => `<tr><td>${fmtDate(a.date)}</td><td>${spEscapeHtml(a.groupName||'—')}</td><td>${attendanceBadge(a.status)}</td></tr>`).join('') || `<tr><td colspan="3" class="sp-empty">No attendance recorded yet.</td></tr>`}
-          </tbody>
-        </table>
       </div>
     `;
   } catch (e) {
