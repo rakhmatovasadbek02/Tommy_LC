@@ -58,15 +58,28 @@ function renderPicker() {
     </div>
   `;
   const list = document.getElementById('unitList');
-  list.innerHTML = UNITS.length ? UNITS.map(u => `
+  if (!UNITS.length) {
+    list.innerHTML = `<div class="sp-empty">No units available for your level yet — ask your admin.</div>`;
+    return;
+  }
+  // UNITS already comes back sorted level-then-unit-number; only add level headers
+  // when more than one level is present (e.g. no group assigned yet) so it's clear
+  // why the numbering restarts, instead of it just looking out of order.
+  const levels = [...new Set(UNITS.map(u => u.level))];
+  const itemHtml = u => `
     <label class="sp-pick-item">
       <input type="checkbox" ${SELECTED.has(u.id)?'checked':''} onchange="toggleUnit('${u.id}', this.checked)">
       <div>
         <div style="font-size:13.5px;font-weight:600">${spEscapeHtml(u.name)}</div>
-        <div style="font-size:11.5px;color:#b06060">${u.wordCount} word${u.wordCount===1?'':'s'} · ${spEscapeHtml(u.level)}</div>
+        <div style="font-size:11.5px;color:#b06060">${u.wordCount} word${u.wordCount===1?'':'s'}${levels.length>1?'':' · '+spEscapeHtml(u.level)}</div>
       </div>
-    </label>
-  `).join('') : `<div class="sp-empty">No units available for your level yet — ask your admin.</div>`;
+    </label>`;
+  list.innerHTML = levels.length > 1
+    ? levels.map(lvl => `
+        <div style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#994444;background:#FFF7F7;border-bottom:1px solid #FFF0F0">${spEscapeHtml(lvl)}</div>
+        ${UNITS.filter(u => u.level === lvl).map(itemHtml).join('')}
+      `).join('')
+    : UNITS.map(itemHtml).join('');
 }
 function toggleUnit(id, checked) { if (checked) SELECTED.add(id); else SELECTED.delete(id); }
 

@@ -2714,6 +2714,12 @@ app.get('/api/student/me', async (req, res) => {
 // a plain string ORDER BY puts "10A" before "2A" since '1' < '2'. Pull the leading
 // number out and compare numerically first, falling back to the rest of the name.
 function naturalUnitCompare(a, b) {
+  // Level first: when a student has no group (or their level doesn't match any unit's
+  // level string) every level's units come back together, and without this a plain
+  // number sort interleaves each level's "1A", "1B", ... one after another — three
+  // different courses shuffled together looks like nothing is in order at all.
+  const level = String(a.level || '').localeCompare(String(b.level || ''));
+  if (level !== 0) return level;
   const parse = s => {
     const m = String(s || '').match(/^\s*(\d+)\s*(.*)$/);
     return m ? [parseInt(m[1], 10), m[2]] : [Infinity, String(s || '')];
