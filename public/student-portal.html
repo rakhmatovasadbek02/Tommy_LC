@@ -28,6 +28,15 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric' });
 }
 function fmtMoney(n) { return Number(n||0).toLocaleString('en-US') + ' UZS'; }
+function attendanceBadge(status) {
+  const s = String(status || '').toLowerCase();
+  const cls = s === 'present' ? 'green' : s === 'absent' ? 'red' : '';
+  return `<span class="sp-badge ${cls}">${spEscapeHtml(status)}</span>`;
+}
+function scheduleLabel(g) {
+  const days = g.schedType === 'odd' ? 'Mon / Wed / Fri' : g.schedType === 'even' ? 'Tue / Thu / Sat' : spEscapeHtml(g.schedType || '—');
+  return `${days}${g.time ? ' · ' + spEscapeHtml(g.time) : ''}`;
+}
 
 async function load() {
   const el = document.getElementById('content');
@@ -37,10 +46,41 @@ async function load() {
     const attTotal = me.attendance.length;
     const attPresent = me.attendance.filter(a => a.status === 'Present' || a.status === 'present').length;
     const attPct = attTotal ? Math.round((attPresent/attTotal)*100) : null;
+    const attClass = attPct===null ? '' : attPct>=80 ? 'green' : attPct>=50 ? 'amber' : '';
+    const fullName = `${me.firstName} ${me.lastName}`;
 
     el.innerHTML = `
-      <div class="sp-title">Hi, ${spEscapeHtml(me.firstName)} 👋</div>
-      <div class="sp-subtitle">This is your information on file — for any changes, please contact your admin.</div>
+      <div class="sp-hero">
+        <div class="sp-avatar">${spInitials(fullName)}</div>
+        <div>
+          <div class="sp-hero-name">${spEscapeHtml(fullName)}</div>
+          <div class="sp-hero-badges">
+            ${statusBadge(me.status)}
+            ${me.level ? `<span class="sp-badge">${spEscapeHtml(me.level)}</span>` : ''}
+            ${g ? `<span class="sp-badge">${spEscapeHtml(g.name)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-stat-row">
+        <div class="sp-stat">
+          <div class="sp-stat-label">Balance</div>
+          <div class="sp-stat-value ${String(fmtMoney(me.balance)).length>10?'small':''}" style="${me.balance<0?'color:#C0202E':''}">${fmtMoney(me.balance)}</div>
+        </div>
+        <div class="sp-stat">
+          <div class="sp-stat-label">Attendance</div>
+          <div class="sp-stat-value">${attPct!==null ? attPct+'%' : '—'}</div>
+          ${attPct!==null ? `<div class="sp-progress-track"><div class="sp-progress-fill ${attClass}" style="width:${attPct}%"></div></div>` : ''}
+        </div>
+        ${g ? `<div class="sp-stat">
+          <div class="sp-stat-label">Current Unit</div>
+          <div class="sp-stat-value small">${spEscapeHtml(g.currentUnit||'—')}</div>
+        </div>` : ''}
+        ${me.exam ? `<div class="sp-stat">
+          <div class="sp-stat-label">Exam</div>
+          <div class="sp-stat-value small">${spEscapeHtml(me.exam)}${me.examDate?'<br>'+fmtDate(me.examDate):''}</div>
+        </div>` : ''}
+      </div>
 
       <div class="sp-tiles">
         <a class="sp-tile" href="student-vocab.html">
@@ -55,36 +95,33 @@ async function load() {
         </a>
       </div>
 
-      <div class="sp-card">
-        <div class="sp-card-title">My Info ${statusBadge(me.status)}</div>
-        <div class="sp-grid">
-          <div class="sp-field"><div class="sp-field-label">Full Name</div><div class="sp-field-value">${spEscapeHtml(me.lastName)} ${spEscapeHtml(me.firstName)}</div></div>
-          <div class="sp-field"><div class="sp-field-label">Phone</div><div class="sp-field-value">${spEscapeHtml(me.phone||'—')}</div></div>
-          <div class="sp-field"><div class="sp-field-label">Level</div><div class="sp-field-value">${spEscapeHtml(me.level||'—')}</div></div>
-          <div class="sp-field"><div class="sp-field-label">Balance</div><div class="sp-field-value">${fmtMoney(me.balance)}</div></div>
-          ${me.school ? `<div class="sp-field"><div class="sp-field-label">School</div><div class="sp-field-value">${spEscapeHtml(me.school)}</div></div>` : ''}
-          ${me.grade ? `<div class="sp-field"><div class="sp-field-label">Grade</div><div class="sp-field-value">${spEscapeHtml(me.grade)}</div></div>` : ''}
-          ${me.exam ? `<div class="sp-field"><div class="sp-field-label">Exam</div><div class="sp-field-value">${spEscapeHtml(me.exam)}${me.examDate?' · '+fmtDate(me.examDate):''}</div></div>` : ''}
+      <div class="sp-cols">
+        <div class="sp-card">
+          <div class="sp-card-title">Personal Details</div>
+          <div class="sp-detail-row"><span class="sp-detail-label">Phone</span><span class="sp-detail-value">${spEscapeHtml(me.phone||'—')}</span></div>
+          ${me.school ? `<div class="sp-detail-row"><span class="sp-detail-label">School</span><span class="sp-detail-value">${spEscapeHtml(me.school)}</span></div>` : ''}
+          ${me.grade ? `<div class="sp-detail-row"><span class="sp-detail-label">Grade</span><span class="sp-detail-value">${spEscapeHtml(me.grade)}</span></div>` : ''}
+          ${me.address ? `<div class="sp-detail-row"><span class="sp-detail-label">Address</span><span class="sp-detail-value">${spEscapeHtml(me.address)}</span></div>` : ''}
+          ${!me.school && !me.grade && !me.address ? `<div class="sp-empty">No additional details on file.</div>` : ''}
+        </div>
+
+        <div class="sp-card">
+          <div class="sp-card-title">Group &amp; Schedule</div>
+          ${g ? `
+            <div class="sp-detail-row"><span class="sp-detail-label">Group</span><span class="sp-detail-value">${spEscapeHtml(g.name)}</span></div>
+            ${g.teacher ? `<div class="sp-detail-row"><span class="sp-detail-label">Teacher</span><span class="sp-detail-value">${spEscapeHtml(g.teacher)}</span></div>` : ''}
+            <div class="sp-detail-row"><span class="sp-detail-label">Room</span><span class="sp-detail-value">${spEscapeHtml(g.room||'—')}</span></div>
+            <div class="sp-detail-row"><span class="sp-detail-label">Schedule</span><span class="sp-detail-value">${scheduleLabel(g)}</span></div>
+          ` : `<div class="sp-empty">Not enrolled in a group yet.</div>`}
         </div>
       </div>
 
-      ${g ? `
       <div class="sp-card">
-        <div class="sp-card-title">My Group</div>
-        <div class="sp-grid">
-          <div class="sp-field"><div class="sp-field-label">Group</div><div class="sp-field-value">${spEscapeHtml(g.name)}</div></div>
-          <div class="sp-field"><div class="sp-field-label">Room</div><div class="sp-field-value">${spEscapeHtml(g.room||'—')}</div></div>
-          <div class="sp-field"><div class="sp-field-label">Schedule</div><div class="sp-field-value">${g.schedType==='odd'?'Mon/Wed/Fri':g.schedType==='even'?'Tue/Thu/Sat':spEscapeHtml(g.schedType||'—')} ${spEscapeHtml(g.time||'')}</div></div>
-          <div class="sp-field"><div class="sp-field-label">Current Unit</div><div class="sp-field-value">${spEscapeHtml(g.currentUnit||'—')}</div></div>
-        </div>
-      </div>` : ''}
-
-      <div class="sp-card">
-        <div class="sp-card-title">Attendance ${attPct!==null ? `<span class="sp-badge ${attPct>=80?'green':attPct>=50?'amber':'red'}">${attPct}% present</span>` : ''}</div>
+        <div class="sp-card-title">Recent Attendance</div>
         <table class="sp-table">
           <thead><tr><th>Date</th><th>Group</th><th>Status</th></tr></thead>
           <tbody>
-            ${me.attendance.slice(0,10).map(a => `<tr><td>${fmtDate(a.date)}</td><td>${spEscapeHtml(a.groupName||'—')}</td><td>${spEscapeHtml(a.status)}</td></tr>`).join('') || `<tr><td colspan="3" class="sp-empty">No attendance recorded yet.</td></tr>`}
+            ${me.attendance.slice(0,10).map(a => `<tr><td>${fmtDate(a.date)}</td><td>${spEscapeHtml(a.groupName||'—')}</td><td>${attendanceBadge(a.status)}</td></tr>`).join('') || `<tr><td colspan="3" class="sp-empty">No attendance recorded yet.</td></tr>`}
           </tbody>
         </table>
       </div>
