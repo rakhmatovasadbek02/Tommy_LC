@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Vocabulary Test — TommyLC</title>
+<title>Vocabulary Test — Tommy LC Student Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -47,10 +47,12 @@
   @keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
   @media (min-width:700px){ .card{max-width:640px;padding:48px 52px} }
 
-  .logo-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px}
-  .logo-mark{width:34px;height:34px;border-radius:10px;flex-shrink:0;object-fit:contain;box-shadow:0 2px 6px rgba(255,0,0,.25)}
-  .logo{font-weight:800;font-size:21px;color:var(--crimson-dark);letter-spacing:-.2px}
-  .sub{text-align:center;color:var(--muted);font-size:13.5px;margin-bottom:26px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+  /* Identical lockup to .sp-logo-row/.sp-logo-mark/.sp-logo-name in student-shared.css —
+     same image size, same two-line name+subtitle block, same colors, on every student page. */
+  .logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:22px}
+  .logo-mark{width:44px;height:44px;border-radius:10px;flex-shrink:0;object-fit:contain}
+  .logo{font-size:22px;font-weight:900;color:#990000;text-align:left;line-height:1.1}
+  .logo span{display:block;font-size:10px;font-weight:700;letter-spacing:2px;color:#b06060;margin-top:2px;text-transform:uppercase}
   h1{font-size:21px;margin:0 0 8px;text-align:center;font-weight:800}
   label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 
@@ -155,8 +157,7 @@
 <div class="card" id="card">
 
   <div id="viewEntry">
-    <div class="logo-row"><img class="logo-mark" src="logo.png" alt="Tommy LC"><div class="logo">TommyLC</div></div>
-    <div class="sub">Vocabulary Test</div>
+    <div class="logo-row"><img class="logo-mark" src="logo.png" alt="Tommy LC"><div class="logo">Tommy LC<span>Student Portal</span></div></div>
     <h1>Enter your code</h1>
     <div class="err" id="entryErr"></div>
     <label>Access code</label>
@@ -165,8 +166,7 @@
   </div>
 
   <div id="viewConfirm" class="hide">
-    <div class="logo-row"><img class="logo-mark" src="logo.png" alt="Tommy LC"><div class="logo">TommyLC</div></div>
-    <div class="sub">Vocabulary Test</div>
+    <div class="logo-row"><img class="logo-mark" src="logo.png" alt="Tommy LC"><div class="logo">Tommy LC<span>Student Portal</span></div></div>
     <h1 id="confirmName"></h1>
     <div class="meta" id="confirmMeta"></div>
     <button class="btn" onclick="beginTest()">Start Test</button>

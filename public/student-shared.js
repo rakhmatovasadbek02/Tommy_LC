@@ -59,7 +59,7 @@ function spRenderHeader(activeKey) {
     <div class="sp-header-inner">
       <a href="student-portal.html" class="sp-brand">
         <img class="sp-brand-mark" src="logo.png" alt="Tommy LC">
-        <span class="sp-brand-text">Tommy<b>LC</b><span>Student Portal</span></span>
+        <span class="sp-brand-text">Tommy LC<span>Student Portal</span></span>
       </a>
       <nav class="sp-nav">
         <a href="student-portal.html" class="${activeKey==='home'?'on':''}">Profile</a>
