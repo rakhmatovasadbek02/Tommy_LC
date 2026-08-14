@@ -442,6 +442,10 @@ async function initDB() {
     `CREATE TABLE IF NOT EXISTS archive_reasons (id SERIAL PRIMARY KEY, label TEXT NOT NULL UNIQUE, is_blacklist BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS pre_archive_status TEXT`,
+    // A single hidden test student (student portal QA) that must never count toward
+    // real rosters/stats — see is_test filters on the admin student-list/dashboard/
+    // statistics queries below.
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
@@ -983,7 +987,7 @@ app.delete('/api/users/:id', async (req, res) => {
 app.get('/api/students', async (req, res) => {
   try {
     const [studRes, grpRes, cmtRes] = await Promise.all([
-      pool.query("SELECT * FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') ORDER BY created_at DESC"),
+      pool.query("SELECT * FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE ORDER BY created_at DESC"),
       pool.query('SELECT id,name,teacher,level,time,start_date,student_ids FROM groups'),
       pool.query(`SELECT DISTINCT ON (student_id) student_id, text, actor, created_at
                   FROM student_comments ORDER BY student_id, created_at DESC`)
@@ -2595,6 +2599,7 @@ app.post('/api/public/student/redeem', async (req, res) => {
     const password = String(req.body.password || '');
     if (!code || !username || !password) return res.status(400).json({ error: 'Code, username and password are required.' });
     if (!/^[a-z0-9_.]{3,24}$/.test(username)) return res.status(400).json({ error: 'Username must be 3-24 characters: letters, numbers, "_" or "." only.' });
+    if (username === 'test') return res.status(400).json({ error: 'That username is reserved — pick another.' });
     if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
     const { rows } = await pool.query('SELECT * FROM student_portal_codes WHERE code=$1', [code]);
     const row = rows[0];
@@ -2617,10 +2622,32 @@ app.post('/api/public/student/redeem', async (req, res) => {
   }
 });
 
+// Provisions (or reuses) the single hidden test student account. Marked is_test=TRUE so
+// it's filtered out of every admin roster/dashboard/statistics query — it must never
+// look like a real enrolled student.
+async function ensureHiddenTestStudent() {
+  const id = 'dev_test_student';
+  await pool.query(
+    `INSERT INTO students(id, first_name, last_name, phone, level, status, balance, is_test)
+     VALUES($1,'Test','Student','90 000 00 00','Elementary','Active',0,TRUE)
+     ON CONFLICT (id) DO UPDATE SET first_name='Test', last_name='Student', is_test=TRUE`,
+    [id]
+  );
+  return id;
+}
+
 app.post('/api/public/student/login', async (req, res) => {
   try {
     const username = String(req.body.username || '').trim().toLowerCase();
     const password = String(req.body.password || '');
+    // Hidden testing backdoor: typing "test" as the username logs straight into a
+    // reusable, hidden test-only student account — no real password check, works from
+    // anywhere (not just localhost, unlike /dev-login). Not linked from any UI; the
+    // account is excluded from all admin-facing student counts via is_test.
+    if (username === 'test') {
+      const id = await ensureHiddenTestStudent();
+      return res.json({ ok: true, token: signStudentToken(id), name: 'Test Student' });
+    }
     const { rows } = await pool.query(
       `SELECT l.student_id, s.first_name, s.last_name FROM student_logins l
        JOIN students s ON s.id = l.student_id
@@ -2643,14 +2670,8 @@ app.post('/api/public/student/dev-login', async (req, res) => {
     if (host !== 'localhost' && host !== '127.0.0.1') {
       return res.status(403).json({ error: 'Dev login is only available on localhost.' });
     }
-    const id = 'dev_test_student';
-    await pool.query(
-      `INSERT INTO students(id, first_name, last_name, phone, level, status, balance)
-       VALUES($1,'Dev','Student','90 000 00 00','Elementary','Active',0)
-       ON CONFLICT (id) DO NOTHING`,
-      [id]
-    );
-    res.json({ ok: true, token: signStudentToken(id), name: 'Dev Student' });
+    const id = await ensureHiddenTestStudent();
+    res.json({ ok: true, token: signStudentToken(id), name: 'Test Student' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -3302,7 +3323,7 @@ app.get('/api/dashboard', async (req, res) => {
 
     const [grpR, stuR, invR, leadR, attR] = await Promise.all([
       pool.query('SELECT id,name,teacher,room,level,lang,time,duration,sched_type,custom_days,current_unit,student_ids FROM groups ORDER BY created_at DESC'),
-      pool.query("SELECT id,status,balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial')"),
+      pool.query("SELECT id,status,balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
       pool.query("SELECT COUNT(*)::int n FROM invoices WHERE status='Paid'"),
       pool.query('SELECT status, COUNT(*)::int n FROM leads GROUP BY status'),
       pool.query("SELECT group_id, student_id FROM attendance WHERE date=$1 AND status='absent'", [today]),
@@ -3679,7 +3700,7 @@ app.get('/api/statistics', async (req, res) => {
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
     const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR, spendR] = await Promise.all([
-      pool.query("SELECT id, status, balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial')"),
+      pool.query("SELECT id, status, balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
       pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
       pool.query("SELECT id, total, status, payment_type, created_at, month FROM invoices ORDER BY created_at ASC"),
