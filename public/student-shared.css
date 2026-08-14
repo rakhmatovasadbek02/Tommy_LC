@@ -106,3 +106,28 @@ a { color: inherit; text-decoration: none; }
 .sp-banner.amber { background: #FFF4DD; color: #7A4E00; border: 1px solid #FFE2A8; }
 
 .sp-loading { text-align: center; color: #b06060; padding: 40px; font-size: 13.5px; }
+
+/* ── Auth pages (login / register) — the only student pages without #spHeader ── */
+body.sp-auth-body { padding-bottom: 0; }
+.sp-auth-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: linear-gradient(155deg, #B00000 0%, #8a0000 55%, #5c0000 100%);
+}
+.sp-auth-card { width: 100%; max-width: 420px; background: #fff; border-radius: 20px; box-shadow: 0 24px 64px rgba(0,0,0,.35); padding: 40px 36px; }
+.sp-auth-card.center { text-align: center; }
+.sp-logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 22px; }
+.sp-logo-mark { width: 44px; height: 44px; border-radius: 10px; display: block; flex-shrink: 0; object-fit: contain; }
+.sp-logo-name { font-size: 22px; font-weight: 900; color: #990000; text-align: left; line-height: 1.1; }
+.sp-logo-name span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #b06060; margin-top: 2px; text-transform: uppercase; }
+.sp-auth-h1 { font-size: 22px; font-weight: 900; letter-spacing: -.4px; margin-bottom: 8px; text-align: center; }
+.sp-auth-subtitle { font-size: 13.5px; color: #994444; margin-bottom: 26px; line-height: 1.5; text-align: center; }
+.sp-btn-block { width: 100%; padding: 15px; font-size: 15px; margin-top: 6px; }
+.sp-code-input { text-align: center; letter-spacing: 4px; font-weight: 800; text-transform: uppercase; font-family: ui-monospace, monospace; }
+.sp-foot-link { text-align: center; margin-top: 20px; font-size: 13px; color: #994444; }
+.sp-foot-link a { color: #CC0000; font-weight: 700; text-decoration: none; }
+.sp-dev-btn {
+  width: 100%; padding: 12px; background: #fff; color: #1a7a3c; border: 1.5px dashed #7ac79a; border-radius: 11px;
+  font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 14px;
+}
+.sp-dev-btn:hover { background: #F0FBF4; }
+.sp-dev-btn:disabled { opacity: .6; cursor: not-allowed; }

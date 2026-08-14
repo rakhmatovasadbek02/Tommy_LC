@@ -6,65 +6,35 @@
 <meta name="color-scheme" content="light only">
 <title>Student Sign In — Tommy LC</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<style>
-html { color-scheme: light; }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: 'Inter', sans-serif; min-height: 100vh; color: #1A0000;
-  background: linear-gradient(155deg, #B00000 0%, #8a0000 55%, #5c0000 100%);
-  display: flex; align-items: center; justify-content: center; padding: 24px;
-}
-.card { width: 100%; max-width: 400px; background: #fff; border-radius: 20px; box-shadow: 0 24px 64px rgba(0,0,0,0.35); padding: 40px 36px; }
-.logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 22px; }
-.logo-row .name { font-size: 22px; font-weight: 900; color: #990000; text-align: left; line-height: 1.1; }
-.logo-row .name span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #b06060; margin-top: 2px; }
-h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.4px; margin-bottom: 6px; text-align: center; }
-.subtitle { font-size: 13.5px; color: #994444; margin-bottom: 26px; line-height: 1.5; text-align: center; }
-.form-group { margin-bottom: 16px; text-align: left; }
-label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #994444; margin-bottom: 7px; }
-input[type="text"], input[type="password"] {
-  width: 100%; padding: 13px 16px; border: 1.5px solid #FFD0D0; border-radius: 11px; font-size: 14px;
-  font-family: 'Inter', sans-serif; color: #1A0000; background: #fff; outline: none;
-  transition: border-color 0.16s, box-shadow 0.16s;
-}
-input[type="text"]:focus, input[type="password"]:focus { border-color: #FF0000; box-shadow: 0 0 0 3px rgba(255,0,0,0.10); }
-.error-msg { background: #FFF0F0; color: #8B1228; border: 1px solid #FFD0D0; border-radius: 9px; padding: 10px 14px; font-size: 13px; font-weight: 500; margin-bottom: 16px; display: none; align-items: center; gap: 8px; text-align: left; }
-.error-msg.show { display: flex; }
-.btn-submit { width: 100%; padding: 15px; background: #FF0000; color: #fff; border: none; border-radius: 11px; font-size: 15px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.18s; margin-top: 6px; }
-.btn-submit:hover { background: #CC0000; transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,0,0,0.30); }
-.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
-.foot-link { text-align: center; margin-top: 20px; font-size: 13px; color: #994444; }
-.foot-link a { color: #CC0000; font-weight: 700; text-decoration: none; }
-.btn-dev { width: 100%; padding: 12px; background: #fff; color: #1a7a3c; border: 1.5px dashed #7ac79a; border-radius: 11px; font-size: 13px; font-weight: 700; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 14px; }
-.btn-dev:hover { background: #F0FBF4; }
-.btn-dev:disabled { opacity: 0.6; cursor: not-allowed; }
-</style>
 </head>
-<body>
-<div class="card">
-  <div class="logo-row">
-    <img src="logo.png" width="44" height="44" alt="Tommy LC" style="display:block;flex-shrink:0">
-    <div class="name">Tommy LC<span>STUDENT PORTAL</span></div>
+<body class="sp-auth-body">
+<div class="sp-auth-page">
+<div class="sp-auth-card">
+  <div class="sp-logo-row">
+    <img class="sp-logo-mark" src="logo.png" alt="Tommy LC">
+    <div class="sp-logo-name">Tommy LC<span>STUDENT PORTAL</span></div>
   </div>
-  <div class="error-msg" id="errorMsg"></div>
+  <div class="sp-banner red" id="errorMsg" style="display:none"></div>
   <form id="loginForm" onsubmit="return doLogin(event)">
-    <div class="form-group">
+    <div class="sp-form-group">
       <label>Username</label>
-      <input type="text" id="username" placeholder="your.username" required autocomplete="username">
+      <input type="text" class="sp-input" id="username" placeholder="your.username" required autocomplete="username">
     </div>
-    <div class="form-group">
+    <div class="sp-form-group">
       <label>Password</label>
-      <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      <input type="password" class="sp-input" id="password" placeholder="••••••••" required autocomplete="current-password">
     </div>
-    <button type="submit" class="btn-submit" id="submitBtn">Sign In</button>
+    <button type="submit" class="sp-btn sp-btn-primary sp-btn-block" id="submitBtn">Sign In</button>
   </form>
-  <div class="foot-link">Have a registration code? <a href="student-register.html">Register here</a></div>
-  <button type="button" class="btn-dev" id="devLoginBtn" onclick="doDevLogin()" style="display:none">🛠 Dev: Instant Login</button>
+  <div class="sp-foot-link">Have a registration code? <a href="student-register.html">Register here</a></div>
+  <button type="button" class="sp-dev-btn" id="devLoginBtn" onclick="doDevLogin()" style="display:none">🛠 Dev: Instant Login</button>
+</div>
 </div>
 <script>
-function showError(msg) { const e = document.getElementById('errorMsg'); e.textContent = msg; e.classList.add('show'); }
-function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
+function showError(msg) { const e = document.getElementById('errorMsg'); e.textContent = msg; e.style.display = 'block'; }
+function hideError() { document.getElementById('errorMsg').style.display = 'none'; }
 async function doLogin(ev) {
   ev.preventDefault();
   hideError();
