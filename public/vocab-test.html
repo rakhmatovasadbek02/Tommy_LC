@@ -8,17 +8,21 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Vocabulary Test — TommyLC</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     color-scheme: light only;
-    --crimson:#990000; --crimson-dark:#700000; --crimson-light:#c23838; --crimson-soft:#fbe9e9;
-    --green:#1a7a3c; --green-soft:#e8f7ee; --green-dark:#12592c;
-    --border:#e6e2e0; --text:#20181a; --muted:#8a7f7d; --bg:#faf7f6;
+    /* Same brand tokens as shared.css / student-shared.css — this page used to run its
+       own slightly-off palette (muted grays, system font) that didn't match anywhere
+       else in the product. */
+    --crimson:#FF0000; --crimson-dark:#CC0000; --crimson-light:#FFD0D0; --crimson-soft:#FFF0F0;
+    --green:#1E6B45; --green-soft:#D1EAD9; --green-dark:#12592c;
+    --border:#FFD0D0; --text:#1A0000; --muted:#994444; --bg:#FBF5F5;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
-    margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
     background: linear-gradient(155deg, #B00000 0%, #8a0000 55%, #5c0000 100%);
     color:var(--text);
     min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
@@ -44,7 +48,7 @@
   @media (min-width:700px){ .card{max-width:640px;padding:48px 52px} }
 
   .logo-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px}
-  .logo-mark{width:34px;height:34px;border-radius:10px;flex-shrink:0;object-fit:contain;box-shadow:0 2px 6px rgba(153,0,0,.25)}
+  .logo-mark{width:34px;height:34px;border-radius:10px;flex-shrink:0;object-fit:contain;box-shadow:0 2px 6px rgba(255,0,0,.25)}
   .logo{font-weight:800;font-size:21px;color:var(--crimson-dark);letter-spacing:-.2px}
   .sub{text-align:center;color:var(--muted);font-size:13.5px;margin-bottom:26px;font-weight:600;text-transform:uppercase;letter-spacing:.6px}
   h1{font-size:21px;margin:0 0 8px;text-align:center;font-weight:800}
@@ -63,7 +67,7 @@
     display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:18px;
     border-radius:14px;border:none;background:var(--crimson);color:white;font-size:16px;font-weight:800;
     cursor:pointer;transition:transform .08s,background .15s,box-shadow .15s;
-    box-shadow:0 6px 18px rgba(153,0,0,.25);min-height:58px;
+    box-shadow:0 6px 18px rgba(255,0,0,.25);min-height:58px;
   }
   .btn:hover{background:var(--crimson-dark)}
   .btn:active{transform:scale(.97)}
@@ -113,7 +117,7 @@
     filter:blur(6px);opacity:0;z-index:0;
   }
   .result-glow.pass{background:radial-gradient(circle,rgba(26,122,60,.22) 0%,transparent 70%);animation:glowPulse 2.2s ease-in-out infinite}
-  .result-glow.fail{background:radial-gradient(circle,rgba(153,0,0,.14) 0%,transparent 70%)}
+  .result-glow.fail{background:radial-gradient(circle,rgba(255,0,0,.14) 0%,transparent 70%)}
   @keyframes glowPulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
   .result-badge{
     width:104px;height:104px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -122,7 +126,7 @@
   .result-badge svg{width:52px;height:52px}
   @keyframes badgeIn{from{opacity:0;transform:scale(.4) rotate(-15deg)}to{opacity:1;transform:scale(1) rotate(0)}}
   .result-badge.pass{background:linear-gradient(155deg,#22a355,var(--green));color:white;box-shadow:0 10px 28px rgba(26,122,60,.35)}
-  .result-badge.fail{background:linear-gradient(155deg,var(--crimson-light),var(--crimson-dark));color:white;box-shadow:0 10px 28px rgba(153,0,0,.3)}
+  .result-badge.fail{background:linear-gradient(155deg,var(--crimson-light),var(--crimson-dark));color:white;box-shadow:0 10px 28px rgba(255,0,0,.3)}
   .result-title{font-size:30px;font-weight:800;text-align:center;margin-bottom:6px;letter-spacing:-.3px}
   .result-title.pass{color:var(--green-dark)}
   .result-title.fail{color:var(--crimson-dark)}
