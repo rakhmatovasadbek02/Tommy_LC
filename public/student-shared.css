@@ -112,8 +112,19 @@ body.sp-auth-body { padding-bottom: 0; }
 .sp-auth-page {
   min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
   background: linear-gradient(155deg, #B00000 0%, #8a0000 55%, #5c0000 100%);
+  position: relative; overflow: hidden;
 }
-.sp-auth-card { width: 100%; max-width: 420px; background: #fff; border-radius: 20px; box-shadow: 0 24px 64px rgba(0,0,0,.35); padding: 40px 36px; }
+/* Same faint grid texture as vocab-test.html's hero background, so every full-bleed
+   student page (login, register, vocab-test) reads as the same backdrop. */
+.sp-auth-page::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 20%, #000 0%, transparent 75%);
+}
+.sp-auth-card { width: 100%; max-width: 420px; background: #fff; border-radius: 20px; box-shadow: 0 24px 64px rgba(0,0,0,.35); padding: 40px 36px; position: relative; z-index: 1; }
 .sp-auth-card.center { text-align: center; }
 .sp-logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 22px; }
 .sp-logo-mark { width: 44px; height: 44px; border-radius: 10px; display: block; flex-shrink: 0; object-fit: contain; }
