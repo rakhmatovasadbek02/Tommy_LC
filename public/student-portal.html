@@ -9,13 +9,6 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<style>
-.sp-next-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.sp-next-item:last-child { border-bottom: none; }
-.sp-next-icon { width: 34px; height: 34px; border-radius: 10px; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
-.sp-next-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
-.sp-next-sub { font-size: 12px; color: var(--text-secondary); }
-</style>
 </head>
 <body>
 <div id="spHeader"></div>
@@ -36,39 +29,15 @@ function fmtMoney(n) { return Number(n||0).toLocaleString('en-US') + ' UZS'; }
 function todayLabel() {
   return new Date().toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', weekday:'long', day:'numeric', month:'long' });
 }
-// "Today"/"Tomorrow"/weekday label for a YYYY-MM-DD date, Tashkent-local.
-function relativeDayLabel(iso) {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }));
-  const todayISO = now.toISOString().split('T')[0];
-  const tmrw = new Date(now); tmrw.setDate(tmrw.getDate()+1);
-  const tmrwISO = tmrw.toISOString().split('T')[0];
-  if (iso === todayISO) return 'Today';
-  if (iso === tmrwISO) return 'Tomorrow';
-  return new Date(iso+'T00:00:00').toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
-}
 
 async function load() {
   const el = document.getElementById('content');
   try {
-    const [me, home] = await Promise.all([
-      spGet('/api/student/me'),
-      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null })),
-    ]);
+    const me = await spGet('/api/student/me');
     const g = me.groups[0];
     const attTotal = me.attendance.length;
     const attPresent = me.attendance.filter(a => a.status === 'Present' || a.status === 'present').length;
     const attPct = attTotal ? Math.round((attPresent/attTotal)*100) : null;
-
-    const nextItems = [];
-    if (home.pendingTest) {
-      nextItems.push({ icon: 'fa-pen', title: 'Vocabulary test assigned', sub: `${(home.pendingTest.unitNames||[]).join(', ') || 'Ask your teacher for the code'}` });
-    }
-    if (home.nextClass) {
-      nextItems.push({ icon: 'fa-chalkboard-user', title: `Class · ${spEscapeHtml(home.nextClass.groupName)}`, sub: `${relativeDayLabel(home.nextClass.date)} at ${home.nextClass.time}${home.nextClass.room?' · '+spEscapeHtml(home.nextClass.room):''}` });
-    }
-    if (home.nextSupport) {
-      nextItems.push({ icon: 'fa-comments', title: 'One-on-one support', sub: `${relativeDayLabel(home.nextSupport.date)} at ${home.nextSupport.time} · ${spEscapeHtml(home.nextSupport.teacher||'')}` });
-    }
 
     el.innerHTML = `
       <div class="sp-title">Welcome back, ${spEscapeHtml(me.firstName)}</div>
@@ -76,35 +45,22 @@ async function load() {
 
       <div class="sp-stat-row">
         <div class="sp-stat">
+          <div class="sp-stat-label">Balance</div>
+          <div class="sp-stat-value ${String(fmtMoney(me.balance)).length>10?'small':''}" style="${me.balance<0?'color:var(--red)':''}">${fmtMoney(me.balance)}</div>
+        </div>
+        <div class="sp-stat">
           <div class="sp-stat-label">Attendance</div>
           <div class="sp-stat-value">${attPct!==null ? attPct+'%' : '—'}</div>
           ${attPct!==null ? `<div class="sp-progress-track"><div class="sp-progress-fill ${attPct>=80?'green':attPct>=50?'amber':''}" style="width:${attPct}%"></div></div>` : ''}
-        </div>
-        <div class="sp-stat">
-          <div class="sp-stat-label">Learning Streak</div>
-          <div class="sp-stat-value">${home.streak || 0} day${home.streak===1?'':'s'}</div>
-        </div>
-        <div class="sp-stat">
-          <div class="sp-stat-label">Balance</div>
-          <div class="sp-stat-value ${String(fmtMoney(me.balance)).length>10?'small':''}" style="${me.balance<0?'color:var(--red)':''}">${fmtMoney(me.balance)}</div>
         </div>
         ${g ? `<div class="sp-stat">
           <div class="sp-stat-label">Current Unit</div>
           <div class="sp-stat-value small">${spEscapeHtml(g.currentUnit||'—')}</div>
         </div>` : ''}
-      </div>
-
-      <div class="sp-card">
-        <div class="sp-card-title">What's Next</div>
-        ${nextItems.length ? nextItems.map(it => `
-          <div class="sp-next-item">
-            <div class="sp-next-icon"><i class="fas ${it.icon}"></i></div>
-            <div>
-              <div class="sp-next-title">${it.title}</div>
-              <div class="sp-next-sub">${it.sub}</div>
-            </div>
-          </div>
-        `).join('') : `<div class="sp-empty">Nothing scheduled right now.</div>`}
+        ${me.exam ? `<div class="sp-stat">
+          <div class="sp-stat-label">Exam</div>
+          <div class="sp-stat-value small">${spEscapeHtml(me.exam)}${me.examDate?'<br>'+fmtDate(me.examDate):''}</div>
+        </div>` : ''}
       </div>
 
       <div class="sp-tiles">

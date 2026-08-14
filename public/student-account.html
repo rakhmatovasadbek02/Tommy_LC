@@ -9,15 +9,6 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<style>
-.sp-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
-.sp-setting-row:last-child { border-bottom: none; }
-.sp-setting-row.disabled { cursor: default; opacity: .7; }
-.sp-setting-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
-.sp-setting-sub { font-size: 12px; color: var(--text-secondary); }
-.sp-setting-soon { font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--text-tertiary); background: var(--border); padding: 3px 9px; border-radius: 20px; flex-shrink: 0; }
-.sp-setting-row:not(.disabled):hover { background: var(--accent-light); margin: 0 -20px; padding-left: 20px; padding-right: 20px; border-radius: 8px; }
-</style>
 </head>
 <body>
 <div id="spHeader"></div>
@@ -29,7 +20,6 @@
 <script>
 spRequireAuth();
 spRenderHeader('profile');
-let ME = null;
 
 function statusBadge(status) {
   const cls = status === 'Active' ? 'green' : status === 'Frozen' ? 'amber' : 'red';
@@ -43,127 +33,50 @@ function scheduleLabel(g) {
 async function load() {
   const el = document.getElementById('content');
   try {
-    ME = await spGet('/api/student/me');
-    render();
+    const me = await spGet('/api/student/me');
+    const g = me.groups[0];
+    const fullName = `${me.firstName} ${me.lastName}`;
+
+    el.innerHTML = `
+      <div class="sp-hero">
+        <div class="sp-avatar">${spInitials(fullName)}</div>
+        <div>
+          <div class="sp-hero-name">${spEscapeHtml(fullName)}</div>
+          <div class="sp-hero-badges">
+            ${statusBadge(me.status)}
+            ${me.level ? `<span class="sp-badge">${spEscapeHtml(me.level)}</span>` : ''}
+            ${g ? `<span class="sp-badge">${spEscapeHtml(g.name)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="sp-cols">
+        <div class="sp-card">
+          <div class="sp-card-title">Personal Details</div>
+          <div class="sp-detail-row"><span class="sp-detail-label">Phone</span><span class="sp-detail-value">${spEscapeHtml(me.phone||'—')}</span></div>
+          ${me.school ? `<div class="sp-detail-row"><span class="sp-detail-label">School</span><span class="sp-detail-value">${spEscapeHtml(me.school)}</span></div>` : ''}
+          ${me.grade ? `<div class="sp-detail-row"><span class="sp-detail-label">Grade</span><span class="sp-detail-value">${spEscapeHtml(me.grade)}</span></div>` : ''}
+          ${me.address ? `<div class="sp-detail-row"><span class="sp-detail-label">Address</span><span class="sp-detail-value">${spEscapeHtml(me.address)}</span></div>` : ''}
+          ${!me.school && !me.grade && !me.address ? `<div class="sp-empty">No additional details on file.</div>` : ''}
+        </div>
+
+        <div class="sp-card">
+          <div class="sp-card-title">Group &amp; Schedule</div>
+          ${g ? `
+            <div class="sp-detail-row"><span class="sp-detail-label">Group</span><span class="sp-detail-value">${spEscapeHtml(g.name)}</span></div>
+            ${g.teacher ? `<div class="sp-detail-row"><span class="sp-detail-label">Teacher</span><span class="sp-detail-value">${spEscapeHtml(g.teacher)}</span></div>` : ''}
+            <div class="sp-detail-row"><span class="sp-detail-label">Room</span><span class="sp-detail-value">${spEscapeHtml(g.room||'—')}</span></div>
+            <div class="sp-detail-row"><span class="sp-detail-label">Schedule</span><span class="sp-detail-value">${scheduleLabel(g)}</span></div>
+          ` : `<div class="sp-empty">Not enrolled in a group yet.</div>`}
+        </div>
+      </div>
+
+      <button class="sp-btn sp-btn-outline sp-btn-block" onclick="spLogout()"><i class="fas fa-arrow-right-from-bracket"></i>&nbsp; Sign Out</button>
+    `;
   } catch (e) {
     el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`;
   }
 }
-
-function render() {
-  const me = ME;
-  const g = me.groups[0];
-  const fullName = `${me.firstName} ${me.lastName}`;
-  const el = document.getElementById('content');
-
-  el.innerHTML = `
-    <div class="sp-hero">
-      <div class="sp-avatar">${spInitials(fullName)}</div>
-      <div>
-        <div class="sp-hero-name">${spEscapeHtml(fullName)}</div>
-        <div class="sp-hero-badges">
-          ${statusBadge(me.status)}
-          ${me.level ? `<span class="sp-badge">${spEscapeHtml(me.level)}</span>` : ''}
-          ${g ? `<span class="sp-badge">${spEscapeHtml(g.name)}</span>` : ''}
-        </div>
-      </div>
-    </div>
-
-    <div class="sp-cols">
-      <div class="sp-card">
-        <div class="sp-card-title">Personal Details</div>
-        <div class="sp-detail-row"><span class="sp-detail-label">Phone</span><span class="sp-detail-value">${spEscapeHtml(me.phone||'—')}</span></div>
-        ${me.school ? `<div class="sp-detail-row"><span class="sp-detail-label">School</span><span class="sp-detail-value">${spEscapeHtml(me.school)}</span></div>` : ''}
-        ${me.grade ? `<div class="sp-detail-row"><span class="sp-detail-label">Grade</span><span class="sp-detail-value">${spEscapeHtml(me.grade)}</span></div>` : ''}
-        ${me.address ? `<div class="sp-detail-row"><span class="sp-detail-label">Address</span><span class="sp-detail-value">${spEscapeHtml(me.address)}</span></div>` : ''}
-        <div class="sp-detail-row"><span class="sp-detail-label">Email</span><span class="sp-detail-value" style="color:var(--text-tertiary)">Coming soon</span></div>
-        <div class="sp-detail-row"><span class="sp-detail-label">Emergency Contact</span><span class="sp-detail-value" style="color:var(--text-tertiary)">Coming soon</span></div>
-      </div>
-
-      <div class="sp-card">
-        <div class="sp-card-title">Group &amp; Schedule</div>
-        ${g ? `
-          <div class="sp-detail-row"><span class="sp-detail-label">Group</span><span class="sp-detail-value">${spEscapeHtml(g.name)}</span></div>
-          ${g.teacher ? `<div class="sp-detail-row"><span class="sp-detail-label">Teacher</span><span class="sp-detail-value">${spEscapeHtml(g.teacher)}</span></div>` : ''}
-          <div class="sp-detail-row"><span class="sp-detail-label">Room</span><span class="sp-detail-value">${spEscapeHtml(g.room||'—')}</span></div>
-          <div class="sp-detail-row"><span class="sp-detail-label">Schedule</span><span class="sp-detail-value">${scheduleLabel(g)}</span></div>
-        ` : `<div class="sp-empty">Not enrolled in a group yet.</div>`}
-      </div>
-    </div>
-
-    <div class="sp-card" id="settingsCard">
-      <div class="sp-card-title">Account Settings</div>
-      <div id="settingsBody">${settingsListHtml()}</div>
-    </div>
-
-    <button class="sp-btn sp-btn-outline sp-btn-block" onclick="spLogout()"><i class="fas fa-arrow-right-from-bracket"></i>&nbsp; Sign Out</button>
-  `;
-}
-
-function settingsListHtml() {
-  return `
-    <div class="sp-setting-row" onclick="showPasswordForm()">
-      <div>
-        <div class="sp-setting-title">Change Password</div>
-        <div class="sp-setting-sub">Update your login credentials</div>
-      </div>
-      <i class="fas fa-chevron-right" style="color:var(--text-tertiary);font-size:12px"></i>
-    </div>
-    <div class="sp-setting-row disabled">
-      <div>
-        <div class="sp-setting-title">Notifications</div>
-        <div class="sp-setting-sub">Manage alerts</div>
-      </div>
-      <span class="sp-setting-soon">Soon</span>
-    </div>
-    <div class="sp-setting-row disabled">
-      <div>
-        <div class="sp-setting-title">Privacy Settings</div>
-        <div class="sp-setting-sub">Control visibility</div>
-      </div>
-      <span class="sp-setting-soon">Soon</span>
-    </div>
-  `;
-}
-
-function showPasswordForm() {
-  document.getElementById('settingsBody').innerHTML = `
-    <div class="sp-banner red" id="pwErr" style="display:none"></div>
-    <div class="sp-form-group">
-      <label>Current Password</label>
-      <input type="password" class="sp-input" id="pwCurrent" autocomplete="current-password">
-    </div>
-    <div class="sp-form-group">
-      <label>New Password</label>
-      <input type="password" class="sp-input" id="pwNew" placeholder="At least 4 characters" autocomplete="new-password">
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="sp-btn sp-btn-outline" onclick="cancelPasswordForm()">Cancel</button>
-      <button class="sp-btn sp-btn-primary" id="pwSaveBtn" onclick="savePassword()">Save</button>
-    </div>
-  `;
-}
-function cancelPasswordForm() {
-  document.getElementById('settingsBody').innerHTML = settingsListHtml();
-}
-async function savePassword() {
-  const err = document.getElementById('pwErr');
-  err.style.display = 'none';
-  const currentPassword = document.getElementById('pwCurrent').value;
-  const newPassword = document.getElementById('pwNew').value;
-  if (!currentPassword || !newPassword) { err.textContent = 'Fill in both fields.'; err.style.display = 'block'; return; }
-  const btn = document.getElementById('pwSaveBtn');
-  btn.disabled = true; btn.textContent = 'Saving…';
-  try {
-    await spPost('/api/student/account/change-password', { currentPassword, newPassword });
-    spToast('Password updated.');
-    cancelPasswordForm();
-  } catch (e) {
-    err.textContent = e.message; err.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Save';
-  }
-}
-
 load();
 </script>
 </body>
