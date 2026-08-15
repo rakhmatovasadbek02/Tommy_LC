@@ -40,6 +40,9 @@ async function showPicker() {
   try {
     UNITS = await spGet('/api/student/vocab/units');
   } catch (e) { el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`; return; }
+  // Arriving from a Home-screen recommendation (?unit=ID) — pre-check that unit.
+  const preselect = new URLSearchParams(location.search).get('unit');
+  if (preselect && UNITS.some(u => u.id === preselect)) SELECTED.add(preselect);
   renderPicker();
   loadHistory();
 }

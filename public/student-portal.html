@@ -15,6 +15,15 @@
 .sp-next-icon { width: 34px; height: 34px; border-radius: 10px; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
 .sp-next-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
 .sp-next-sub { font-size: 12px; color: var(--text-secondary); }
+.sp-vstat { margin-bottom: 16px; }
+.sp-vstat:last-child { margin-bottom: 0; }
+.sp-vstat-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.sp-vstat-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.sp-vstat-sub { font-size: 11.5px; color: var(--text-secondary); }
+.sp-vstat-pct { font-size: 15px; font-weight: 700; color: var(--accent); }
+.sp-rec-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); text-decoration: none; }
+.sp-rec-item:last-child { border-bottom: none; }
+.sp-rec-item:hover .sp-next-title { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -52,7 +61,7 @@ async function load() {
   try {
     const [me, home] = await Promise.all([
       spGet('/api/student/me'),
-      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null })),
+      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, vocabStats: null, recommendedUnits: [] })),
     ]);
     const g = me.groups[0];
     const attTotal = me.attendance.length;
@@ -68,6 +77,21 @@ async function load() {
     }
     if (home.nextSupport) {
       nextItems.push({ icon: 'fa-comments', title: 'One-on-one support', sub: `${relativeDayLabel(home.nextSupport.date)} at ${home.nextSupport.time} · ${spEscapeHtml(home.nextSupport.teacher||'')}` });
+    }
+
+    const vs = home.vocabStats;
+    function vstatRow(title, stat) {
+      const total = stat?.total || 0, passed = stat?.passed || 0;
+      const pct = total ? Math.round((passed/total)*100) : null;
+      return `
+        <div class="sp-vstat">
+          <div class="sp-vstat-row">
+            <span class="sp-vstat-title">${title}</span>
+            <span class="sp-vstat-pct">${pct!==null ? pct+'%' : '—'}</span>
+          </div>
+          <div class="sp-vstat-sub">${total ? `${passed} of ${total} passed` : 'No attempts yet'}</div>
+          ${pct!==null ? `<div class="sp-progress-track"><div class="sp-progress-fill ${pct>=80?'green':pct>=50?'amber':''}" style="width:${pct}%"></div></div>` : ''}
+        </div>`;
     }
 
     el.innerHTML = `
@@ -107,17 +131,24 @@ async function load() {
         `).join('') : `<div class="sp-empty">Nothing scheduled right now.</div>`}
       </div>
 
-      <div class="sp-tiles">
-        <a class="sp-tile" href="student-vocab.html">
-          <div class="sp-tile-title"><i class="fas fa-lightbulb"></i> Practice Vocabulary</div>
-          <div class="sp-tile-sub">Pick any unit at your level and practice as many times as you like.</div>
-          <div class="sp-tile-arrow">Start practicing →</div>
-        </a>
-        <a class="sp-tile" href="student-support.html">
-          <div class="sp-tile-title"><i class="fas fa-comments"></i> Book Support Session</div>
-          <div class="sp-tile-sub">One free session a day with a support teacher.</div>
-          <div class="sp-tile-arrow">Book now →</div>
-        </a>
+      ${vs ? `
+      <div class="sp-card">
+        <div class="sp-card-title">Vocabulary Statistics</div>
+        ${vstatRow('Practice Pass Rate', vs.practice)}
+        ${vstatRow('Unit Test Exams', vs.exams)}
+      </div>` : ''}
+
+      <div class="sp-card">
+        <div class="sp-card-title">Recommended For You</div>
+        ${(home.recommendedUnits||[]).length ? home.recommendedUnits.map(u => `
+          <a class="sp-rec-item" href="student-vocab.html?unit=${encodeURIComponent(u.id)}">
+            <div class="sp-next-icon"><i class="fas fa-book-open"></i></div>
+            <div>
+              <div class="sp-next-title">${spEscapeHtml(u.name)}</div>
+              <div class="sp-next-sub">${u.wordCount} word${u.wordCount===1?'':'s'} · ${spEscapeHtml(u.level)}</div>
+            </div>
+          </a>
+        `).join('') : `<div class="sp-empty">You've practiced every unit at your level!</div>`}
       </div>
     `;
   } catch (e) {

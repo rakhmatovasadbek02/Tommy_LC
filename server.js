@@ -2772,7 +2772,7 @@ app.get('/api/student/home', async (req, res) => {
     const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
     const todayISO = nowTz.toISOString().split('T')[0];
 
-    const [groupsR, supportR, pendingR, streak] = await Promise.all([
+    const [groupsR, supportR, pendingR, streak, practiceStatsR, examStatsR, practicedUnitsR] = await Promise.all([
       pool.query(`SELECT name, teacher, room, time, sched_type, custom_days FROM groups WHERE student_ids @> $1::jsonb`, [JSON.stringify([studentId])]),
       pool.query(
         `SELECT to_char(date,'YYYY-MM-DD') AS date, time, teacher FROM support_sessions
@@ -2784,6 +2784,15 @@ app.get('/api/student/home', async (req, res) => {
         [studentId]
       ),
       computeStreak(studentId, nowTz),
+      // Practice pass rate — the student's own free-practice attempts (vocab_practice_attempts).
+      pool.query(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM vocab_practice_attempts WHERE student_id=$1`, [studentId]),
+      // Unit test exam pass rate — formal, admin-graded tests (vocab_attempts, via a one-time code).
+      pool.query(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM vocab_attempts WHERE student_id=$1`, [studentId]),
+      // Every unit id this student has ever practiced or been tested on, to exclude from recommendations.
+      pool.query(`
+        SELECT unit_ids FROM vocab_practice_attempts WHERE student_id=$1
+        UNION ALL SELECT unit_ids FROM vocab_attempts WHERE student_id=$1
+      `, [studentId]),
     ]);
 
     let nextClass = null;
@@ -2801,11 +2810,30 @@ app.get('/api/student/home', async (req, res) => {
       pendingTest = { unitNames: unitsR.rows.map(u => u.name) };
     }
 
+    // Recommend a few units at the student's level they haven't touched yet, in the same
+    // natural (1A, 1B, 1C, 2A, …) order the practice picker uses.
+    const practicedIds = new Set(practicedUnitsR.rows.flatMap(r => r.unit_ids || []));
+    const levelR = await pool.query(`SELECT level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]);
+    const level = levelR.rows[0]?.level || null;
+    const unitsR = level
+      ? await pool.query('SELECT id, name, level, words FROM vocab_units WHERE level=$1', [level])
+      : await pool.query('SELECT id, name, level, words FROM vocab_units');
+    const recommendedUnits = unitsR.rows
+      .filter(u => !practicedIds.has(u.id))
+      .sort(naturalUnitCompare)
+      .slice(0, 3)
+      .map(u => ({ id: u.id, name: u.name, level: u.level, wordCount: (u.words || []).length }));
+
     res.json({
       streak,
       nextClass: nextClass ? { date: nextClass.at.toISOString().split('T')[0], time: String(nextClass.at.getHours()).padStart(2,'0')+':'+String(nextClass.at.getMinutes()).padStart(2,'0'), groupName: nextClass.groupName, teacher: nextClass.teacher, room: nextClass.room } : null,
       nextSupport: supportR.rows[0] || null,
       pendingTest,
+      vocabStats: {
+        practice: practiceStatsR.rows[0],
+        exams: examStatsR.rows[0],
+      },
+      recommendedUnits,
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
