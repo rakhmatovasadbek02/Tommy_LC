@@ -43,7 +43,7 @@ const ALL_PERMISSIONS = [...PAGE_PERMISSIONS, 'finance_view_only'];
 
 // Fixed roles → permission sets. These are the only assignable titles.
 const ROLE_PERMS = {
-  'CEO':        [...PAGE_PERMISSIONS, 'statistics', 'manreminders'],
+  'CEO':        [...PAGE_PERMISSIONS, 'statistics', 'manreminders', 'feedback'],
   'Head Admin': ['dashboard','leads','students','groups','finance','finance_view_only','teachers','staff','archived','support','vocab','reminders','manreminders'],
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','support','vocab','reminders','manreminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','support','vocab','reminders'],
@@ -216,6 +216,18 @@ async function initDB() {
       link        TEXT,
       read        BOOLEAN DEFAULT FALSE,
       created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Suggestions/complaints students send from the student portal. Always routed to the
+    -- CEO (via a notification, see notifyCEOs) — no other staff role can read these.
+    CREATE TABLE IF NOT EXISTS student_feedback (
+      id           TEXT PRIMARY KEY,
+      student_id   TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      type         TEXT NOT NULL DEFAULT 'suggestion',
+      message      TEXT NOT NULL,
+      read         BOOLEAN DEFAULT FALSE,
+      created_at   TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS groups (
@@ -729,6 +741,10 @@ async function notifyRole(perm, type, title, body, link, excludeId) {
   ).catch(()=>({rows:[]}));
   for (const u of rows) await createNotif(u.id, type, title, body, link);
 }
+async function notifyCEOs(type, title, body, link) {
+  const { rows } = await pool.query(`SELECT id FROM users WHERE title='CEO' OR roles @> '["CEO"]'::jsonb`).catch(()=>({rows:[]}));
+  for (const u of rows) await createNotif(u.id, type, title, body, link);
+}
 
 /* ══════════════════════════════════════
    AUTH MIDDLEWARE — gate every /api route
@@ -767,6 +783,7 @@ function requiredPerm(method, p) {
   if (top === 'vocab')      return write ? 'vocab'      : null;
   if (top === 'student-codes') return write ? 'students' : null;
   if (top === 'admin')      return 'finance';
+  if (top === 'feedback')   return 'feedback'; // CEO-only, reads included — these are students' private complaints/suggestions
   return null;
 }
 
@@ -3067,6 +3084,26 @@ app.get('/api/student/support/history', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Suggestions/complaints — always routed to the CEO (a notification is created for every
+// CEO account), never visible to any other staff role.
+app.post('/api/student/feedback', async (req, res) => {
+  try {
+    const type = req.body.type === 'complaint' ? 'complaint' : 'suggestion';
+    const message = String(req.body.message || '').trim().slice(0, 2000);
+    if (!message) return res.status(400).json({ error: 'Please write a message first.' });
+    const id = crypto.randomUUID();
+    const studentName = `${req.student.first_name} ${req.student.last_name}`;
+    await pool.query(
+      `INSERT INTO student_feedback(id, student_id, student_name, type, message) VALUES($1,$2,$3,$4,$5)`,
+      [id, req.student.id, studentName, type, message]
+    );
+    const preview = message.length > 140 ? message.slice(0, 140) + '…' : message;
+    await notifyCEOs('feedback', type === 'complaint' ? 'New complaint' : 'New suggestion', `${studentName}: ${preview}`, 'feedback.html');
+    broadcast('feedback');
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Public, unauthenticated: standalone vocab-test.html. Student enters the code an
 // admin/teacher granted them. Bypassed in the /api auth middleware above.
 app.get('/api/public/vocab/access/:code', async (req, res) => {
@@ -3780,6 +3817,29 @@ app.put('/api/notifications/read-all', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+/* STUDENT FEEDBACK (suggestions/complaints) — CEO only, gated by requiredPerm('feedback') above */
+app.get('/api/feedback', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`SELECT * FROM student_feedback ORDER BY created_at DESC`);
+    res.json(rows.map(r => ({
+      id: r.id, studentId: r.student_id, studentName: r.student_name,
+      type: r.type, message: r.message, read: r.read, createdAt: r.created_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/feedback/:id/read', async (req, res) => {
+  try {
+    await pool.query(`UPDATE student_feedback SET read=TRUE WHERE id=$1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/feedback/:id', async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM student_feedback WHERE id=$1`, [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.put('/api/notifications/:id/read', async (req, res) => {
   try {
     await pool.query(`UPDATE notifications SET read=TRUE WHERE id=$1 AND recipient_id=$2`, [req.params.id, req.user.id]);
@@ -3793,7 +3853,7 @@ const BACKUP_TABLES = [
   'attendance', 'student_history', 'student_comments', 'student_calls',
   'group_comments', 'lead_calls', 'lead_conversions', 'support_sessions',
   'support_fines', 'notifications', 'pricing', 'spendings', 'custom_levels',
-  'archive_reasons', 'teachers',
+  'archive_reasons', 'teachers', 'student_feedback',
 ];
 app.get('/api/backup', async (req, res) => {
   try {

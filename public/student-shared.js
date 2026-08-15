@@ -186,6 +186,63 @@ function spTourRenderStep(i) {
   findTarget(20, draw); // ~3s of polling
 }
 
+// ── Feedback modal: suggestion or complaint, sent straight to the CEO. Available from
+// every page via the header button.
+function spOpenFeedback() {
+  const old = document.getElementById('spFeedbackRoot'); if (old) old.remove();
+  const root = document.createElement('div');
+  root.id = 'spFeedbackRoot';
+  document.body.appendChild(root);
+  let type = 'suggestion';
+  let draft = '';
+
+  function close() { root.remove(); }
+  function keepDraft() { const t = document.getElementById('spFbMessage'); if (t) draft = t.value; }
+  async function send() {
+    const btn = document.getElementById('spFbSend');
+    const message = document.getElementById('spFbMessage').value.trim();
+    if (!message) { spToast('Write a message first.', 'error'); return; }
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      await spPost('/api/student/feedback', { type, message });
+      spToast('Sent — thanks for letting us know!');
+      close();
+    } catch (e) {
+      spToast(e.message, 'error');
+      btn.disabled = false; btn.textContent = 'Send';
+    }
+  }
+  function draw() {
+    root.innerHTML = `
+      <div class="sp-modal-overlay" id="spFbOverlay">
+        <div class="sp-modal-card">
+          <div class="sp-modal-title">Suggestion or Complaint</div>
+          <div class="sp-modal-sub">This goes straight to the CEO — no one else sees it.</div>
+          <div class="sp-fb-toggle">
+            <button type="button" class="sp-fb-toggle-btn${type==='suggestion'?' on':''}" id="spFbSuggestion">💡 Suggestion</button>
+            <button type="button" class="sp-fb-toggle-btn${type==='complaint'?' on':''}" id="spFbComplaint">⚠️ Complaint</button>
+          </div>
+          <div class="sp-form-group">
+            <label>Your message</label>
+            <textarea class="sp-input" id="spFbMessage" rows="5" maxlength="2000" placeholder="${type==='complaint' ? 'What went wrong?' : 'What would make the portal or classes better?'}"></textarea>
+          </div>
+          <div class="sp-tour-actions">
+            <button class="sp-btn sp-btn-outline" id="spFbCancel">Cancel</button>
+            <button class="sp-btn sp-btn-primary" id="spFbSend">Send</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('spFbMessage').value = draft;
+    document.getElementById('spFbSuggestion').onclick = () => { keepDraft(); type = 'suggestion'; draw(); };
+    document.getElementById('spFbComplaint').onclick = () => { keepDraft(); type = 'complaint'; draw(); };
+    document.getElementById('spFbCancel').onclick = close;
+    document.getElementById('spFbSend').onclick = send;
+    document.getElementById('spFbOverlay').addEventListener('click', e => { if (e.target.id === 'spFbOverlay') close(); });
+    document.getElementById('spFbMessage').focus();
+  }
+  draw();
+}
+
 function spInitials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
@@ -218,6 +275,7 @@ function spRenderHeader(activeKey) {
         </a>
         <div class="sp-header-right">
           <span class="sp-header-name">${spEscapeHtml(s ? s.name : '')}</span>
+          <button class="sp-logout-btn" onclick="spOpenFeedback()" title="Suggest an idea or send a complaint"><i class="fas fa-comment-dots"></i></button>
           <button class="sp-logout-btn" onclick="spStartTutorial()" title="Take the tour"><i class="fas fa-circle-question"></i></button>
           <button class="sp-logout-btn" onclick="spLogout()" title="Sign out"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
