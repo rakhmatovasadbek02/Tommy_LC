@@ -17,9 +17,13 @@
 .sp-step-line { flex: 1; height: 2px; background: var(--border); }
 .sp-step-line.done { background: var(--accent-dark); }
 .sp-day-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-.sp-day-tab { flex: 1; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); font-family: 'Poppins', sans-serif; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer; text-align: center; }
+.sp-day-tab { flex: 1; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); font-family: 'Poppins', sans-serif; cursor: pointer; text-align: center; }
+.sp-day-tab-label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.sp-day-tab-date { font-size: 10.5px; font-weight: 500; color: var(--text-tertiary); margin-top: 1px; }
 .sp-day-tab:hover { border-color: var(--accent); }
-.sp-day-tab.on { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 700; }
+.sp-day-tab.on { border-color: var(--accent); background: var(--accent-light); }
+.sp-day-tab.on .sp-day-tab-label { color: var(--accent); font-weight: 700; }
+.sp-day-tab.on .sp-day-tab-date { color: var(--accent); }
 .sp-day-tab:disabled { opacity: .4; cursor: not-allowed; }
 .sp-day-tab:disabled:hover { border-color: var(--border); }
 .sp-slot-row {
@@ -192,7 +196,7 @@ function renderSlotDays() {
   const active = SLOT_DAYS.find(d => d.date === activeDay);
   wrap.innerHTML = `
     <div class="sp-day-tabs">
-      ${SLOT_DAYS.map(d => `<button type="button" class="sp-day-tab ${d.date===activeDay?'on':''}" onclick="selectDay('${d.date}')" ${d.slots.length?'':'disabled'}>${spEscapeHtml(dayHeading(d.date))}</button>`).join('')}
+      ${SLOT_DAYS.map(d => `<button type="button" class="sp-day-tab ${d.date===activeDay?'on':''}" onclick="selectDay('${d.date}')" ${d.slots.length?'':'disabled'}><div class="sp-day-tab-label">${spEscapeHtml(dayHeading(d.date))}</div><div class="sp-day-tab-date">${spEscapeHtml(dateParts(d.date).num)}</div></button>`).join('')}
     </div>
     <div class="sp-field-label" style="margin-bottom:10px">${spEscapeHtml(fmtDateLong(activeDay))}</div>
     ${active.slots.length ? active.slots.map(s => `
