@@ -542,8 +542,9 @@ function renderSidebar(activePage) {
    { feature:'dashboard', href:'index.html',      iconKey:'dashboard', label: hasBothRoles ? 'Teaching' : 'Dashboard' },
    { feature:'leads',     href:'leads.html',      iconKey:'leads',     label:'Leads'      },
    { feature:'support',   href:'support.html',    iconKey:'support',   label:'Support'    },
+   // The standalone Reminders (admin "all staff tasks") page now lives inside Todolist as a
+   // "Team" section in its sidebar, visible there to anyone with manreminders — see todolist.html.
    { feature:'reminders',    href:'todolist.html',   iconKey:'todolist',  label:'Todolist'   },
-   { feature:'manreminders', href:'reminders.html',  iconKey:'reminders', label:'Reminders'  },
    // Vocabulary and Portal Codes now live as tabs on students.html itself (see students.html),
    // so this one row covers all three — visible to anyone with 'students' or 'vocab' (a pure
    // Teacher only has 'vocab' and lands straight on the Vocabulary tab there).
