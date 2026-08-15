@@ -217,10 +217,7 @@
         <div id="pcGrantResult"></div>
       </div>
       <div class="vcard">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div class="vcard-title" style="margin-bottom:0">Registration Codes</div>
-          <button class="btn btn-outline" onclick="pcOpenHistory()">History</button>
-        </div>
+        <div class="vcard-title" style="margin-bottom:10px">Registration Codes &amp; History</div>
         <table class="vtable" id="pcCombinedTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
@@ -361,19 +358,6 @@
     </div>
     <div class="modal-body">
       <table class="vtable" id="vocHistoryModalTable"><thead><tr><th>Student</th><th>Units</th><th>Code / Score</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
-</div>
-
-<!-- Portal Codes: Registration Codes + History, merged into one table -->
-<div class="modal-overlay" id="pcHistoryModal">
-  <div class="modal" style="width:min(700px,96vw)">
-    <div class="modal-header">
-      <div class="modal-title">Registration Codes &amp; History</div>
-      <button class="modal-close" onclick="closeModal('pcHistoryModal')">✕</button>
-    </div>
-    <div class="modal-body">
-      <table class="vtable" id="pcHistoryModalTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 </div>
@@ -930,32 +914,24 @@
     } catch(e) { showToast(e.message, 'error'); }
   }
 
-  // Registration Codes table: every code, pending or redeemed (unfiltered). "History" opens
-  // a modal with the same merged codes+history view for a focused, larger look.
+  // Registration Codes: pending and redeemed codes are already the same dataset (a code just
+  // flips `used` when it's redeemed), so one plain table covers "history" too — no separate
+  // History button needed here (unlike Vocabulary, which has a genuinely separate history
+  // source: completed-test scores).
   function pcFmtDate(d) {
     return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
   }
-  function pcAllRows() {
-    return [...PC_CODES].sort((a, b) => new Date(b.used ? b.usedAt : b.createdAt) - new Date(a.used ? a.usedAt : a.createdAt));
-  }
-  function pcRowHtml(c, withActions) {
-    return `<tr>
+  function pcRenderCombined() {
+    const sorted = [...PC_CODES].sort((a, b) => new Date(b.used ? b.usedAt : b.createdAt) - new Date(a.used ? a.usedAt : a.createdAt));
+    const tbody = document.querySelector('#pcCombinedTable tbody');
+    tbody.innerHTML = sorted.map(c => `<tr>
       <td>${escapeHtml(c.studentName)}</td>
       <td style="font-family:ui-monospace,monospace;font-weight:700">${c.code}</td>
       <td>${c.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>'}</td>
       <td>${escapeHtml(c.grantedBy||'')}</td>
       <td>${pcFmtDate(c.used ? c.usedAt : c.createdAt)}</td>
-      ${withActions ? `<td>${!c.used && pcCanManage ? `<button class="btn btn-outline" onclick="pcRevokeCode('${c.id}')">Revoke</button>` : ''}</td>` : ''}
-    </tr>`;
-  }
-  function pcRenderCombined() {
-    const tbody = document.querySelector('#pcCombinedTable tbody');
-    tbody.innerHTML = pcAllRows().map(c => pcRowHtml(c, true)).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes yet.</td></tr>';
-  }
-  function pcOpenHistory() {
-    const tbody = document.querySelector('#pcHistoryModalTable tbody');
-    tbody.innerHTML = pcAllRows().map(c => pcRowHtml(c, false)).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center">Nothing yet.</td></tr>';
-    openModal('pcHistoryModal');
+      <td>${!c.used && pcCanManage ? `<button class="btn btn-outline" onclick="pcRevokeCode('${c.id}')">Revoke</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes yet.</td></tr>';
   }
 
   async function pcRevokeCode(id) {
