@@ -40,11 +40,11 @@
     .students-table td { padding:13px 16px; vertical-align:middle; overflow:hidden; color:var(--stw-text); }
     /* Column widths — Checkbox/Balance/Actions fixed, everything else proportional */
     .col-check   { width:40px; text-align:center; }
-    .col-name    { width:24%; }
-    .col-phone   { width:15%; }
+    .col-name    { width:26%; }
+    .col-phone   { width:16%; }
     .col-status  { width:92px; }
-    .col-groups  { width:18%; }
-    .col-teacher { width:16%; }
+    .col-groups  { width:20%; }
+    .col-teacher { width:100px; }
     .col-bal     { width:130px; text-align:right; }
     .col-actions { width:60px; text-align:center; }
     .students-table td.col-check { padding-left:8px; padding-right:8px; }
@@ -61,8 +61,12 @@
     .group-block + .group-block { margin-top:6px; }
     .group-number { display:block; font-weight:700; font-size:13.5px; color:var(--stw-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .group-meta { display:block; font-size:11.5px; color:var(--stw-muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .st-teacher { font-size:13px; color:var(--stw-text); line-height:1.4; white-space:normal; overflow-wrap:break-word; }
-    .st-teacher div + div { margin-top:2px; }
+    .st-teacher { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+    .teacher-avatar {
+      width:28px; height:28px; border-radius:50%; flex-shrink:0; display:inline-flex;
+      align-items:center; justify-content:center; font-size:10.5px; font-weight:700; color:#fff;
+      cursor:default;
+    }
     .st-balance { font-weight:700; font-size:13.5px; white-space:nowrap; font-variant-numeric:tabular-nums; }
     .st-balance.pos { color:#16a34a; }
     .st-balance.neg { color:#dc2626; }
@@ -532,7 +536,9 @@
         `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-block"><span class="group-number">${g.name}</span><span class="group-meta">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
       ).join('') || '<span style="color:var(--stw-muted-soft)">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
-      const teacherHTML = teachers.length ? teachers.map(t=>`<div>${reverseName(t)}</div>`).join('') : '<span style="color:var(--stw-muted-soft)">—</span>';
+      const teacherHTML = teachers.length
+        ? teachers.map(t => { const rn = reverseName(t); return `<span class="teacher-avatar" style="background:${avatarColor(rn)}" title="${rn.replace(/"/g,'&quot;')}">${initials(rn)}</span>`; }).join('')
+        : '<span style="color:var(--stw-muted-soft)">—</span>';
       return `<tr onclick="location.href='student-profile.html?id=${s.id}'">
         <td class="col-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${selectedIds.has(s.id)?'checked':''}></td>
         <td class="col-name">
