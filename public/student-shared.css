@@ -175,18 +175,9 @@ a { color: inherit; text-decoration: none; }
 body.sp-auth-body { padding-bottom: 0; }
 .sp-auth-page {
   min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: linear-gradient(155deg, var(--accent) 0%, var(--accent-dark) 55%, #5c0d0d 100%);
-  position: relative; overflow: hidden;
+  background: var(--bg);
 }
-.sp-auth-page::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
-  background-size: 46px 46px;
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 20%, #000 0%, transparent 75%);
-}
-.sp-auth-card { width: 100%; max-width: 400px; background: var(--surface); border-radius: 22px; box-shadow: 0 24px 64px rgba(0,0,0,.35); padding: 38px 34px; position: relative; z-index: 1; }
+.sp-auth-card { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-md); padding: 38px 34px; position: relative; z-index: 1; }
 .sp-auth-card.center { text-align: center; }
 .sp-logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 22px; }
 .sp-logo-mark { width: 44px; height: 44px; border-radius: 10px; display: block; flex-shrink: 0; object-fit: contain; }
