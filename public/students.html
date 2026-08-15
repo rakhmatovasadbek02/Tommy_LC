@@ -129,7 +129,7 @@
       <button class="vtab" id="mtabRoster" onclick="switchMainTab('roster')">Roster</button>
       <button class="vtab" id="mtabVocab" onclick="switchMainTab('vocab')">Vocabulary</button>
       <button class="vtab" id="mtabCodes" onclick="switchMainTab('codes')">Portal Codes</button>
-      <button class="vtab-icon-btn" id="pcHistoryIconBtn" onclick="pcToggleHistoryCard()" title="History" style="display:none">
+      <button class="vtab-icon-btn" id="pcHistoryIconBtn" onclick="pcOpenHistory()" title="History" style="display:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </button>
     </div>
@@ -221,10 +221,6 @@
         </div>
         <button class="btn btn-primary" onclick="pcGrantCode()">Generate Code</button>
         <div id="pcGrantResult"></div>
-      </div>
-      <div class="vcard" id="pcHistoryCard" style="display:none">
-        <div class="vcard-title" style="margin-bottom:10px">Registration Codes &amp; History</div>
-        <table class="vtable" id="pcCombinedTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
   </div>
@@ -364,6 +360,19 @@
     </div>
     <div class="modal-body">
       <table class="vtable" id="vocHistoryModalTable"><thead><tr><th>Student</th><th>Units</th><th>Code / Score</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- Portal Codes: Registration Codes + History, merged into one table -->
+<div class="modal-overlay" id="pcHistoryModal">
+  <div class="modal" style="width:min(700px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">Registration Codes &amp; History</div>
+      <button class="modal-close" onclick="closeModal('pcHistoryModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <table class="vtable" id="pcCombinedTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 </div>
@@ -922,14 +931,9 @@
   }
 
   // Registration Codes & History: pending and redeemed codes are one dataset (a code just
-  // flips `used` when it's redeemed), rendered as a single table. The table itself stays
-  // collapsed until the History icon (top-right of the tab row) is clicked.
-  let PC_HISTORY_OPEN = false;
-  function pcToggleHistoryCard() {
-    PC_HISTORY_OPEN = !PC_HISTORY_OPEN;
-    document.getElementById('pcHistoryCard').style.display = PC_HISTORY_OPEN ? '' : 'none';
-    document.getElementById('pcHistoryIconBtn').classList.toggle('on', PC_HISTORY_OPEN);
-  }
+  // flips `used` when it's redeemed), rendered as a single table inside a pop-up modal —
+  // opened via the History icon (top-right of the tab row).
+  function pcOpenHistory() { openModal('pcHistoryModal'); }
   function pcFmtDate(d) {
     return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
   }
