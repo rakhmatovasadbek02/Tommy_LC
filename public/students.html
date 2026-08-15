@@ -28,16 +28,16 @@
     .col-check  { width:30px; }
     .col-name   { width:20%; }
     .col-phone  { width:12%; }
-    .col-status { width:7%; }
+    .col-status { width:6%; }
     .col-groups { width:18%; }
     .col-teacher{ width:11%; }
     .col-dates  { width:7%; }
-    .col-bal    { width:7%; }
+    .col-bal    { width:6%; }
     .col-comment{ width:14%; }
     .col-actions{ width:48px; }
     .students-table td.col-name, .students-table th.col-name { padding-left:8px; }
     .students-table td.col-actions { padding-right:8px; }
-    .students-table td.col-check, .students-table td.col-status, .students-table td.col-bal { text-align:center; }
+    .students-table td.col-check, .students-table td.col-status, .students-table td.col-bal { text-align:center; padding-left:4px; padding-right:4px; }
     .st-name { font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .st-sub  { font-size:11px; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .st-phone { font-size:12px; white-space:nowrap; }
@@ -45,7 +45,7 @@
        unpredictably so each group is still its own line, just without the boxed-in look. */
     .group-line { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
     .group-line-name { font-weight:600; color:var(--text); }
-    .group-line-sub { color:var(--muted); font-size:11px; }
+    .group-line-sub { color:var(--muted); font-size:11px; margin-left:3px; }
     .st-teacher { font-size:12px; line-height:1.5; }
     .st-dates { font-size:11px; color:var(--muted); line-height:1.5; }
     .st-balance { font-weight:700; font-size:13px; white-space:nowrap; }
@@ -512,7 +512,7 @@
       const balClass = s.balance > 0 ? 'pos' : s.balance < 0 ? 'neg' : 'zero';
       const balStr = s.balance !== 0 ? s.balance.toLocaleString() : '0';
       const groupsHTML = (s.groups||[]).map(g =>
-        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-line"><span class="group-line-name">${g.name}</span> <span class="group-line-sub">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
+        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-line"><span class="group-line-name">${g.name}</span><span class="group-line-sub">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
       ).join('') || '<span style="color:var(--muted);font-size:12px">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
       const teacherHTML = teachers.length ? teachers.map(t=>`<div>${reverseName(t)}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
