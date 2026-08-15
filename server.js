@@ -2788,10 +2788,11 @@ app.get('/api/student/home', async (req, res) => {
       pool.query(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM vocab_practice_attempts WHERE student_id=$1`, [studentId]),
       // Unit test exam pass rate — formal, admin-graded tests (vocab_attempts, via a one-time code).
       pool.query(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM vocab_attempts WHERE student_id=$1`, [studentId]),
-      // Every unit id this student has ever practiced or been tested on, to exclude from recommendations.
+      // Units this student has actually PASSED (practice or formal exam) — a failed or
+      // unattempted unit still needs recommending, only a pass clears it.
       pool.query(`
-        SELECT unit_ids FROM vocab_practice_attempts WHERE student_id=$1
-        UNION ALL SELECT unit_ids FROM vocab_attempts WHERE student_id=$1
+        SELECT unit_ids FROM vocab_practice_attempts WHERE student_id=$1 AND passed IS TRUE
+        UNION ALL SELECT unit_ids FROM vocab_attempts WHERE student_id=$1 AND passed IS TRUE
       `, [studentId]),
     ]);
 
@@ -2810,18 +2811,20 @@ app.get('/api/student/home', async (req, res) => {
       pendingTest = { unitNames: unitsR.rows.map(u => u.name) };
     }
 
-    // Recommend a few units at the student's level they haven't touched yet, in the same
-    // natural (1A, 1B, 1C, 2A, …) order the practice picker uses.
-    const practicedIds = new Set(practicedUnitsR.rows.flatMap(r => r.unit_ids || []));
+    // Recommend the single next unit the student hasn't passed yet, in the same natural
+    // (1A, 1B, 1C, 2A, …) order the practice picker uses — e.g. once they've passed 2B,
+    // the next un-passed unit in sequence (2C, or whatever follows) is the recommendation.
+    // A failed or never-attempted unit still counts as "not passed" and stays eligible.
+    const passedIds = new Set(practicedUnitsR.rows.flatMap(r => r.unit_ids || []));
     const levelR = await pool.query(`SELECT level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]);
     const level = levelR.rows[0]?.level || null;
     const unitsR = level
       ? await pool.query('SELECT id, name, level, words FROM vocab_units WHERE level=$1', [level])
       : await pool.query('SELECT id, name, level, words FROM vocab_units');
     const recommendedUnits = unitsR.rows
-      .filter(u => !practicedIds.has(u.id))
+      .filter(u => !passedIds.has(u.id))
       .sort(naturalUnitCompare)
-      .slice(0, 3)
+      .slice(0, 1)
       .map(u => ({ id: u.id, name: u.name, level: u.level, wordCount: (u.words || []).length }));
 
     res.json({
