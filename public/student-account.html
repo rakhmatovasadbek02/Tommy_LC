@@ -9,13 +9,6 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<style>
-.sp-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
-.sp-setting-row:last-child { border-bottom: none; }
-.sp-setting-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
-.sp-setting-sub { font-size: 12px; color: var(--text-secondary); }
-.sp-setting-row:hover { background: var(--accent-light); margin: 0 -20px; padding-left: 20px; padding-right: 20px; border-radius: 8px; }
-</style>
 </head>
 <body>
 <div id="spHeader"></div>
@@ -69,64 +62,7 @@ function render() {
         ` : `<div class="sp-empty">Not enrolled in a group yet.</div>`}
       </div>
     </div>
-
-    <div class="sp-card" id="settingsCard">
-      <div class="sp-card-title">Account Settings</div>
-      <div id="settingsBody">${settingsListHtml()}</div>
-    </div>
-
-    <button class="sp-btn sp-btn-outline sp-btn-block" onclick="spLogout()"><i class="fas fa-arrow-right-from-bracket"></i>&nbsp; Sign Out</button>
   `;
-}
-
-function settingsListHtml() {
-  return `
-    <div class="sp-setting-row" onclick="showPasswordForm()">
-      <div>
-        <div class="sp-setting-title">Change Password</div>
-        <div class="sp-setting-sub">Update your login credentials</div>
-      </div>
-      <i class="fas fa-chevron-right" style="color:var(--text-tertiary);font-size:12px"></i>
-    </div>
-  `;
-}
-
-function showPasswordForm() {
-  document.getElementById('settingsBody').innerHTML = `
-    <div class="sp-banner red" id="pwErr" style="display:none"></div>
-    <div class="sp-form-group">
-      <label>Current Password</label>
-      <input type="password" class="sp-input" id="pwCurrent" autocomplete="current-password">
-    </div>
-    <div class="sp-form-group">
-      <label>New Password</label>
-      <input type="password" class="sp-input" id="pwNew" placeholder="At least 4 characters" autocomplete="new-password">
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="sp-btn sp-btn-outline" onclick="cancelPasswordForm()">Cancel</button>
-      <button class="sp-btn sp-btn-primary" id="pwSaveBtn" onclick="savePassword()">Save</button>
-    </div>
-  `;
-}
-function cancelPasswordForm() {
-  document.getElementById('settingsBody').innerHTML = settingsListHtml();
-}
-async function savePassword() {
-  const err = document.getElementById('pwErr');
-  err.style.display = 'none';
-  const currentPassword = document.getElementById('pwCurrent').value;
-  const newPassword = document.getElementById('pwNew').value;
-  if (!currentPassword || !newPassword) { err.textContent = 'Fill in both fields.'; err.style.display = 'block'; return; }
-  const btn = document.getElementById('pwSaveBtn');
-  btn.disabled = true; btn.textContent = 'Saving…';
-  try {
-    await spPost('/api/student/account/change-password', { currentPassword, newPassword });
-    spToast('Password updated.');
-    cancelPasswordForm();
-  } catch (e) {
-    err.textContent = e.message; err.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Save';
-  }
 }
 
 load();
