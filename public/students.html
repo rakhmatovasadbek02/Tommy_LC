@@ -129,6 +129,9 @@
       <button class="vtab" id="mtabRoster" onclick="switchMainTab('roster')">Roster</button>
       <button class="vtab" id="mtabVocab" onclick="switchMainTab('vocab')">Vocabulary</button>
       <button class="vtab" id="mtabCodes" onclick="switchMainTab('codes')">Portal Codes</button>
+      <button class="vtab-icon-btn" id="vocHistoryIconBtn" onclick="vocOpenHistory()" title="History" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
       <button class="vtab-icon-btn" id="pcHistoryIconBtn" onclick="pcOpenHistory()" title="History" style="display:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       </button>
@@ -199,13 +202,6 @@
         </div>
         <button class="btn btn-primary" onclick="vocGrantAccess()">Generate Code</button>
         <div id="vocGrantResult"></div>
-      </div>
-      <div class="vcard">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div class="vcard-title" style="margin-bottom:0">Access Codes</div>
-          <button class="btn btn-outline" onclick="vocOpenHistory()">History</button>
-        </div>
-        <table class="vtable" id="vocCombinedTable"><thead><tr><th>Student</th><th>Units</th><th>Code / Score</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
@@ -415,7 +411,8 @@
     document.getElementById('mtabCodes').classList.toggle('on', tab==='codes');
     document.getElementById('addStudentBtn').style.display = (tab==='roster' && SHOW_ROSTER) ? '' : 'none';
     document.getElementById('quantityLabel').style.display  = tab==='roster' ? '' : 'none';
-    document.getElementById('pcHistoryIconBtn').style.display = tab==='codes' ? '' : 'none';
+    document.getElementById('vocHistoryIconBtn').style.display = tab==='vocab' ? '' : 'none';
+    document.getElementById('pcHistoryIconBtn').style.display  = tab==='codes' ? '' : 'none';
     const qp = new URLSearchParams(location.search);
     qp.set('tab', tab);
     history.replaceState(null, '', location.pathname + '?' + qp.toString());
@@ -708,7 +705,6 @@
     ]);
     document.getElementById('uLevel').innerHTML = VOC_LEVELS.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
     vocRenderUnitPickList();
-    vocRenderCombined();
     vocApplyStudentFromQuery();
   }
 
@@ -783,8 +779,8 @@
     } catch(e) { showToast(e.message, 'error'); }
   }
 
-  // Access Codes table: every code, pending or used (unfiltered). "History" opens a modal
-  // that additionally mixes in completed-test results — the actual merged codes+history view.
+  // Access Codes & History: pending/used codes plus completed-test results, mixed into one
+  // table inside a pop-up modal — opened via the History icon (top-right of the tab row).
   function vocFmtDate(d) {
     return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
   }
@@ -818,18 +814,17 @@
       <td>${action}</td>
     </tr>`;
   }
-  function vocRenderCombined() {
-    const tbody = document.querySelector('#vocCombinedTable tbody');
-    tbody.innerHTML = vocCodeRows().map(vocRowHtml).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes granted yet.</td></tr>';
-  }
-  function vocOpenHistory() {
+  function vocRenderHistoryModal() {
     const tbody = document.querySelector('#vocHistoryModalTable tbody');
     tbody.innerHTML = vocAllRows().map(vocRowHtml).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">Nothing yet.</td></tr>';
+  }
+  function vocOpenHistory() {
+    vocRenderHistoryModal();
     openModal('vocHistoryModal');
   }
 
   async function vocRevokeAccess(id) {
-    try { await apiDelete('/api/vocab/access/'+id); await vocLoadAll(); } catch(e) { showToast(e.message, 'error'); }
+    try { await apiDelete('/api/vocab/access/'+id); await vocLoadAll(); vocRenderHistoryModal(); } catch(e) { showToast(e.message, 'error'); }
   }
 
   /* ---- Unit create/edit modal ---- */
