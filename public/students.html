@@ -14,59 +14,76 @@
   <style>
     .students-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
     .students-toolbar .search-bar { flex:1; min-width:160px; max-width:260px; }
-    .students-table-wrap { overflow-x:auto; background:white; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
-    .students-table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
-    .students-table thead th { background:#fafafa; padding:8px 10px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; }
+
+    /* ── Roster table — deliberately neutral, scoped local tokens instead of the app-wide
+       pink var(--border)/var(--muted), which read as too "loud" for a dense data grid. ── */
+    .students-table-wrap {
+      --stw-border: #edeef1; --stw-border-soft: #f2f3f5; --stw-text: #1a1d23;
+      --stw-muted: #8a8f98; --stw-muted-soft: #b4b8bf;
+      overflow-x:auto; background:#fff; border:1px solid var(--stw-border); border-radius:14px;
+      box-shadow:0 1px 2px rgba(16,24,40,.04);
+    }
+    .students-table { width:100%; border-collapse:separate; border-spacing:0; font-size:13.5px; table-layout:fixed; }
+    .students-table thead th {
+      background:#fafbfc; padding:12px 16px; text-align:left; font-size:11px; font-weight:600;
+      text-transform:uppercase; letter-spacing:.05em; color:var(--stw-muted);
+      border-bottom:1px solid var(--stw-border); white-space:nowrap; overflow:hidden;
+    }
+    .students-table thead th:first-child { border-top-left-radius:14px; }
+    .students-table thead th:last-child { border-top-right-radius:14px; }
     .students-table thead th.sortable { cursor:pointer; user-select:none; }
-    .students-table thead th.sortable:hover { color:var(--text); }
-    .students-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.1s; cursor:pointer; }
+    .students-table thead th.sortable:hover { color:var(--stw-text); }
+    .students-table tbody tr { border-bottom:1px solid var(--stw-border-soft); transition:background .12s; cursor:pointer; }
     .students-table tbody tr:last-child { border-bottom:none; }
-    .students-table tbody tr:hover { background:var(--crimson-soft); }
+    .students-table tbody tr:hover { background:#fafafa; }
     .students-table tbody tr:hover .st-name { color:var(--crimson); }
-    .students-table td { padding:7px 10px; vertical-align:middle; overflow:hidden; }
-    /* Column widths */
-    .col-check  { width:30px; }
-    .col-name   { width:20%; }
-    .col-phone  { width:12%; }
-    .col-status { width:6%; }
-    .col-groups { width:18%; }
-    .col-teacher{ width:11%; }
-    .col-dates  { width:7%; }
-    .col-bal    { width:6%; }
-    .col-comment{ width:14%; }
-    .col-actions{ width:48px; }
-    .students-table td.col-name, .students-table th.col-name { padding-left:8px; }
-    .students-table td.col-actions { padding-right:8px; }
-    .students-table td.col-check, .students-table td.col-status, .students-table td.col-bal { text-align:center; padding-left:4px; padding-right:4px; }
-    .st-name { font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .st-sub  { font-size:11px; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .st-phone { font-size:12px; white-space:nowrap; }
-    /* Plain text, no pill/background — one line per group, comma-separated would wrap too
-       unpredictably so each group is still its own line, just without the boxed-in look. */
-    .group-line { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
-    .group-line-name { font-weight:600; color:var(--text); }
-    .group-line-sub { color:var(--muted); font-size:11px; margin-left:3px; }
-    .st-teacher { font-size:12px; line-height:1.5; }
-    .st-dates { font-size:11px; color:var(--muted); line-height:1.5; }
-    .st-balance { font-weight:700; font-size:13px; white-space:nowrap; }
+    .students-table td { padding:13px 16px; vertical-align:middle; overflow:hidden; color:var(--stw-text); }
+    /* Column widths — Checkbox/Balance/Actions fixed, everything else proportional */
+    .col-check   { width:40px; text-align:center; }
+    .col-name    { width:24%; }
+    .col-phone   { width:15%; }
+    .col-status  { width:10%; }
+    .col-groups  { width:18%; }
+    .col-teacher { width:16%; }
+    .col-bal     { width:130px; text-align:right; }
+    .col-actions { width:60px; text-align:center; }
+    .students-table td.col-check { padding-left:8px; padding-right:8px; }
+    .students-table td.col-bal   { padding-right:16px; }
+    .students-table td.col-actions { padding-left:8px; padding-right:16px; }
+    .st-name {
+      font-weight:600; font-size:13.5px; color:var(--stw-text);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;
+    }
+    .st-phone { font-size:13px; color:var(--stw-text); white-space:nowrap; font-variant-numeric:tabular-nums; }
+    /* Group: number visually stronger, level/time as a quiet second line underneath —
+       one block per group the student is in, stacked with a small gap. */
+    .group-block { line-height:1.35; }
+    .group-block + .group-block { margin-top:6px; }
+    .group-number { display:block; font-weight:700; font-size:13.5px; color:var(--stw-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .group-meta { display:block; font-size:11.5px; color:var(--stw-muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .st-teacher { font-size:13px; color:var(--stw-text); line-height:1.4; white-space:normal; overflow-wrap:break-word; }
+    .st-teacher div + div { margin-top:2px; }
+    .st-balance { font-weight:700; font-size:13.5px; white-space:nowrap; font-variant-numeric:tabular-nums; }
     .st-balance.pos { color:#16a34a; }
     .st-balance.neg { color:#dc2626; }
-    .st-balance.zero { color:var(--muted); }
-    .st-comment-text { font-size:11px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .st-comment-meta { font-size:10px; color:var(--muted); margin-top:1px; }
-    .st-actions { display:flex; gap:4px; justify-content:flex-end; }
-    input[type="checkbox"].row-check { cursor:pointer; width:14px; height:14px; accent-color:var(--crimson); }
-    .st-status-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:100px; }
-    .sort-arrow { display:inline-flex; flex-direction:column; gap:1px; margin-left:4px; vertical-align:middle; opacity:0.4; }
-    .sort-arrow svg { display:block; }
-    th.sort-asc .sort-arrow, th.sort-desc .sort-arrow { opacity:1; }
-
-    @media(max-width:1100px){
-      .col-comment { display:none; }
-      .col-dates   { display:none; }
+    .st-balance.zero { color:var(--stw-muted-soft); font-weight:600; }
+    input[type="checkbox"].row-check { cursor:pointer; width:15px; height:15px; accent-color:var(--crimson); vertical-align:middle; }
+    .st-status-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:100px; }
+    .st-edit-btn {
+      display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
+      border-radius:8px; border:1px solid var(--stw-border); background:#fff; color:var(--stw-muted);
+      cursor:pointer; transition:all .12s;
     }
-    @media(max-width:860px){
+    .st-edit-btn:hover { background:#f7f7f8; border-color:#d8dade; color:var(--stw-text); }
+    .sort-arrow { display:inline-flex; flex-direction:column; gap:1px; margin-left:5px; vertical-align:middle; opacity:.35; }
+    .sort-arrow svg { display:block; }
+    th.sort-asc .sort-arrow, th.sort-desc .sort-arrow { opacity:.9; }
+
+    @media(max-width:1000px){
       .col-teacher { display:none; }
+    }
+    @media(max-width:820px){
+      .col-groups { display:none; }
       .students-table { table-layout:auto; }
     }
     @media(max-width:640px){
@@ -74,7 +91,8 @@
       .students-toolbar .search-bar { max-width:100%; flex:1 1 100%; }
       .students-toolbar select { flex:1; min-width:0; }
       .col-phone { display:none; }
-      .students-table { font-size:12px; }
+      .students-table { font-size:12.5px; }
+      .students-table td { padding:11px 12px; }
       .topbar-right .btn span { display:none; }
     }
 
@@ -174,14 +192,12 @@
           <thead>
             <tr>
               <th class="col-check"><input type="checkbox" id="checkAll" class="row-check" onchange="toggleAll(this)"></th>
-              <th class="col-name sortable" onclick="toggleSort('name')" id="th-name">Name <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
+              <th class="col-name sortable" onclick="toggleSort('name')" id="th-name">Student <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
               <th class="col-phone">Phone</th>
               <th class="col-status">Status</th>
-              <th class="col-groups">Groups</th>
+              <th class="col-groups">Group</th>
               <th class="col-teacher">Teacher</th>
-              <th class="col-dates">Start</th>
               <th class="col-bal sortable" onclick="toggleSort('balance')" id="th-balance">Balance <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
-              <th class="col-comment">Last comment</th>
               <th class="col-actions"></th>
             </tr>
           </thead>
@@ -504,41 +520,31 @@
     document.getElementById('quantityLabel').textContent = `Quantity — ${filtered.length}`;
     const tbody = document.getElementById('studentsTbody');
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)">No students found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">No students found.</td></tr>`;
       return;
     }
     tbody.innerHTML = filtered.map((s, i) => {
       const name = s.lastName+' '+s.firstName;
+      const nameAttr = name.replace(/"/g,'&quot;');
       const balClass = s.balance > 0 ? 'pos' : s.balance < 0 ? 'neg' : 'zero';
       const balStr = s.balance !== 0 ? s.balance.toLocaleString() : '0';
       const groupsHTML = (s.groups||[]).map(g =>
-        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-line"><span class="group-line-name">${g.name}</span><span class="group-line-sub">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
-      ).join('') || '<span style="color:var(--muted);font-size:12px">—</span>';
+        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-block"><span class="group-number">${g.name}</span><span class="group-meta">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
+      ).join('') || '<span style="color:var(--stw-muted-soft)">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
-      const teacherHTML = teachers.length ? teachers.map(t=>`<div>${reverseName(t)}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
-      const dates = (s.groups||[]).filter(g=>g.startDate).map(g => {
-        const d = new Date(g.startDate);
-        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
-      });
-      const dateHTML = dates.length ? dates.map(d=>`<div>${d}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
-      const lc = s.lastComment;
-      const commentHTML = lc
-        ? `<div class="st-comment-text">${lc.text}</div><div class="st-comment-meta">${lc.time}${lc.actor?' • '+reverseName(lc.actor):''}</div>`
-        : `<span style="color:var(--muted);font-size:12px">—</span>`;
+      const teacherHTML = teachers.length ? teachers.map(t=>`<div>${reverseName(t)}</div>`).join('') : '<span style="color:var(--stw-muted-soft)">—</span>';
       return `<tr onclick="location.href='student-profile.html?id=${s.id}'">
         <td class="col-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${selectedIds.has(s.id)?'checked':''}></td>
         <td class="col-name">
-          <div class="st-name"><a href="student-profile.html?id=${s.id}" onclick="event.stopPropagation()" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()" style="color:inherit;text-decoration:none">${name}</a></div>
+          <a class="st-name" href="student-profile.html?id=${s.id}" title="${nameAttr}" onclick="event.stopPropagation()" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()" style="color:inherit;text-decoration:none">${name}</a>
         </td>
-        <td class="col-phone st-phone">${s.phone?'+998 '+s.phone:'<span style="color:var(--muted)">—</span>'}</td>
+        <td class="col-phone st-phone">${s.phone?'+998 '+s.phone:'<span style="color:var(--stw-muted-soft)">—</span>'}</td>
         <td class="col-status"><span class="badge ${SBADGE[s.status]||'badge-grey'} st-status-badge">${s.status}</span></td>
         <td class="col-groups">${groupsHTML}</td>
         <td class="col-teacher st-teacher">${teacherHTML}</td>
-        <td class="col-dates st-dates">${dateHTML}</td>
         <td class="col-bal"><span class="st-balance ${balClass}">${balStr}</span></td>
-        <td class="col-comment">${commentHTML}</td>
-        <td class="col-actions st-actions" onclick="event.stopPropagation()">
-          ${isTeacher()?'':`<button class="btn btn-ghost btn-sm" onclick="editStudent('${s.id}')">${IC.edit}</button>`}
+        <td class="col-actions" onclick="event.stopPropagation()">
+          ${isTeacher()?'':`<button class="st-edit-btn" onclick="editStudent('${s.id}')" title="Edit">${IC.edit}</button>`}
         </td>
       </tr>`;
     }).join('');
