@@ -36,10 +36,10 @@ a { color: inherit; text-decoration: none; }
 .sp-header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .sp-header-name { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
 .sp-logout-btn {
-  border: none; background: transparent; color: var(--text-tertiary); font-size: 17px; cursor: pointer;
+  border: none; background: transparent; color: var(--accent); font-size: 17px; cursor: pointer;
   width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
 }
-.sp-logout-btn:hover { background: var(--accent-light); color: var(--accent); }
+.sp-logout-btn:hover { background: var(--accent-light); color: var(--accent-dark); }
 
 /* ── Bottom tab bar: the app's primary navigation ── */
 .sp-tabbar {
