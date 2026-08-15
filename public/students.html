@@ -77,9 +77,12 @@
 
     /* ── Shared with the Vocabulary / Portal Codes tabs (moved here from vocab-admin.html
        and student-codes.html so the three don't have to live on separate nav rows) ── */
-    .vtabs{display:flex;gap:8px;margin-bottom:18px}
+    .vtabs{display:flex;align-items:center;gap:8px;margin-bottom:18px}
     .vtab{padding:9px 16px;border-radius:9px;border:1.5px solid var(--border);background:white;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted)}
     .vtab.on{border-color:var(--crimson);background:var(--crimson-soft);color:var(--crimson-dark)}
+    .vtab-icon-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;margin-left:auto;border-radius:9px;border:1.5px solid var(--border);background:white;color:var(--muted);cursor:pointer}
+    .vtab-icon-btn:hover{border-color:var(--crimson);color:var(--crimson-dark);background:var(--crimson-soft)}
+    .vtab-icon-btn.on{border-color:var(--crimson);background:var(--crimson-soft);color:var(--crimson-dark)}
     .vcard{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
     .vcard-title{font-size:15px;font-weight:700;color:var(--text)}
     .vcode-box{font-family:ui-monospace,monospace;font-size:26px;font-weight:800;letter-spacing:4px;color:var(--crimson-dark);background:var(--crimson-soft);border-radius:10px;padding:12px 18px;text-align:center;margin:12px 0}
@@ -126,6 +129,9 @@
       <button class="vtab" id="mtabRoster" onclick="switchMainTab('roster')">Roster</button>
       <button class="vtab" id="mtabVocab" onclick="switchMainTab('vocab')">Vocabulary</button>
       <button class="vtab" id="mtabCodes" onclick="switchMainTab('codes')">Portal Codes</button>
+      <button class="vtab-icon-btn" id="pcHistoryIconBtn" onclick="pcToggleHistoryCard()" title="History" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
     </div>
 
     <div id="panelRoster">
@@ -216,7 +222,7 @@
         <button class="btn btn-primary" onclick="pcGrantCode()">Generate Code</button>
         <div id="pcGrantResult"></div>
       </div>
-      <div class="vcard">
+      <div class="vcard" id="pcHistoryCard" style="display:none">
         <div class="vcard-title" style="margin-bottom:10px">Registration Codes &amp; History</div>
         <table class="vtable" id="pcCombinedTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
@@ -400,6 +406,7 @@
     document.getElementById('mtabCodes').classList.toggle('on', tab==='codes');
     document.getElementById('addStudentBtn').style.display = (tab==='roster' && SHOW_ROSTER) ? '' : 'none';
     document.getElementById('quantityLabel').style.display  = tab==='roster' ? '' : 'none';
+    document.getElementById('pcHistoryIconBtn').style.display = tab==='codes' ? '' : 'none';
     const qp = new URLSearchParams(location.search);
     qp.set('tab', tab);
     history.replaceState(null, '', location.pathname + '?' + qp.toString());
@@ -914,10 +921,15 @@
     } catch(e) { showToast(e.message, 'error'); }
   }
 
-  // Registration Codes: pending and redeemed codes are already the same dataset (a code just
-  // flips `used` when it's redeemed), so one plain table covers "history" too — no separate
-  // History button needed here (unlike Vocabulary, which has a genuinely separate history
-  // source: completed-test scores).
+  // Registration Codes & History: pending and redeemed codes are one dataset (a code just
+  // flips `used` when it's redeemed), rendered as a single table. The table itself stays
+  // collapsed until the History icon (top-right of the tab row) is clicked.
+  let PC_HISTORY_OPEN = false;
+  function pcToggleHistoryCard() {
+    PC_HISTORY_OPEN = !PC_HISTORY_OPEN;
+    document.getElementById('pcHistoryCard').style.display = PC_HISTORY_OPEN ? '' : 'none';
+    document.getElementById('pcHistoryIconBtn').classList.toggle('on', PC_HISTORY_OPEN);
+  }
   function pcFmtDate(d) {
     return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
   }
