@@ -67,7 +67,7 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid rgba(255,255,255,.5); border-radius: 16px; padding: 18px 20px; margin-bottom: 14px;
   box-shadow: var(--shadow-sm); transition: background .2s, box-shadow .2s;
 }
-.sp-card-title { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sp-card-title { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .sp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
 .sp-field { }
 .sp-field-label { font-size: 10px; font-weight: 500; color: var(--text-tertiary); margin-bottom: 3px; }
