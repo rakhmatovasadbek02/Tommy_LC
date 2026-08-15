@@ -179,68 +179,43 @@
     </div>
 
     <div id="panelVocabWrap" style="display:none">
-      <div class="vtabs">
-        <button class="vtab on" id="vocTabGrant" onclick="vocSwitchTab('grant')">Grant Access</button>
-        <button class="vtab" id="vocTabHistory" onclick="vocSwitchTab('history')">History</button>
-      </div>
-
-      <div id="vocPanelGrant">
-        <div class="vcard">
-          <div class="vcard-title" style="margin-bottom:12px">Grant a student a one-time test code</div>
-          <div class="form-group student-pick">
-            <label>Student</label>
-            <input type="text" id="vocGrantStudentQuery" placeholder="Type a student name…" autocomplete="off" oninput="vocFilterStudentPick()" onfocus="vocFilterStudentPick()">
-            <div class="student-pick-list" id="vocStudentPickList"></div>
-            <input type="hidden" id="vocGrantStudentId">
-          </div>
-          <div class="form-group">
-            <label>Units / Themes <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(pick one or more — the test mixes all their words together)</span></label>
-            <div class="unit-pick-list" id="unitPickList"></div>
-          </div>
-          <button class="btn btn-primary" onclick="vocGrantAccess()">Generate Code</button>
-          <div id="vocGrantResult"></div>
+      <div class="vcard">
+        <div class="vcard-title" style="margin-bottom:12px">Grant a student a one-time test code</div>
+        <div class="form-group student-pick">
+          <label>Student</label>
+          <input type="text" id="vocGrantStudentQuery" placeholder="Type a student name…" autocomplete="off" oninput="vocFilterStudentPick()" onfocus="vocFilterStudentPick()">
+          <div class="student-pick-list" id="vocStudentPickList"></div>
+          <input type="hidden" id="vocGrantStudentId">
         </div>
-        <div class="vcard">
-          <div class="vcard-title" style="margin-bottom:10px">Access codes</div>
-          <table class="vtable" id="vocPendingTable"><thead><tr><th>Student</th><th>Units</th><th>Code</th><th>Status</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
+        <div class="form-group">
+          <label>Units / Themes <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(pick one or more — the test mixes all their words together)</span></label>
+          <div class="unit-pick-list" id="unitPickList"></div>
         </div>
+        <button class="btn btn-primary" onclick="vocGrantAccess()">Generate Code</button>
+        <div id="vocGrantResult"></div>
       </div>
-
-      <div id="vocPanelHistory" style="display:none">
-        <table class="vtable" id="vocHistoryTable"><thead><tr><th>Student</th><th>Units</th><th>Score</th><th>Completed</th></tr></thead><tbody></tbody></table>
+      <div class="vcard">
+        <div class="vcard-title" style="margin-bottom:10px">Access Codes &amp; History</div>
+        <table class="vtable" id="vocCombinedTable"><thead><tr><th>Student</th><th>Units</th><th>Code / Score</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
 
     <div id="panelCodesWrap" style="display:none">
-      <div class="vtabs">
-        <button class="vtab on" id="pcTabGrant" onclick="pcSwitchTab('grant')">Grant Access</button>
-        <button class="vtab" id="pcTabHistory" onclick="pcSwitchTab('history')">History</button>
+      <div class="vcard">
+        <div class="vcard-title" style="margin-bottom:12px">Generate a one-time registration code</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Give this code to the student — they'll enter it on the portal registration page to set up their own login. Each code works once.</div>
+        <div class="form-group student-pick">
+          <label>Student</label>
+          <input type="text" id="pcGrantStudentQuery" placeholder="Type a student name…" autocomplete="off" oninput="pcFilterStudentPick()" onfocus="pcFilterStudentPick()">
+          <div class="student-pick-list" id="pcStudentPickList"></div>
+          <input type="hidden" id="pcGrantStudentId">
+        </div>
+        <button class="btn btn-primary" onclick="pcGrantCode()">Generate Code</button>
+        <div id="pcGrantResult"></div>
       </div>
-
-      <div id="pcPanelGrant">
-        <div class="vcard">
-          <div class="vcard-title" style="margin-bottom:12px">Generate a one-time registration code</div>
-          <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Give this code to the student — they'll enter it on the portal registration page to set up their own login. Each code works once.</div>
-          <div class="form-group student-pick">
-            <label>Student</label>
-            <input type="text" id="pcGrantStudentQuery" placeholder="Type a student name…" autocomplete="off" oninput="pcFilterStudentPick()" onfocus="pcFilterStudentPick()">
-            <div class="student-pick-list" id="pcStudentPickList"></div>
-            <input type="hidden" id="pcGrantStudentId">
-          </div>
-          <button class="btn btn-primary" onclick="pcGrantCode()">Generate Code</button>
-          <div id="pcGrantResult"></div>
-        </div>
-        <div class="vcard">
-          <div class="vcard-title" style="margin-bottom:10px">Registration codes</div>
-          <table class="vtable" id="pcPendingTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
-        </div>
-      </div>
-
-      <div id="pcPanelHistory" style="display:none">
-        <div class="vcard">
-          <div class="vcard-title" style="margin-bottom:10px">Redeemed codes</div>
-          <table class="vtable" id="pcHistoryTable"><thead><tr><th>Student</th><th>Code</th><th>Redeemed</th></tr></thead><tbody></tbody></table>
-        </div>
+      <div class="vcard">
+        <div class="vcard-title" style="margin-bottom:10px">Registration Codes &amp; History</div>
+        <table class="vtable" id="pcCombinedTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
   </div>
@@ -701,27 +676,18 @@
     ]);
     document.getElementById('uLevel').innerHTML = VOC_LEVELS.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
     vocRenderUnitPickList();
-    vocRenderPending();
-    vocRenderHistory();
+    vocRenderCombined();
     vocApplyStudentFromQuery();
   }
 
   // Arriving from a student's profile (students.html?tab=vocab&studentId=...): jump
-  // straight to Grant Access with that student pre-selected.
+  // straight to the grant form with that student pre-selected.
   function vocApplyStudentFromQuery() {
     const studentId = new URLSearchParams(location.search).get('studentId');
     if (!studentId) return;
     const s = VOC_STUDENTS.find(x => x.id === studentId);
     if (!s) return;
-    vocSwitchTab('grant');
     vocPickStudent(s.id, `${s.lastName} ${s.firstName}`);
-  }
-
-  function vocSwitchTab(t) {
-    ['grant','history'].forEach(x => {
-      document.getElementById('vocPanel'+x[0].toUpperCase()+x.slice(1)).style.display = x===t ? '' : 'none';
-      document.getElementById('vocTab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on', x===t);
-    });
   }
 
   function vocToggleUnit(id, checked) {
@@ -785,34 +751,43 @@
     } catch(e) { showToast(e.message, 'error'); }
   }
 
-  function vocRenderPending() {
-    const tbody = document.querySelector('#vocPendingTable tbody');
-    tbody.innerHTML = VOC_ACCESS.map(a => `
-      <tr>
-        <td>${escapeHtml(a.studentName)}</td>
-        <td>${escapeHtml(a.unitNames.join(', '))}</td>
-        <td style="font-family:ui-monospace,monospace;font-weight:700">${a.code}</td>
-        <td>${a.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>'}</td>
-        <td>${escapeHtml(a.grantedBy||'')}</td>
-        <td>${vocCanManage && !a.used ? `<button class="btn btn-outline" onclick="vocRevokeAccess('${a.id}')">Revoke</button>` : ''}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes granted yet.</td></tr>';
+  // Access codes (pending + used) and completed-test history, mixed into one table sorted
+  // newest-first — no more toggling between a "Grant Access" list and a separate "History" tab.
+  function vocFmtDate(d) {
+    return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
+  }
+  function vocRenderCombined() {
+    const codeRows = VOC_ACCESS.map(a => ({
+      studentName: a.studentName, unitNames: a.unitNames, code: a.code, used: a.used,
+      grantedBy: a.grantedBy, date: a.used ? a.usedAt : a.createdAt, id: a.id, isCode: true,
+    }));
+    const attemptRows = VOC_ATTEMPTS.map(t => ({
+      studentName: t.studentName, unitNames: t.unitNames, score: `${t.score} / ${t.total}`,
+      passed: t.passed, date: t.completedAt, isCode: false,
+    }));
+    const rows = [...codeRows, ...attemptRows].sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
+    const tbody = document.querySelector('#vocCombinedTable tbody');
+    tbody.innerHTML = rows.map(r => {
+      const codeOrScore = r.isCode
+        ? `<span style="font-family:ui-monospace,monospace;font-weight:700">${r.code}</span>`
+        : r.score;
+      const status = r.isCode
+        ? (r.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>')
+        : (r.passed ? '<span class="vbadge-used" style="color:#1D8A4C">Passed</span>' : '<span class="vbadge-pending" style="color:#C0202E">Not passed</span>');
+      const action = (r.isCode && !r.used && vocCanManage) ? `<button class="btn btn-outline" onclick="vocRevokeAccess('${r.id}')">Revoke</button>` : '';
+      return `<tr>
+        <td>${escapeHtml(r.studentName)}</td>
+        <td>${escapeHtml(r.unitNames.join(', '))}</td>
+        <td>${codeOrScore}</td>
+        <td>${status}</td>
+        <td>${vocFmtDate(r.date)}</td>
+        <td>${action}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">Nothing yet.</td></tr>';
   }
 
   async function vocRevokeAccess(id) {
     try { await apiDelete('/api/vocab/access/'+id); await vocLoadAll(); } catch(e) { showToast(e.message, 'error'); }
-  }
-
-  function vocRenderHistory() {
-    const tbody = document.querySelector('#vocHistoryTable tbody');
-    tbody.innerHTML = VOC_ATTEMPTS.map(t => `
-      <tr>
-        <td>${escapeHtml(t.studentName)}</td>
-        <td>${escapeHtml(t.unitNames.join(', '))}</td>
-        <td>${t.score} / ${t.total}</td>
-        <td>${new Date(t.completedAt).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false })}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="4" style="color:var(--muted);text-align:center">No completed tests yet.</td></tr>';
   }
 
   /* ---- Unit create/edit modal ---- */
@@ -881,15 +856,7 @@
       apiGet('/api/students'),
       apiGet('/api/student-codes'),
     ]);
-    pcRenderPending();
-    pcRenderHistory();
-  }
-
-  function pcSwitchTab(t) {
-    ['grant','history'].forEach(x => {
-      document.getElementById('pcPanel'+x[0].toUpperCase()+x.slice(1)).style.display = x===t ? '' : 'none';
-      document.getElementById('pcTab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on', x===t);
-    });
+    pcRenderCombined();
   }
 
   function pcFilterStudentPick() {
@@ -921,34 +888,28 @@
     } catch(e) { showToast(e.message, 'error'); }
   }
 
-  function pcRenderPending() {
-    const tbody = document.querySelector('#pcPendingTable tbody');
-    const pending = PC_CODES.filter(c => !c.used);
-    tbody.innerHTML = pending.map(c => `
+  // Pending + redeemed registration codes, mixed into one table sorted newest-first — no
+  // more toggling between a "Grant Access" list and a separate "History" tab.
+  function pcFmtDate(d) {
+    return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
+  }
+  function pcRenderCombined() {
+    const sorted = [...PC_CODES].sort((a, b) => new Date(b.used ? b.usedAt : b.createdAt) - new Date(a.used ? a.usedAt : a.createdAt));
+    const tbody = document.querySelector('#pcCombinedTable tbody');
+    tbody.innerHTML = sorted.map(c => `
       <tr>
         <td>${escapeHtml(c.studentName)}</td>
         <td style="font-family:ui-monospace,monospace;font-weight:700">${c.code}</td>
-        <td><span class="vbadge-pending">Pending</span></td>
+        <td>${c.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>'}</td>
         <td>${escapeHtml(c.grantedBy||'')}</td>
-        <td>${pcCanManage ? `<button class="btn btn-outline" onclick="pcRevokeCode('${c.id}')">Revoke</button>` : ''}</td>
+        <td>${pcFmtDate(c.used ? c.usedAt : c.createdAt)}</td>
+        <td>${!c.used && pcCanManage ? `<button class="btn btn-outline" onclick="pcRevokeCode('${c.id}')">Revoke</button>` : ''}</td>
       </tr>
-    `).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center">No pending codes.</td></tr>';
+    `).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes yet.</td></tr>';
   }
 
   async function pcRevokeCode(id) {
     try { await apiDelete('/api/student-codes/'+id); await pcLoadAll(); } catch(e) { showToast(e.message, 'error'); }
-  }
-
-  function pcRenderHistory() {
-    const tbody = document.querySelector('#pcHistoryTable tbody');
-    const used = PC_CODES.filter(c => c.used);
-    tbody.innerHTML = used.map(c => `
-      <tr>
-        <td>${escapeHtml(c.studentName)}</td>
-        <td style="font-family:ui-monospace,monospace">${c.code}</td>
-        <td>${new Date(c.usedAt).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false })}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="3" style="color:var(--muted);text-align:center">No codes redeemed yet.</td></tr>';
   }
 
   /* ══════════════════════════════════════════ INIT ══════════════════════════════════════════ */
