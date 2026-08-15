@@ -58,7 +58,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ── Layout ── */
 .sp-main { max-width: 480px; margin: 0 auto; padding: 20px 20px 12px; }
-.sp-title { font-size: 24px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 3px; line-height: 1.2; }
+.sp-title { font-size: 24px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 3px; line-height: 1.2; color: var(--accent); }
 .sp-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 22px; }
 
 /* ── Cards (glass) ── */
