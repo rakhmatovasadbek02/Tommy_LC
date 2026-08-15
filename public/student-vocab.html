@@ -55,7 +55,7 @@ function renderPicker() {
     <div class="sp-card">
       <div class="sp-card-title">Choose Unit(s)</div>
       <div class="sp-pick-list" id="unitList"></div>
-      <button class="sp-btn sp-btn-primary" style="margin-top:14px" onclick="startPractice()">Start Practice</button>
+      <button class="sp-btn sp-btn-primary" id="startPracticeBtn" style="margin-top:14px" onclick="startPractice()">Start Practice</button>
     </div>
     <div class="sp-card">
       <div class="sp-card-title">My Practice History</div>
@@ -190,6 +190,7 @@ function renderResult(r) {
 }
 
 showPicker();
+spResumeTourIfActive();
 </script>
 </body>
 </html>

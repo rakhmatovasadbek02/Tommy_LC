@@ -219,27 +219,32 @@ body.sp-auth-body { padding-bottom: 0; }
 .sp-dev-btn:hover { background: var(--green-light); }
 .sp-dev-btn:disabled { opacity: .6; cursor: not-allowed; }
 
-/* ── First-time tour overlay ── */
-.sp-tour-overlay {
-  position: fixed; inset: 0; z-index: 100; background: rgba(26,26,26,.55);
-  display: flex; align-items: center; justify-content: center; padding: 24px;
-  animation: spTourFade .2s ease;
-}
+/* ── Guided tour: a dark backdrop with a cut-out "spotlight" ring around the real button
+   being explained (the .sp-tour-hole trick: a huge box-shadow darkens everything except
+   its own rect), plus a small card pinned next to it. Steps with nothing to point at
+   (the welcome step) fall back to a plain centered card. ── */
+.sp-tour-overlay { position: fixed; inset: 0; z-index: 100; animation: spTourFade .2s ease; }
+.sp-tour-overlay:not(.sp-tour-center) { background: transparent; pointer-events: none; }
+.sp-tour-overlay.sp-tour-center { background: rgba(26,26,26,.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
 @keyframes spTourFade { from { opacity: 0; } to { opacity: 1; } }
+.sp-tour-hole {
+  position: fixed; z-index: 101; border-radius: 14px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(20,20,20,.6); border: 2px solid var(--accent);
+  transition: top .2s, left .2s, width .2s, height .2s;
+}
 .sp-tour-card {
-  width: 100%; max-width: 340px; background: var(--surface); border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(0,0,0,.35); padding: 32px 26px 26px; text-align: center;
-  animation: spTourIn .25s cubic-bezier(.2,.8,.2,1);
+  width: 100%; max-width: 300px; background: var(--surface); border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35); padding: 22px 22px 18px; z-index: 102;
+  animation: spTourIn .22s cubic-bezier(.2,.8,.2,1);
 }
-@keyframes spTourIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
-.sp-tour-icon {
-  width: 56px; height: 56px; border-radius: 50%; background: var(--accent-light); color: var(--accent);
-  display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 16px;
-}
-.sp-tour-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-.sp-tour-body { font-size: 13.5px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 20px; }
-.sp-tour-dots { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 22px; }
+.sp-tour-card.sp-tour-pin { position: fixed; text-align: left; pointer-events: auto; }
+.sp-tour-overlay.sp-tour-center .sp-tour-card { text-align: center; max-width: 320px; padding: 30px 26px 24px; }
+@keyframes spTourIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.sp-tour-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.sp-tour-overlay.sp-tour-center .sp-tour-title { font-size: 18px; }
+.sp-tour-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
+.sp-tour-dots { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 16px; }
 .sp-tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background .2s, width .2s; }
-.sp-tour-dot.on { background: var(--accent); width: 18px; border-radius: 3px; }
-.sp-tour-actions { display: flex; gap: 10px; }
-.sp-tour-actions .sp-btn { flex: 1; }
+.sp-tour-dot.on { background: var(--accent); width: 16px; border-radius: 3px; }
+.sp-tour-actions { display: flex; gap: 8px; }
+.sp-tour-actions .sp-btn { flex: 1; padding: 9px 14px; font-size: 12.5px; }
