@@ -450,8 +450,8 @@ function requireAuth(requiredFeature) {
  const fallback = ['dashboard','students','groups','leads','finance','staff','actions','archived']
    .find(f => can(f));
  const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html',
-   finance:'finance.html', staff:'users.html', actions:'actions.html',
-   archived:'archived.html' };
+   finance:'finance.html', staff:'control.html', actions:'control.html',
+   archived:'control.html' };
  if (fallback) window.location.replace(pageFor[fallback]);
  else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); window.location.replace('login.html'); }
  }
@@ -513,6 +513,7 @@ const NAV_ICONS = {
  statistics: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
  vocab: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M10 8h6M10 12h4"/></svg>`,
  feedback: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+ control: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`,
 };
 
 const IC = {
@@ -550,11 +551,9 @@ function renderSidebar(activePage) {
      label: (!can('students') && can('vocab')) ? 'Vocabulary' : 'Students' },
    { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
    { feature:'payments',  href:'finance.html',    iconKey:'payments',  label:'Finance'    },
-   { feature:'settings',  href:'users.html',      iconKey:'settings',  label:'Staff'      },
-   { feature:'archived',  href:'archived.html',   iconKey:'archived',  label:'Archived'   },
-   { feature:'actions',   href:'actions.html',    iconKey:'actions',   label:'Actions'    },
-   { feature:'statistics',href:'statistics.html', iconKey:'statistics',label:'Statistics' },
-   { feature:'feedback',  href:'feedback.html',   iconKey:'feedback',  label:'Feedback'   },
+   // Staff, Archived, Actions, Statistics, and Feedback now live as tabs on control.html
+   // (see control.html) — one combined row, visible to anyone with at least one of those.
+   { feature:'_control', href:'control.html', iconKey:'control', label:'Control' },
  ]},
  ];
 
@@ -562,15 +561,21 @@ function renderSidebar(activePage) {
  const roleLabel = (session.roles && session.roles.length > 1) ? session.roles.join(' · ') : (session.title || session.role || 'Staff');
  const navHTML = NAV_SECTIONS.map(section => {
    const links = section.items
-     .filter(item => item.feature === '_students_or_vocab' ? (can('students') || can('vocab')) : can(item.feature))
-     .filter(item => item.feature === '_students_or_vocab' ? true : !(isTeacher() && item.feature === 'students'))
+     .filter(item => {
+       if (item.feature === '_students_or_vocab') return can('students') || can('vocab');
+       if (item.feature === '_control') return can('staff') || can('archived') || can('actions') || can('statistics') || can('feedback');
+       return can(item.feature);
+     })
+     .filter(item => (item.feature === '_students_or_vocab' || item.feature === '_control') ? true : !(isTeacher() && item.feature === 'students'))
      .filter(item => {
        if (item.feature !== 'payments') return true;
        const r = (session.roles || [session.title || '']).filter(Boolean);
        return !r.some(x => x === 'Head Admin' || x === 'Admin');
      })
      .map(item => {
-       const isActive = item.feature === activePage || (item.feature === '_students_or_vocab' && activePage === 'students');
+       const isActive = item.feature === activePage
+         || (item.feature === '_students_or_vocab' && activePage === 'students')
+         || (item.feature === '_control' && activePage === 'control');
        return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span><span class="label">${item.label}</span></a>`;
      }).join('');
    if (!links) return '';

@@ -387,7 +387,7 @@
   if (!SHOW_ROSTER && !SHOW_CODES && !SHOW_VOCAB) {
     const fallback = ['dashboard','students','groups','leads','finance','staff','actions','archived'].find(f => can(f));
     const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html',
-      finance:'finance.html', staff:'users.html', actions:'actions.html', archived:'archived.html' };
+      finance:'finance.html', staff:'control.html', actions:'control.html', archived:'control.html' };
     if (fallback) window.location.replace(pageFor[fallback]);
     else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); window.location.replace('login.html'); }
   }

@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control — TommyLC CRM</title>
+  <link rel="stylesheet" href="shared.css">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#990000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TommyLC">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <style>
+    /* ── Top-level Control tabs ── */
+    .ctl-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+    .ctl-tab{padding:9px 16px;border-radius:9px;border:1.5px solid var(--border);background:white;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted)}
+    .ctl-tab.on{border-color:var(--crimson);background:var(--crimson-soft);color:var(--crimson-dark)}
+
+    /* ── Staff ── */
+    .perm-section-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}
+    .perm-section-title{font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted)}
+    .perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+    .perm-chip{display:flex;align-items:center;gap:9px;border:1.5px solid var(--border);border-radius:9px;padding:9px 11px;cursor:pointer;transition:all 0.13s;background:white;user-select:none}
+    .perm-chip:hover{border-color:var(--crimson-light)}
+    .perm-chip input{width:16px;height:16px;cursor:pointer;accent-color:var(--crimson);flex-shrink:0;margin:0}
+    .perm-chip.on{border-color:var(--crimson);background:var(--crimson-soft)}
+    .perm-chip-label{font-size:13px;font-weight:600;color:var(--text)}
+    .perm-toggle-all{font-size:12px;font-weight:700;color:var(--crimson);background:none;border:none;cursor:pointer;padding:2px 4px}
+    .perm-toggle-all:hover{text-decoration:underline}
+    .sf-perms{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+    .sf-card{background:white;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:box-shadow .15s,transform .15s;display:flex;flex-direction:column}
+    .sf-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.1);transform:translateY(-2px)}
+    .sf-banner{height:80px;position:relative;flex-shrink:0}
+    .sf-banner-bg{position:absolute;inset:0;opacity:.18}
+    .sf-avatar-wrap{position:absolute;bottom:-22px;left:20px}
+    .sf-avatar{width:52px;height:52px;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:white;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+    .sf-body{padding:30px 20px 14px;flex:1}
+    .sf-name-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+    .sf-name{font-size:16px;font-weight:700;color:var(--text);line-height:1.2}
+    .sf-you{font-size:10px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 7px;white-space:nowrap;margin-top:2px;flex-shrink:0}
+    .sf-roles{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+    .sf-role-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+    .sf-phone{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);margin-bottom:8px}
+    .sf-phone svg{color:var(--muted);flex-shrink:0}
+    .sf-perms-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--muted);line-height:1.5}
+    .sf-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:6px;justify-content:flex-end;background:#fafafa;border-radius:0 0 16px 16px}
+    .shift-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1.5px solid var(--border);border-radius:9px;padding:8px 12px;margin-top:8px;flex-wrap:wrap}
+    .shift-toggle{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:var(--text);text-transform:none;letter-spacing:0;margin:0;cursor:pointer}
+    .shift-toggle span{font-size:11px;font-weight:500;color:var(--muted)}
+    .shift-toggle input{width:16px;height:16px;accent-color:var(--crimson);cursor:pointer}
+    .shift-times{display:flex;align-items:center;gap:6px}
+    .shift-times select{width:auto;padding:6px 8px}
+    .shift-times span{color:var(--muted)}
+    .users-grid,.staff-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+    @media(max-width:640px){
+      .users-grid,.staff-grid{grid-template-columns:1fr !important;gap:10px}
+      .topbar-right .btn span { display:none; }
+    }
+
+    /* ── Archived ── */
+    .arch-layout{display:grid;grid-template-columns:1fr 1fr 300px;gap:20px;align-items:start}
+    @media(max-width:1100px){.arch-layout{grid-template-columns:1fr 1fr}}
+    @media(max-width:700px){.arch-layout{grid-template-columns:1fr}}
+    @media(max-width:640px){.arch-card { gap:10px; padding:12px 14px; }}
+    .col-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
+    .col-count{font-size:11px;font-weight:700;background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:2px 9px;border-radius:20px}
+    .arch-cards{display:flex;flex-direction:column;gap:8px}
+    .arch-card{background:white;border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;transition:box-shadow .15s,border-color .15s}
+    .arch-card:hover{border-color:#cbd5e1;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+    .arch-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:white;flex-shrink:0}
+    .arch-info{flex:1;min-width:0}
+    .arch-name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+    .arch-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .arch-name a{color:inherit;text-decoration:none}
+    .arch-name a:hover{color:var(--primary)}
+    .lead-badge{font-size:10px;font-weight:700;background:#eff6ff;color:#3b82f6;border-radius:20px;padding:2px 7px;white-space:nowrap;flex-shrink:0}
+    .arch-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .arch-phone{font-size:12px;color:var(--muted)}
+    .arch-dot{width:3px;height:3px;border-radius:50%;background:var(--border);flex-shrink:0}
+    .arch-reason-pill{font-size:11px;font-weight:600;background:#f1f5f9;color:#64748b;border-radius:20px;padding:2px 9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+    .arch-date{font-size:11px;color:#94a3b8;white-space:nowrap}
+    .arch-comment{font-size:11px;color:#94a3b8;font-style:italic;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+    .arch-restore{flex-shrink:0}
+    .bl-panel{background:white;border:1.5px solid #fca5a5;border-radius:12px;overflow:hidden;position:sticky;top:20px}
+    .bl-panel-head{background:#fff5f5;padding:14px 16px;border-bottom:1px solid #fca5a5;display:flex;align-items:center;gap:8px}
+    .bl-panel-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#dc2626;flex:1}
+    .bl-count{font-size:11px;font-weight:700;background:#fee2e2;color:#dc2626;padding:2px 9px;border-radius:20px}
+    .bl-cards{display:flex;flex-direction:column;gap:0;padding:8px}
+    .bl-card{border:1px solid #fee2e2;border-radius:10px;padding:12px;margin-bottom:8px;background:#fffafa}
+    .bl-card:last-child{margin-bottom:0}
+    .bl-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+    .bl-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;flex-shrink:0;background:#dc2626}
+    .bl-name{font-size:13px;font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bl-name a{color:inherit;text-decoration:none}
+    .bl-name a:hover{color:#dc2626}
+    .bl-phone{font-size:11px;color:var(--muted);margin-bottom:4px}
+    .bl-comment{font-size:11px;color:#991b1b;background:#fff1f1;border-left:2px solid #fca5a5;padding:4px 8px;border-radius:0 6px 6px 0;margin-bottom:6px;line-height:1.4;font-style:italic}
+    .bl-footer{display:flex;align-items:center;justify-content:space-between}
+    .bl-date{font-size:10px;color:#9ca3af}
+    .reasons-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+    .reasons-backdrop.open{opacity:1;pointer-events:all}
+    .reasons-sidebar{position:fixed;top:0;right:0;bottom:0;width:320px;background:white;box-shadow:-4px 0 24px rgba(0,0,0,.12);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1)}
+    .reasons-sidebar.open{transform:translateX(0)}
+    .reasons-sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+    .reasons-sidebar-title{font-size:15px;font-weight:700;color:var(--text)}
+    .reasons-sidebar-close{width:32px;height:32px;border:none;background:none;cursor:pointer;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+    .reasons-sidebar-close:hover{background:var(--bg);color:var(--text)}
+    .reasons-sidebar-body{flex:1;overflow-y:auto;padding:20px}
+    .fixed-reason{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #fca5a5;border-radius:10px;background:#fff5f5;margin-bottom:16px}
+    .fixed-reason-label{font-size:13px;font-weight:700;color:#dc2626;flex:1}
+    .fixed-reason-note{font-size:11px;color:#9ca3af;font-style:italic}
+    .reasons-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px}
+    .reason-row{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;background:white;margin-bottom:8px}
+    .reason-row-label{flex:1;font-size:13px;color:var(--text)}
+    .reason-row-del{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+    .reason-row-del:hover{background:#fee2e2;color:#dc2626}
+    .reasons-add-row{display:flex;gap:8px;margin-top:16px}
+    .reasons-add-row input{flex:1}
+
+    /* ── Actions ── */
+    .actions-feed { display:flex; flex-direction:column; gap:0; }
+    .action-item { display:flex; align-items:flex-start; gap:16px; padding:14px 0; border-bottom:1px solid var(--border); }
+    .action-item:last-child { border-bottom:none; }
+    .action-dot-col { display:flex; flex-direction:column; align-items:center; padding-top:3px; flex-shrink:0; }
+    .action-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .action-dot.green  { background:#22c55e; }
+    .action-dot.red    { background:#ef4444; }
+    .action-dot.blue   { background:#3b82f6; }
+    .action-dot.gold   { background:#f59e0b; }
+    .action-dot.grey   { background:#94a3b8; }
+    .action-dot.default{ background:#94a3b8; }
+    .action-line { width:1px; background:var(--border); flex:1; min-height:20px; margin-top:4px; }
+    .action-body { flex:1; min-width:0; }
+    .action-text { font-size:14px; color:var(--text); line-height:1.4; }
+    .action-meta { display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+    .action-actor { font-size:12px; font-weight:600; color:var(--text); }
+    .action-role  { font-size:11px; padding:2px 8px; border-radius:100px; font-weight:600; }
+    .action-time  { font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap; }
+    .actions-empty { text-align:center; padding:60px 20px; color:var(--muted); }
+    .actions-empty .empty-icon { font-size:48px; margin-bottom:12px; }
+    @media(max-width:640px){
+      .action-item { gap:10px; padding:10px 0; }
+      .action-text { font-size:13px; }
+      .action-time { margin-left:0; }
+    }
+
+    /* ── Statistics — scoped under .stat-page so its .card/.card-title overrides never
+       bleed into the other Control tabs, which use the plain shared.css .card look ── */
+    .stat-page { padding-bottom:64px; --cr:#c0392b; --sg:#16a34a; --sb:#2563eb; --sa:#d97706; --sp:#7c3aed; }
+    .stat-page .sec { margin-bottom:40px; }
+    .stat-page .sec-hd { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #f0dede; }
+    .stat-page .sec-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .stat-page .sec-icon svg { width:15px; height:15px; }
+    .stat-page .sec-hd h2 { font-size:14px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text); margin:0; }
+    .stat-page .sec-meta { font-size:12px; color:var(--muted); margin-left:auto; font-weight:500; }
+    .stat-page .card { background:white; border:1px solid #f0dede; border-radius:16px; padding:22px 24px; box-shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.04); }
+    .stat-page .card-title { font-size:11px; font-weight:700; letter-spacing:.9px; text-transform:uppercase; color:var(--muted); margin:0 0 20px; }
+    .stat-page .g2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .stat-page .g3 { display:grid; grid-template-columns:3fr 2fr; gap:14px; }
+    @media(max-width:1100px){ .stat-page .g3{ grid-template-columns:1fr; } }
+    @media(max-width:860px){ .stat-page .g2{ grid-template-columns:1fr; } }
+    .linechart-wrap { position:relative; width:100%; }
+    .linechart-legend { display:flex; gap:20px; margin-bottom:14px; flex-wrap:wrap; }
+    .lc-dot { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:5px; }
+    .lc-label { font-size:12px; color:var(--text); font-weight:600; }
+    .linechart-svg { width:100%; overflow:visible; display:block; }
+    .linechart-tooltip { position:absolute; background:rgba(20,10,10,.88); color:white; border-radius:8px; padding:8px 12px; font-size:12px; pointer-events:none; white-space:nowrap; opacity:0; transition:opacity .15s; z-index:10; }
+    .linechart-tooltip.show { opacity:1; }
+    .funnel { display:flex; flex-direction:column; gap:7px; }
+    .f-row { display:flex; align-items:center; gap:10px; }
+    .f-lbl { font-size:12px; font-weight:600; color:var(--text); width:88px; flex-shrink:0; text-align:right; }
+    .f-track { flex:1; height:36px; background:#fdf2f2; border-radius:8px; overflow:hidden; min-width:0; }
+    .f-fill { height:100%; border-radius:8px; display:flex; align-items:center; padding-left:12px; transition:width .7s cubic-bezier(.4,0,.2,1); }
+    .f-fill span { font-size:12px; font-weight:800; color:rgba(255,255,255,.95); white-space:nowrap; }
+    .f-n { font-size:12px; font-weight:800; color:var(--text); width:28px; text-align:right; flex-shrink:0; }
+    @media(max-width:480px){ .f-lbl{ width:60px; font-size:11px; } }
+    .gauge-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding-top:10px; gap:2px; }
+    .gauge-num { font-size:44px; font-weight:900; color:var(--cr); letter-spacing:-3px; line-height:1; margin-top:-6px; }
+    .gauge-lbl { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; }
+    .gauge-sub { font-size:12px; color:var(--muted); margin-top:6px; }
+    .donut-wrap { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+    .donut-legend { flex:1; min-width:0; display:flex; flex-direction:column; gap:9px; }
+    .dl-row { display:flex; align-items:center; gap:8px; }
+    .dl-sw { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+    .dl-lbl { font-size:12.5px; color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dl-pct { font-size:12px; font-weight:800; color:var(--text); }
+    .dl-amt { font-size:10px; color:var(--muted); margin-left:2px; }
+    .tscroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .stbl { width:100%; border-collapse:collapse; min-width:340px; }
+    .stbl th { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); padding:0 8px 10px; text-align:left; white-space:nowrap; }
+    .stbl th:not(:first-child) { text-align:right; }
+    .stbl td { padding:8px; border-top:1px solid #fae8e8; font-size:13px; color:var(--text); vertical-align:middle; }
+    .stbl td:not(:first-child) { text-align:right; }
+    .stbl tbody tr:hover td { background:#fdf7f7; }
+    .sname { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; white-space:nowrap; }
+    .savatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:white; flex-shrink:0; }
+    .rate-cell { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+    .rate-track { width:52px; height:5px; background:#f3e8e8; border-radius:99px; overflow:hidden; }
+    .rate-fill { height:100%; border-radius:99px; }
+    .rate-pct { font-size:11px; font-weight:800; min-width:30px; text-align:right; }
+    .arch-pills { display:flex; flex-wrap:wrap; gap:8px; }
+    .arch-pill { display:flex; align-items:center; gap:6px; background:#fdf2f2; border:1px solid #f5d0d0; border-radius:99px; padding:6px 14px 6px 10px; }
+    .arch-pill-n { font-size:14px; font-weight:900; color:var(--cr); }
+    .arch-pill-l { display:none; }
+    .refresh-tag { font-size:11px; color:var(--muted); font-weight:500; }
+    @media(max-width:640px){
+      .stat-page .card { padding:16px; }
+      .stat-page .sec-hd { flex-wrap:wrap; }
+      .stat-page { padding-bottom:40px; }
+      .stat-page .g2 { grid-template-columns:1fr !important; }
+      .stat-page .g3 { grid-template-columns:1fr !important; }
+      .f-row { flex-wrap:wrap; }
+      .f-lbl { width:auto !important; }
+      .dl-row { flex-wrap:wrap; }
+      .arch-pills { gap:6px; }
+      .arch-pill { padding:5px 10px 5px 8px; }
+    }
+
+    /* ── Feedback ── */
+    .fb-item{background:white;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);position:relative}
+    .fb-item.unread{border-left:4px solid var(--crimson)}
+    .fb-item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+    .fb-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+    .fb-badge.suggestion{background:#E4F8EC;color:#1D8A4C}
+    .fb-badge.complaint{background:#FFEAEA;color:#C0202E}
+    .fb-student{font-size:13.5px;font-weight:700;color:var(--text)}
+    .fb-date{font-size:11.5px;color:var(--muted);white-space:nowrap}
+    .fb-message{font-size:13.5px;color:var(--text);line-height:1.6;white-space:pre-wrap;margin-bottom:10px}
+    .fb-actions{display:flex;gap:8px}
+    .fb-actions button{font-size:11.5px;padding:6px 12px}
+    .fb-empty{text-align:center;color:var(--muted);padding:40px;font-size:13.5px}
+  </style>
+</head>
+<body>
+<nav class="sidebar"></nav>
+
+<div class="reasons-backdrop" id="reasonsBackdrop" onclick="arcCloseReasonsSidebar()"></div>
+<div class="reasons-sidebar" id="reasonsSidebar">
+  <div class="reasons-sidebar-header">
+    <div class="reasons-sidebar-title">Archive Reasons</div>
+    <button class="reasons-sidebar-close" onclick="arcCloseReasonsSidebar()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="reasons-sidebar-body">
+    <div class="fixed-reason">
+      <span style="font-size:18px">⛔</span>
+      <div>
+        <div class="fixed-reason-label">Blacklist</div>
+        <div class="fixed-reason-note">Fixed reason — cannot be removed</div>
+      </div>
+    </div>
+    <div class="reasons-section-title">Custom Reasons</div>
+    <div id="reasonsList"></div>
+    <div class="reasons-add-row">
+      <input type="text" id="newReasonInput" placeholder="New reason…" onkeydown="if(event.key==='Enter')arcAddReason()">
+      <button class="btn btn-primary btn-sm" onclick="arcAddReason()">Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="page-title">Control</div>
+    <div class="topbar-right">
+      <button class="btn btn-outline" id="backupBtn" onclick="stfDownloadBackup()" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> <span>Download Backup</span></button>
+      <button class="btn btn-primary" id="addStaffBtn" onclick="stfOpenAdd()" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Staff</span></button>
+      <button class="btn btn-outline" id="manageReasonsBtn" onclick="arcOpenReasonsSidebar()" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Manage Reasons</span>
+      </button>
+      <span class="text-muted" id="actionCount" style="font-size:13px;display:none"></span>
+      <span class="refresh-tag" id="refreshedAt" style="display:none"></span>
+    </div>
+  </div>
+  <div class="page-content">
+    <div class="ctl-tabs">
+      <button class="ctl-tab" id="mtabStaff" onclick="switchMainTab('staff')">Staff</button>
+      <button class="ctl-tab" id="mtabArchived" onclick="switchMainTab('archived')">Archived</button>
+      <button class="ctl-tab" id="mtabActions" onclick="switchMainTab('actions')">Actions</button>
+      <button class="ctl-tab" id="mtabStatistics" onclick="switchMainTab('statistics')">Statistics</button>
+      <button class="ctl-tab" id="mtabFeedback" onclick="switchMainTab('feedback')">Feedback</button>
+    </div>
+
+    <!-- ══════════════════ STAFF ══════════════════ -->
+    <div id="panelStaff" style="display:none">
+      <div class="staff-grid" id="userCards"></div>
+    </div>
+
+    <!-- ══════════════════ ARCHIVED ══════════════════ -->
+    <div id="panelArchived" style="display:none">
+      <div class="toolbar" style="margin-bottom:16px">
+        <div class="search-bar" style="flex:1;max-width:280px">
+          <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="arcSearchInput" placeholder="Search…" oninput="arcFilterList()">
+        </div>
+        <select id="filterReason" onchange="arcFilterList()" style="width:auto;padding:9px 14px">
+          <option value="">All Reasons</option>
+        </select>
+      </div>
+
+      <div class="arch-layout">
+        <div>
+          <div class="col-header">
+            <span class="col-title">Previously Active</span>
+            <span class="col-count" id="activeCount">0</span>
+          </div>
+          <div class="arch-cards" id="activeWrap"></div>
+        </div>
+
+        <div>
+          <div class="col-header">
+            <span class="col-title">Leads / Never Active</span>
+            <span class="col-count" id="inactiveCount">0</span>
+          </div>
+          <div class="arch-cards" id="inactiveWrap"></div>
+        </div>
+
+        <div>
+          <div class="bl-panel">
+            <div class="bl-panel-head">
+              <span style="font-size:15px">⛔</span>
+              <span class="bl-panel-title">Blacklisted</span>
+              <span class="bl-count" id="blCount">0</span>
+            </div>
+            <div class="bl-cards" id="blList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ ACTIONS ══════════════════ -->
+    <div id="panelActions" style="display:none">
+      <div class="toolbar" style="margin-bottom:16px">
+        <div class="search-bar" style="flex:1;max-width:300px">
+          <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="actSearchInput" placeholder="Search actions…" oninput="actRenderFeed()">
+        </div>
+        <select id="filterActor" onchange="actRenderFeed()" style="width:auto;padding:9px 14px">
+          <option value="">All Staff</option>
+        </select>
+        <select id="filterRole" onchange="actRenderFeed()" style="width:auto;padding:9px 14px">
+          <option value="">All Roles</option>
+          <option>CEO</option><option>Head Admin</option><option>Manager</option><option>Admin</option><option>Teacher</option>
+        </select>
+        <select id="filterDate" onchange="actRenderFeed()" style="width:auto;padding:9px 14px">
+          <option value="">All Time</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0 24px">
+          <div id="actionsFeed" class="actions-feed"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ STATISTICS ══════════════════ -->
+    <div id="panelStatistics" style="display:none" class="stat-page">
+      <div id="statContent">
+        <div style="text-align:center;padding:80px 0;color:var(--muted)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="opacity:.35;display:block;margin:0 auto 12px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Loading…
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ FEEDBACK ══════════════════ -->
+    <div id="panelFeedback" style="display:none">
+      <div class="ctl-tabs">
+        <button class="ctl-tab on" id="fbkTabAll" onclick="fbkSwitchTab('all')">All</button>
+        <button class="ctl-tab" id="fbkTabUnread" onclick="fbkSwitchTab('unread')">Unread</button>
+        <button class="ctl-tab" id="fbkTabSuggestion" onclick="fbkSwitchTab('suggestion')">Suggestions</button>
+        <button class="ctl-tab" id="fbkTabComplaint" onclick="fbkSwitchTab('complaint')">Complaints</button>
+      </div>
+      <div id="fbkList"><div class="fb-empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Staff modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="userModalTitle">Add Staff Member</div>
+      <button class="modal-close" onclick="closeModal('userModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editUserId">
+      <div class="form-row">
+        <div class="form-group"><label>Last Name *</label><input type="text" id="uLast" placeholder="Smith"></div>
+        <div class="form-group"><label>First Name *</label><input type="text" id="uFirst" placeholder="Tommy"></div>
+      </div>
+      <div class="form-group">
+        <label>Phone *</label>
+        <div style="display:flex;align-items:center">
+          <span style="padding:10px 14px;background:var(--crimson-soft);border:1.5px solid var(--border);border-right:none;border-radius:8px 0 0 8px;font-size:14px;color:var(--crimson-dark);font-weight:700">+998</span>
+          <input type="tel" id="uPhone" placeholder="90 123 45 67" oninput="stfFmtPhone(this)" style="border-radius:0 8px 8px 0;border-left:none">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password <span id="pwLabel" style="font-weight:400;text-transform:none;letter-spacing:0">*</span></label>
+        <input type="password" id="uPassword" placeholder="At least 8 digits">
+        <div style="font-size:12px;color:var(--muted);margin-top:5px">At least 8 digits. The user must change it on first login.</div>
+        <div id="pwHint" style="font-size:12px;color:var(--muted);margin-top:5px;display:none">Leave blank to keep existing password.</div>
+      </div>
+      <div class="form-group">
+        <label>Roles * <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(select one or more)</span></label>
+        <div id="roleCheckboxes" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+          <label class="perm-chip" id="rchk_CEO"><input type="checkbox" value="CEO" onchange="stfOnRoleChange()"> <span class="perm-chip-label">CEO</span></label>
+          <label class="perm-chip" id="rchk_HeadAdmin"><input type="checkbox" value="Head Admin" onchange="stfOnRoleChange()"> <span class="perm-chip-label">Head Admin</span></label>
+          <label class="perm-chip" id="rchk_Manager"><input type="checkbox" value="Manager" onchange="stfOnRoleChange()"> <span class="perm-chip-label">Manager</span></label>
+          <label class="perm-chip" id="rchk_Admin"><input type="checkbox" value="Admin" onchange="stfOnRoleChange()"> <span class="perm-chip-label">Admin</span></label>
+          <label class="perm-chip" id="rchk_Teacher"><input type="checkbox" value="Teacher" onchange="stfOnRoleChange()"> <span class="perm-chip-label">Teacher</span></label>
+          <label class="perm-chip" id="rchk_SupportTeacher"><input type="checkbox" value="Support Teacher" onchange="stfOnRoleChange()"> <span class="perm-chip-label">Support Teacher</span></label>
+        </div>
+        <div id="roleDesc" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:8px;display:none"></div>
+      </div>
+      <div id="supportShiftFields" style="display:none">
+        <label>Working shifts *</label>
+        <div class="shift-row">
+          <label class="shift-toggle"><input type="checkbox" id="uOddOn" onchange="stfToggleShift('Odd')"> Odd <span>Mon·Wed·Fri</span></label>
+          <div class="shift-times"><select id="uOddStart"></select><span>–</span><select id="uOddEnd"></select></div>
+        </div>
+        <div class="shift-row">
+          <label class="shift-toggle"><input type="checkbox" id="uEvenOn" onchange="stfToggleShift('Even')"> Even <span>Tue·Thu·Sat</span></label>
+          <div class="shift-times"><select id="uEvenStart"></select><span>–</span><select id="uEvenEnd"></select></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Tick the days the teacher works and set hours for each.</div>
+        <label style="margin-top:12px">Support Language *</label>
+        <select id="uSupportLang">
+          <option value="UZ/RU">UZ/RU (any group)</option>
+          <option value="UZ">UZ (only UZ groups)</option>
+          <option value="RU">RU (only RU groups)</option>
+        </select>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Controls which students can self-book this teacher in the student portal.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('userModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="stfSaveUser()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Archived: Activation modal -->
+<div class="modal-overlay" id="activateModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Activate Student</div>
+      <button class="modal-close" onclick="closeModal('activateModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;font-size:15px;font-weight:700" id="actStudentName"></p>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Assign to Group</label>
+        <select id="actGroupSel" onchange="arcOnActGroupChange()">
+          <option value="">— Select group —</option>
+        </select>
+      </div>
+      <div id="actChargeRow" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:none;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Activation charge</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px" id="actLessonNote"></div>
+        </div>
+        <div style="font-size:20px;font-weight:900;color:var(--crimson)" id="actAmount"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('activateModal')">Skip</button>
+      <button class="btn btn-primary" id="actConfirmBtn" onclick="arcConfirmActivation()" disabled>Activate</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<script src="shared.js"></script>
+<script>
+  /* ── Entry gating ─────────────────────────────────────────────────────────────────
+     Control covers Staff + Archived + Actions + Statistics + Feedback (previously five
+     separate nav rows/pages) — getting in requires any one of those permissions. */
+  requireAuth();
+  const CTL_MY_SESSION = getSession();
+  const CTL_MY_ROLES = (CTL_MY_SESSION?.roles || [CTL_MY_SESSION?.title || '']).filter(Boolean);
+  const SHOW_STAFF      = can('staff');
+  const SHOW_ARCHIVED   = can('archived');
+  const SHOW_ACTIONS    = can('actions');
+  const SHOW_STATISTICS = can('statistics');
+  const SHOW_FEEDBACK   = can('feedback');
+  if (!SHOW_STAFF && !SHOW_ARCHIVED && !SHOW_ACTIONS && !SHOW_STATISTICS && !SHOW_FEEDBACK) {
+    const fallback = ['dashboard','students','groups','leads','finance'].find(f => can(f));
+    const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html', finance:'finance.html' };
+    if (fallback) window.location.replace(pageFor[fallback]);
+    else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); window.location.replace('login.html'); }
+  }
+  renderSidebar('control');
+  document.getElementById('mtabStaff').style.display      = SHOW_STAFF      ? '' : 'none';
+  document.getElementById('mtabArchived').style.display   = SHOW_ARCHIVED   ? '' : 'none';
+  document.getElementById('mtabActions').style.display    = SHOW_ACTIONS    ? '' : 'none';
+  document.getElementById('mtabStatistics').style.display = SHOW_STATISTICS ? '' : 'none';
+  document.getElementById('mtabFeedback').style.display   = SHOW_FEEDBACK   ? '' : 'none';
+
+  function switchMainTab(tab) {
+    document.getElementById('panelStaff').style.display      = tab==='staff'      ? '' : 'none';
+    document.getElementById('panelArchived').style.display   = tab==='archived'   ? '' : 'none';
+    document.getElementById('panelActions').style.display    = tab==='actions'    ? '' : 'none';
+    document.getElementById('panelStatistics').style.display = tab==='statistics' ? '' : 'none';
+    document.getElementById('panelFeedback').style.display   = tab==='feedback'   ? '' : 'none';
+    document.getElementById('mtabStaff').classList.toggle('on', tab==='staff');
+    document.getElementById('mtabArchived').classList.toggle('on', tab==='archived');
+    document.getElementById('mtabActions').classList.toggle('on', tab==='actions');
+    document.getElementById('mtabStatistics').classList.toggle('on', tab==='statistics');
+    document.getElementById('mtabFeedback').classList.toggle('on', tab==='feedback');
+    // Per-tab topbar-right controls
+    document.getElementById('backupBtn').style.display        = (tab==='staff' && SHOW_STAFF && CTL_MY_ROLES.includes('CEO')) ? '' : 'none';
+    document.getElementById('addStaffBtn').style.display       = (tab==='staff' && stfCanManage) ? '' : 'none';
+    document.getElementById('manageReasonsBtn').style.display  = (tab==='archived') ? '' : 'none';
+    document.getElementById('actionCount').style.display       = (tab==='actions') ? '' : 'none';
+    document.getElementById('refreshedAt').style.display       = (tab==='statistics') ? '' : 'none';
+    const qp = new URLSearchParams(location.search);
+    qp.set('tab', tab);
+    history.replaceState(null, '', location.pathname + '?' + qp.toString());
+  }
+
+  /* ══════════════════════════════════════════ STAFF (stf-prefixed) ══════════════════════════════════════════ */
+  const STF_ROLE_DESC = {
+    'CEO': 'Full access to everything.',
+    'Head Admin': 'Everything except Actions. Finance is view-only (cannot record or edit payments).',
+    'Manager': 'Everything except Actions.',
+    'Admin': 'Dashboard, Leads, Students, Groups, Teachers. Cannot see Finance, Staff, Archived, Actions or Classrooms.',
+    'Teacher': 'Own groups only — Dashboard, own Students, and Groups (view & mark attendance).',
+    'Support Teacher': 'Sees only their own Support timetable. Cannot change anything.'
+  };
+  const stfCanManage = can('staff');
+  const STF_HEAD_ADMIN_ALLOWED = ['Teacher','Support Teacher','Admin'];
+  const stfAmHeadAdminOnly = CTL_MY_ROLES.includes('Head Admin') && !CTL_MY_ROLES.includes('CEO');
+  if (stfAmHeadAdminOnly) { ['rchk_CEO','rchk_HeadAdmin','rchk_Manager'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; }); }
+  function stfCanManageUser(targetRoles) {
+    if (!stfCanManage) return false;
+    if (stfAmHeadAdminOnly) return targetRoles.every(r => STF_HEAD_ADMIN_ALLOWED.includes(r));
+    return true;
+  }
+
+  let stfUsers = [];
+
+  function stfFmtPhone(input) {
+    let v=input.value.replace(/\D/g,'').slice(0,9),o='';
+    if(v.length>0)o+=v.slice(0,2);if(v.length>2)o+=' '+v.slice(2,5);if(v.length>5)o+=' '+v.slice(5,7);if(v.length>7)o+=' '+v.slice(7,9);
+    input.value=o;
+  }
+
+  function stfBuildTimeOpts(sel, val){
+    let o=''; for(let m=8*60;m<=21*60+30;m+=30){const hh=String(Math.floor(m/60)).padStart(2,'0'),mm=String(m%60).padStart(2,'0');o+=`<option>${hh}:${mm}</option>`;}
+    sel.innerHTML=o; if(val) sel.value=val;
+  }
+  function stfToggleShift(kind){
+    const on = document.getElementById('u'+kind+'On').checked;
+    document.getElementById('u'+kind+'Start').disabled = !on;
+    document.getElementById('u'+kind+'End').disabled = !on;
+  }
+  function stfGetSelectedRoles() {
+    return [...document.querySelectorAll('#roleCheckboxes input[type=checkbox]:checked')].map(c => c.value);
+  }
+  function stfSetSelectedRoles(roles) {
+    document.querySelectorAll('#roleCheckboxes input[type=checkbox]').forEach(c => {
+      c.checked = roles.includes(c.value);
+      c.closest('.perm-chip').classList.toggle('on', roles.includes(c.value));
+    });
+    stfOnRoleChange();
+  }
+  function stfOnRoleChange() {
+    document.querySelectorAll('#roleCheckboxes input[type=checkbox]').forEach(c => {
+      c.closest('.perm-chip').classList.toggle('on', c.checked);
+    });
+    const roles = stfGetSelectedRoles();
+    const desc = document.getElementById('roleDesc');
+    if (roles.length === 1) {
+      desc.textContent = STF_ROLE_DESC[roles[0]] || '';
+      desc.style.display = '';
+    } else if (roles.length > 1) {
+      desc.textContent = 'Combined access from: ' + roles.join(', ') + '.';
+      desc.style.display = '';
+    } else {
+      desc.style.display = 'none';
+    }
+    document.getElementById('supportShiftFields').style.display = roles.includes('Support Teacher') ? '' : 'none';
+  }
+
+  async function stfLoad() { stfUsers = await apiGet('/api/users'); stfRenderUsers(); }
+
+  function stfRenderUsers() {
+    const session = CTL_MY_SESSION;
+    const el = document.getElementById('userCards');
+    if (!stfUsers.length) { el.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">👥</div><p>No staff found.</p></div>'; return; }
+    el.innerHTML = stfUsers.map(u => {
+      const name  = u.lastName+' '+u.firstName;
+      const col   = avatarColor(name);
+      const isMe  = session && session.id === u.id;
+      const roles = u.roles && u.roles.length ? u.roles : [u.title||u.role||'Admin'];
+      const summary = roles.length === 1
+        ? (STF_ROLE_DESC[roles[0]] || roles[0])
+        : 'Combined access from: ' + roles.join(', ') + '.';
+      const rolePillColor = r => {
+        if(r==='CEO')           return 'background:#fef3c7;color:#92400e';
+        if(r==='Head Admin')    return 'background:#ede9fe;color:#5b21b6';
+        if(r==='Manager')       return 'background:#dbeafe;color:#1e40af';
+        if(r==='Admin')         return 'background:#dcfce7;color:#166534';
+        if(r==='Teacher')       return 'background:#ffedd5;color:#9a3412';
+        if(r==='Support Teacher') return 'background:#fce7f3;color:#9d174d';
+        return 'background:var(--bg);color:var(--muted)';
+      };
+      return `<div class="sf-card">
+        <div class="sf-banner">
+          <div class="sf-banner-bg" style="background:${col}"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,${col}55,${col}22)"></div>
+          <div class="sf-avatar-wrap">
+            <div class="sf-avatar" style="background:${col}">${initials(name)}</div>
+          </div>
+        </div>
+        <div class="sf-body">
+          <div class="sf-name-row">
+            <div class="sf-name">${name}</div>
+            ${isMe ? '<span class="sf-you">you</span>' : ''}
+          </div>
+          <div class="sf-roles">
+            ${roles.map(r=>`<span class="sf-role-pill" style="${rolePillColor(r)}">${r}</span>`).join('')}
+          </div>
+          ${u.phone ? `<div class="sf-phone"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.83a16 16 0 0 0 6.29 6.29l1.7-1.71a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>+998 ${u.phone}</div>` : ''}
+          <div class="sf-perms-box">${summary}</div>
+        </div>
+        <div class="sf-footer">
+          ${stfCanManageUser(roles) ? `<button class="btn btn-ghost btn-sm" onclick="stfEditUser('${u.id}')">${IC.edit} Edit</button>${!isMe?`<button class="btn btn-danger btn-sm" onclick="stfDeleteUser('${u.id}')">${IC.trash}</button>`:''}` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function stfOpenAdd() {
+    stfClearForm(); document.getElementById('userModalTitle').textContent='Add Staff Member';
+    openModal('userModal');
+  }
+
+  function stfEditUser(id) {
+    const u=stfUsers.find(u=>u.id===id); if(!u) return;
+    stfClearForm();
+    document.getElementById('editUserId').value=id;
+    document.getElementById('uFirst').value=u.firstName;
+    document.getElementById('uLast').value=u.lastName;
+    document.getElementById('uPhone').value=u.phone||'';
+    const existingRoles = u.roles && u.roles.length ? u.roles : [u.title||u.role||'Admin'];
+    stfSetSelectedRoles(existingRoles);
+    document.getElementById('uOddOn').checked=!!u.oddStart;
+    document.getElementById('uEvenOn').checked=!!u.evenStart;
+    stfBuildTimeOpts(document.getElementById('uOddStart'), u.oddStart||'09:00');
+    stfBuildTimeOpts(document.getElementById('uOddEnd'), u.oddEnd||'12:30');
+    stfBuildTimeOpts(document.getElementById('uEvenStart'), u.evenStart||'14:00');
+    stfBuildTimeOpts(document.getElementById('uEvenEnd'), u.evenEnd||'18:30');
+    stfToggleShift('Odd'); stfToggleShift('Even');
+    document.getElementById('uSupportLang').value = u.supportLang || 'UZ/RU';
+    document.getElementById('pwHint').style.display='block';
+    document.getElementById('pwLabel').textContent='(optional)';
+    document.getElementById('userModalTitle').textContent='Edit Staff Member';
+    openModal('userModal');
+  }
+
+  async function stfSaveUser() {
+    const first=document.getElementById('uFirst').value.trim();
+    const last =document.getElementById('uLast').value.trim();
+    const phone=document.getElementById('uPhone').value.trim();
+    const pass =document.getElementById('uPassword').value;
+    const roles=stfGetSelectedRoles();
+    const id   =document.getElementById('editUserId').value;
+    if(!first||!last){showToast('Name required.','error');return;}
+    if(!phone){showToast('Phone required.','error');return;}
+    if(!roles.length){showToast('Select at least one role.','error');return;}
+    if(!id&&!pass){showToast('Password required.','error');return;}
+    if(pass && ((pass.match(/\d/g)||[]).length<8)){showToast('Password must contain at least 8 digits.','error');return;}
+    const data={firstName:first,lastName:last,phone,roles};
+    if(roles.includes('Support Teacher')){
+      const odd=document.getElementById('uOddOn').checked, even=document.getElementById('uEvenOn').checked;
+      if(!odd&&!even){showToast('Select at least one working shift (odd or even).','error');return;}
+      if(odd){ data.oddStart=document.getElementById('uOddStart').value; data.oddEnd=document.getElementById('uOddEnd').value; if(data.oddStart>=data.oddEnd){showToast('Odd shift end must be after start.','error');return;} }
+      if(even){ data.evenStart=document.getElementById('uEvenStart').value; data.evenEnd=document.getElementById('uEvenEnd').value; if(data.evenStart>=data.evenEnd){showToast('Even shift end must be after start.','error');return;} }
+      data.supportLang=document.getElementById('uSupportLang').value;
+    }
+    if(pass)data.password=pass;
+    try {
+      if(id){await apiPut('/api/users/'+id,data);logActivity(`Updated staff: ${first} ${last}`,'');}
+      else{data.id=genId();await apiPost('/api/users',data);logActivity(`Added staff: ${first} ${last}`,'green');}
+      closeModal('userModal'); await stfLoad(); showToast(id?'Updated!':'Staff added!');
+    } catch(e){showToast(e.message||'Error saving.','error');}
+  }
+
+  async function stfDeleteUser(id) {
+    const u=stfUsers.find(u=>u.id===id);
+    if(!confirm(`Delete ${u?.lastName} ${u?.firstName}?`))return;
+    try {
+      await apiDelete('/api/users/'+id);
+      logActivity(`Removed staff: ${u?.lastName} ${u?.firstName}`,'red');
+      await stfLoad(); showToast('Deleted.','error');
+    } catch(e){ showToast(e.message||'Error deleting.','error'); }
+  }
+
+  function stfClearForm() {
+    ['editUserId','uFirst','uLast','uPhone','uPassword'].forEach(id=>document.getElementById(id).value='');
+    stfSetSelectedRoles(['Admin']);
+    document.getElementById('uOddOn').checked=false; document.getElementById('uEvenOn').checked=false;
+    stfBuildTimeOpts(document.getElementById('uOddStart'),'09:00');
+    stfBuildTimeOpts(document.getElementById('uOddEnd'),'12:30');
+    stfBuildTimeOpts(document.getElementById('uEvenStart'),'14:00');
+    stfBuildTimeOpts(document.getElementById('uEvenEnd'),'18:30');
+    stfToggleShift('Odd'); stfToggleShift('Even');
+    document.getElementById('uSupportLang').value='UZ/RU';
+    document.getElementById('pwHint').style.display='none';
+    document.getElementById('pwLabel').textContent='*';
+  }
+
+  async function stfDownloadBackup() {
+    const btn = document.getElementById('backupBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/backup', { headers: authHeaders() });
+      if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || res.statusText); }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tommylc-backup-${new Date().toISOString().slice(0,10)}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      showToast('Backup downloaded.');
+    } catch(e) { showToast('Error: '+e.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
+
+  /* ══════════════════════════════════════════ ARCHIVED (arc-prefixed) ══════════════════════════════════════════ */
+  let arcAll = [], arcReasons = [];
+
+  async function arcLoad() {
+    [arcAll, arcReasons] = await Promise.all([
+      apiGet('/api/students/archived'),
+      apiGet('/api/archive-reasons')
+    ]);
+    arcRenderReasonsList();
+    arcRenderBlacklist();
+
+    const rSel = document.getElementById('filterReason');
+    rSel.innerHTML = '<option value="">All Reasons</option>';
+    arcReasons.forEach(r => {
+      const o = document.createElement('option');
+      o.value = r.label; o.textContent = r.label;
+      rSel.appendChild(o);
+    });
+    arcFilterList();
+  }
+
+  function arcRenderBlacklist() {
+    const bl = arcAll.filter(s => s.archiveReason === 'Blacklist');
+    document.getElementById('blCount').textContent = bl.length;
+    const el = document.getElementById('blList');
+    if (!bl.length) {
+      el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">No blacklisted entries.</div>';
+      return;
+    }
+    el.innerHTML = bl.map(s => {
+      const name = s.lastName + ' ' + s.firstName;
+      const col  = avatarColor(name);
+      const dt   = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+      const src  = s.sourceType || 'student';
+      return `<div class="bl-card">
+        <div class="bl-top">
+          <div class="bl-avatar" style="background:${col}">${initials(name)}</div>
+          <div class="bl-name">
+            ${src === 'lead'
+              ? `<span class="lead-badge" style="font-size:9px;margin-right:4px">Lead</span>${name}`
+              : `<a href="student-profile.html?id=${s.id}">${name}</a>`}
+          </div>
+        </div>
+        ${s.phone ? `<div class="bl-phone">+998 ${s.phone}</div>` : ''}
+        ${s.archiveComment ? `<div class="bl-comment">${s.archiveComment}</div>` : ''}
+        <div class="bl-footer">
+          <span class="bl-date">${dt}</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="arcRestoreByBtn(this)">Restore</button>
+            ${ARC_CAN_DELETE ? `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;border:1.5px solid #dc2626;color:#dc2626;background:white" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="arcDeleteByBtn(this)" title="Permanently delete"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function arcFilterList() {
+    const q  = document.getElementById('arcSearchInput').value.toLowerCase();
+    const fr = document.getElementById('filterReason').value;
+    const list = arcAll.filter(s => {
+      if (s.archiveReason === 'Blacklist') return false;
+      if (q && !(s.firstName+' '+s.lastName).toLowerCase().includes(q) && !(s.phone||'').includes(q)) return false;
+      if (fr && s.archiveReason !== fr) return false;
+      return true;
+    });
+    const active   = list.filter(s => s.sourceType !== 'lead' && s.preArchiveStatus === 'Active');
+    const inactive = list.filter(s => s.sourceType === 'lead' || s.preArchiveStatus !== 'Active');
+    document.getElementById('activeCount').textContent   = active.length;
+    document.getElementById('inactiveCount').textContent = inactive.length;
+    arcRenderSection('activeWrap',   active);
+    arcRenderSection('inactiveWrap', inactive);
+  }
+
+  function arcRenderSection(wrapId, list) {
+    const wrap = document.getElementById(wrapId);
+    if (!list.length) {
+      wrap.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0">None.</div>';
+      return;
+    }
+    wrap.innerHTML = list.map(s => {
+      const name  = s.lastName + ' ' + s.firstName;
+      const col   = avatarColor(name);
+      const dt    = s.archivedAt ? new Date(s.archivedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      const phone = s.phone ? '+998 ' + s.phone : null;
+      const src   = s.sourceType || 'student';
+      return `<div class="arch-card">
+        <div class="arch-avatar" style="background:${col}">${initials(name)}</div>
+        <div class="arch-info">
+          <div class="arch-name-row">
+            ${src === 'lead' ? '<span class="lead-badge">Lead</span>' : ''}
+            <span class="arch-name">
+              ${src === 'lead'
+                ? name
+                : `<a href="student-profile.html?id=${s.id}">${name}</a>`}
+            </span>
+          </div>
+          <div class="arch-meta">
+            ${phone ? `<span class="arch-phone">${phone}</span>` : ''}
+            ${phone && s.archiveReason ? '<span class="arch-dot"></span>' : ''}
+            ${s.archiveReason ? `<span class="arch-reason-pill" title="${s.archiveReason}">${s.archiveReason}</span>` : ''}
+            ${(phone||s.archiveReason) ? '<span class="arch-dot"></span>' : ''}
+            <span class="arch-date">${dt}</span>
+          </div>
+          ${s.archiveComment ? `<div class="arch-comment" title="${s.archiveComment.replace(/"/g,'&quot;')}">${s.archiveComment}</div>` : ''}
+        </div>
+        <div class="arch-restore" style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-outline btn-sm" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="arcRestoreByBtn(this)">Restore</button>
+          ${ARC_CAN_DELETE ? `<button class="btn btn-sm" style="border:1.5px solid #dc2626;color:#dc2626;background:white" data-sid="${s.id}" data-name="${name.replace(/"/g,'&quot;')}" data-src="${src}" onclick="arcDeleteByBtn(this)" title="Permanently delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function arcOpenReasonsSidebar()  { document.getElementById('reasonsSidebar').classList.add('open');    document.getElementById('reasonsBackdrop').classList.add('open'); }
+  function arcCloseReasonsSidebar() { document.getElementById('reasonsSidebar').classList.remove('open'); document.getElementById('reasonsBackdrop').classList.remove('open'); }
+
+  function arcRenderReasonsList() {
+    const el = document.getElementById('reasonsList');
+    if (!arcReasons.length) {
+      el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:4px 0">No custom reasons yet.</div>';
+      return;
+    }
+    el.innerHTML = arcReasons.map(r =>
+      `<div class="reason-row">
+        <span class="reason-row-label">${r.label}</span>
+        <button class="reason-row-del" data-rid="${r.id}" onclick="arcDeleteReason(this.dataset.rid, this.closest('.reason-row').querySelector('.reason-row-label').textContent)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`
+    ).join('');
+  }
+
+  async function arcAddReason() {
+    const label = document.getElementById('newReasonInput').value.trim();
+    if (!label) return showToast('Enter a reason.', 'error');
+    if (label.toLowerCase() === 'blacklist') return showToast('Blacklist is a fixed reason.', 'error');
+    try {
+      await apiPost('/api/archive-reasons', { label, isBlacklist: false });
+      document.getElementById('newReasonInput').value = '';
+      await arcLoad();
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+  }
+
+  async function arcDeleteReason(id, label) {
+    if (!confirm(`Delete reason "${label}"?`)) return;
+    await apiDelete('/api/archive-reasons/' + id);
+    await arcLoad();
+  }
+
+  const ARC_CAN_DELETE = CTL_MY_ROLES.includes('CEO') || CTL_MY_ROLES.includes('Head Admin');
+
+  let arcAllGroups = [];
+  let arcActivatingId = null;
+
+  async function arcEnsureGroups() {
+    if (!arcAllGroups.length) arcAllGroups = await apiGet('/api/groups');
+  }
+
+  function arcRestoreByBtn(btn) {
+    arcRestoreStudent(btn.dataset.sid, btn.dataset.name, btn.dataset.src);
+  }
+
+  function arcDeleteByBtn(btn) {
+    arcDeleteStudent(btn.dataset.sid, btn.dataset.name, btn.dataset.src);
+  }
+
+  async function arcDeleteStudent(id, name, sourceType) {
+    if (!confirm(`Permanently delete ${name}? This cannot be undone and will remove all their data including payments and attendance.`)) return;
+    if (!confirm(`Are you sure? All records for ${name} will be deleted forever.`)) return;
+    try {
+      const endpoint = sourceType === 'lead' ? `/api/leads/${id}/permanent` : `/api/students/${id}/permanent`;
+      await apiDelete(endpoint);
+      showToast(name + ' permanently deleted.');
+      await arcLoad();
+    } catch(e) { showToast('Error deleting: ' + e.message, 'error'); }
+  }
+
+  async function arcRestoreStudent(id, name, sourceType) {
+    if (!confirm(`Restore ${name}?`)) return;
+    try {
+      const endpoint = sourceType === 'lead' ? `/api/leads/${id}/restore` : `/api/students/${id}/restore`;
+      await apiPut(endpoint, {});
+      await arcLoad();
+      if (sourceType !== 'lead') {
+        await arcOpenActivateModal(id, name);
+      } else {
+        showToast(name + ' restored.');
+      }
+    } catch(e) { showToast('Error restoring.', 'error'); }
+  }
+
+  async function arcOpenActivateModal(studentId, studentName) {
+    await arcEnsureGroups();
+    arcActivatingId = studentId;
+    document.getElementById('actStudentName').textContent = studentName + ' restored. Activate now?';
+    const sel = document.getElementById('actGroupSel');
+    sel.innerHTML = '<option value="">— Select group —</option>' +
+      arcAllGroups.map(g => `<option value="${g.id}">${g.name}${g.time ? ' ('+g.time+')' : ''}</option>`).join('');
+    document.getElementById('actChargeRow').style.display = 'none';
+    document.getElementById('actConfirmBtn').disabled = true;
+    openModal('activateModal');
+  }
+
+  function arcCalcProRate(group) {
+    const price = Math.abs(Number(group.price || 0));
+    if (!price) return { amount: 0, remaining: 0 };
+    const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
+    let lessonDays;
+    const sched = group.schedType;
+    let customDays = group.customDays;
+    if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
+    if (sched === 'odd')        lessonDays = [1,3,5];
+    else if (sched === 'even')  lessonDays = [2,4,6];
+    else if (sched === 'daily') lessonDays = [1,2,3,4,5];
+    else if (sched === 'custom') lessonDays = (customDays||[]).map(d=>dayMap[d]).filter(d=>d!==undefined);
+    else lessonDays = [1,3,5];
+    const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+    const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+    const last = new Date(year, month+1, 0).getDate();
+    let remaining = 0;
+    for (let d = today; d <= last; d++) {
+      if (lessonDays.includes(new Date(year, month, d).getDay())) remaining++;
+    }
+    return { amount: Math.round((price / 12) * Math.max(0, remaining)), remaining };
+  }
+
+  function arcOnActGroupChange() {
+    const gid = document.getElementById('actGroupSel').value;
+    const btn = document.getElementById('actConfirmBtn');
+    if (!gid) { document.getElementById('actChargeRow').style.display = 'none'; btn.disabled = true; return; }
+    const g = arcAllGroups.find(x => x.id === gid);
+    if (!g) return;
+    const { amount, remaining } = arcCalcProRate(g);
+    const chargeRow = document.getElementById('actChargeRow');
+    if (amount > 0) {
+      const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      document.getElementById('actAmount').textContent = amount.toLocaleString() + ' UZS';
+      document.getElementById('actLessonNote').textContent = remaining + ' of 12 lessons · ' + months[now.getMonth()] + ' ' + now.getFullYear();
+      chargeRow.style.display = 'flex';
+    } else {
+      chargeRow.style.display = 'none';
+    }
+    btn.disabled = false;
+  }
+
+  async function arcConfirmActivation() {
+    const gid = document.getElementById('actGroupSel').value;
+    if (!gid || !arcActivatingId) return;
+    closeModal('activateModal');
+    try {
+      const result = await apiPost('/api/students/' + arcActivatingId + '/activate', { groupId: gid });
+      const g = arcAllGroups.find(x => x.id === gid);
+      showToast(result.amount > 0
+        ? `Activated in ${g?.name}! −${result.amount.toLocaleString()} UZS`
+        : `Activated in ${g?.name}!`);
+    } catch(e) { showToast('Error activating: ' + e.message, 'error'); }
+    arcActivatingId = null;
+  }
+
+  /* ══════════════════════════════════════════ ACTIONS (act-prefixed) ══════════════════════════════════════════ */
+  const ACT_ROLE_COLORS = {
+    'CEO':     { bg:'#FFF0F0', color:'#CC0000' },
+    'Admin':   { bg:'#E8F5E9', color:'#1E6B45' },
+    'Teacher': { bg:'#EFF6FF', color:'#1D4ED8' },
+  };
+  const ACT_DOT_CLASS = { green:'green', red:'red', blue:'blue', gold:'gold', '':'default', null:'default' };
+
+  let actAllItems = [];
+
+  async function actLoad() {
+    actAllItems = await apiGet('/api/activity');
+    const actors = [...new Set(actAllItems.map(a => a.actor).filter(Boolean))].sort();
+    const aSel = document.getElementById('filterActor');
+    const prevActor = aSel.value;
+    aSel.innerHTML = '<option value="">All Staff</option>';
+    actors.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = reverseName(a); aSel.appendChild(o); });
+    if (actors.includes(prevActor)) aSel.value = prevActor;
+    actRenderFeed();
+  }
+
+  function actRenderFeed() {
+    const q   = document.getElementById('actSearchInput').value.toLowerCase();
+    const fa  = document.getElementById('filterActor').value;
+    const fr  = document.getElementById('filterRole').value;
+    const fd  = document.getElementById('filterDate').value;
+    const now = new Date();
+    const startOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek  = new Date(startOfDay); startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const items = actAllItems.filter(a => {
+      if (q  && !(a.text||'').toLowerCase().includes(q) && !(a.actor||'').toLowerCase().includes(q)) return false;
+      if (fa && a.actor !== fa) return false;
+      if (fr && a.role  !== fr) return false;
+      if (fd) {
+        const ts = a.rawTime ? new Date(a.rawTime) : null;
+        if (ts) {
+          if (fd === 'today' && ts < startOfDay) return false;
+          if (fd === 'week'  && ts < startOfWeek) return false;
+          if (fd === 'month' && ts < startOfMonth) return false;
+        }
+      }
+      return true;
+    });
+
+    document.getElementById('actionCount').textContent = `${items.length} action${items.length!==1?'s':''}`;
+    const feed = document.getElementById('actionsFeed');
+    if (!items.length) {
+      feed.innerHTML = '<div class="actions-empty"><div class="empty-icon">📋</div><p>No actions found.</p></div>';
+      return;
+    }
+    feed.innerHTML = items.map((a, i) => {
+      const dotClass = ACT_DOT_CLASS[a.color] || 'default';
+      const rc = ACT_ROLE_COLORS[a.role] || { bg:'#F1F5F9', color:'#64748b' };
+      const isLast = i === items.length - 1;
+      return `<div class="action-item">
+        <div class="action-dot-col">
+          <div class="action-dot ${dotClass}"></div>
+          ${!isLast ? '<div class="action-line"></div>' : ''}
+        </div>
+        <div class="action-body">
+          <div class="action-text">${a.text}</div>
+          <div class="action-meta">
+            ${a.actor ? `<span class="action-actor">${reverseName(a.actor)}</span>` : ''}
+            ${a.role  ? `<span class="action-role" style="background:${rc.bg};color:${rc.color}">${a.role}</span>` : ''}
+            <span class="action-time">${a.time}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ══════════════════════════════════════════ STATISTICS (sta-prefixed) ══════════════════════════════════════════ */
+  const staFmt  = n => Number(n||0).toLocaleString('ru-RU');
+  const staFmtM = n => { const v=Number(n||0); if(v>=1e6) return (v/1e6).toFixed(1)+'M'; if(v>=1e3) return (v/1e3).toFixed(0)+'K'; return staFmt(v); };
+  const staPct  = (a,b) => b>0 ? Math.round(a/b*100) : 0;
+  const STA_PAL = ['#c0392b','#2563eb','#7c3aed','#d97706','#16a34a','#0891b2','#be185d'];
+
+  function staBgColor(name) {
+    let h=0; for(let i=0;i<(name||'').length;i++) h=(h*31+name.charCodeAt(i))>>>0;
+    return STA_PAL[h%STA_PAL.length];
+  }
+  function staIni(n) { const p=(n||'').trim().split(/\s+/); return (p[0]?.[0]||'')+(p[1]?.[0]||''); }
+
+  function staLineChartSVG(series, months, containerId) {
+    const W=800, H=220, PL=52, PR=16, PT=16, PB=28;
+    const cW=W-PL-PR, cH=H-PT-PB;
+    const n = months.length;
+    if (n < 2) return `<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0">Not enough data — need at least 2 months</div>`;
+
+    const allVals = series.flatMap(s=>s.values);
+    const maxV = Math.max(...allVals, 1);
+    const step = cW / (n-1);
+
+    function xOf(i) { return PL + i*step; }
+    function yOf(v) { return PT + cH - (v/maxV)*cH; }
+
+    const ticks = 4;
+    let grid='', yLabels='';
+    for(let i=0;i<=ticks;i++){
+      const v = maxV*(i/ticks);
+      const y = yOf(v);
+      grid += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#f0dede" stroke-width="1"/>`;
+      yLabels += `<text x="${PL-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#bbb" font-family="Inter,sans-serif">${staFmtM(v)}</text>`;
+    }
+
+    let xLabels='';
+    months.forEach((m,i)=>{
+      xLabels += `<text x="${xOf(i)}" y="${H-4}" text-anchor="middle" font-size="9" fill="#bbb" font-family="Inter,sans-serif">${m.slice(5)}</text>`;
+    });
+
+    const SCOLS = ['#c0392b','#2563eb','#16a34a'];
+    let paths='';
+    series.forEach((s,si)=>{
+      const col = SCOLS[si%SCOLS.length];
+      const areaD = `M${xOf(0)},${yOf(s.values[0])} ` +
+        s.values.map((v,i)=>`L${xOf(i)},${yOf(v)}`).join(' ') +
+        ` L${xOf(n-1)},${PT+cH} L${xOf(0)},${PT+cH} Z`;
+      paths += `<path d="${areaD}" fill="${col}" fill-opacity="0.07"/>`;
+      const lineD = `M${xOf(0)},${yOf(s.values[0])} ` + s.values.map((v,i)=>`L${xOf(i)},${yOf(v)}`).join(' ');
+      paths += `<path d="${lineD}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+      s.values.forEach((v,i)=>{
+        paths += `<circle cx="${xOf(i)}" cy="${yOf(v)}" r="3.5" fill="${col}" stroke="white" stroke-width="1.5" class="lc-dot-pt" data-series="${s.label}" data-val="${v}" data-month="${months[i]}" data-x="${xOf(i)}" data-y="${yOf(v)}"/>`;
+      });
+    });
+
+    let hovers='';
+    months.forEach((m,i)=>{
+      const vals = series.map(s=>`${s.label}:${s.values[i]}`).join('|');
+      hovers += `<rect x="${xOf(i)-step/2}" y="${PT}" width="${step}" height="${cH}" fill="transparent" class="lc-hover" data-month="${m}" data-vals="${vals}" data-x="${xOf(i)}"/>`;
+    });
+
+    return `<svg class="linechart-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" id="${containerId}">
+      ${grid}${yLabels}${xLabels}${paths}${hovers}
+      <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+cH}" stroke="#f0dede" stroke-width="1"/>
+    </svg>`;
+  }
+
+  function staDonutSVG(slices) {
+    const r=46,cx=54,cy=54,sw=13,circ=2*Math.PI*r;
+    const total=slices.reduce((s,x)=>s+x.v,0);
+    if(!total) return `<svg width="108" height="108"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f5e0e0" stroke-width="${sw}"/></svg>`;
+    let off=0;
+    const arcs=slices.map(s=>{
+      const len=circ*(s.v/total)-1.2;
+      const a=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.c}" stroke-width="${sw}" stroke-dasharray="${Math.max(0,len)} ${circ-Math.max(0,len)}" stroke-dashoffset="${-(off*circ/total-circ/4)}" stroke-linecap="butt"/>`;
+      off+=s.v; return a;
+    }).join('');
+    return `<svg width="108" height="108" viewBox="0 0 108 108" style="flex-shrink:0">${arcs}</svg>`;
+  }
+
+  function staGaugeSVG(val) {
+    const r=50,cx=70,cy=68,sw=11,circ=Math.PI*r;
+    const filled=circ*(Math.min(val,100)/100);
+    return `<svg width="140" height="78" viewBox="0 0 140 78">
+      <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="#f5e0e0" stroke-width="${sw}" stroke-linecap="round"/>
+      <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="url(#staGg)" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${filled} ${circ}"/>
+      <defs><linearGradient id="staGg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f9a8a8"/><stop offset="100%" stop-color="#c0392b"/></linearGradient></defs>
+    </svg>`;
+  }
+
+  async function staLoad() {
+    const d = await apiGet('/api/statistics');
+    document.getElementById('refreshedAt').textContent =
+      'Updated ' + new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+    staRender(d);
+  }
+
+  function staRender(d) {
+    const {students:S, leads:L, finance:F, staff:ST, archive:AR} = d;
+
+    const allMonths = new Set([
+      ...Object.keys(F.revenueByMonth||{}),
+      ...Object.keys(F.pendingByMonth||{}),
+      ...Object.keys(F.spendingByMonth||{}),
+    ]);
+    const months = [...allMonths].sort().slice(-12);
+
+    const revSeries     = months.map(m => F.revenueByMonth?.[m]||0);
+    const pendingSeries = months.map(m => F.pendingByMonth?.[m]||0);
+    const spendSeries   = months.map(m => F.spendingByMonth?.[m]||0);
+
+    const series = [
+      { label:'Net Revenue', values:revSeries },
+      { label:'Pending',     values:pendingSeries },
+      { label:'Spendings',   values:spendSeries },
+    ];
+
+    const chartSVG = months.length >= 2
+      ? staLineChartSVG(series, months, 'finSvg')
+      : `<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0">Not enough data yet</div>`;
+
+    const ptE = Object.entries(F.revenueByType||{});
+    const ptT = ptE.reduce((s,[,v])=>s+v,0);
+    const ptS = ptE.map(([k,v],i)=>({c:STA_PAL[i%STA_PAL.length],k,v}));
+    const legend = ptS.map(s=>`<div class="dl-row">
+      <div class="dl-sw" style="background:${s.c}"></div>
+      <div class="dl-lbl">${s.k}</div>
+      <div class="dl-pct">${staPct(s.v,ptT)}%</div>
+      <div class="dl-amt">${staFmtM(s.v)}</div>
+    </div>`).join('');
+
+    const FORD = (L.funnelOrder||[]).concat(
+      Object.keys(L.byStatus||{}).filter(k=>!(L.funnelOrder||[]).includes(k))
+    );
+    const fMax = Math.max(...FORD.map(k=>L.byStatus[k]||0),1);
+    const FCOLS = ['#c0392b','#d97706','#2563eb','#7c3aed','#16a34a'];
+    const funnel = FORD.filter(k=>L.byStatus[k]>0).map((k,i)=>{
+      const n=L.byStatus[k]||0, w=staPct(n,fMax);
+      return `<div class="f-row">
+        <div class="f-lbl">${k}</div>
+        <div class="f-track"><div class="f-fill" style="width:${w}%;background:${FCOLS[i%FCOLS.length]}"><span>${n}</span></div></div>
+        <div class="f-n">${n}</div>
+      </div>`;
+    }).join('') || `<p style="color:var(--muted);font-size:13px;margin:0">No leads yet</p>`;
+
+    function staStaffRow(name, col2, rate) {
+      const rc = rate===null?'#bbb':rate>=80?'#16a34a':rate>=60?'#d97706':'#dc2626';
+      return `<tr>
+        <td><div class="sname"><div class="savatar" style="background:${staBgColor(name)}">${staIni(name)}</div>${name}</div></td>
+        <td>${col2}</td>
+        <td>${rate!==null
+          ? `<div class="rate-cell"><div class="rate-track"><div class="rate-fill" style="width:${rate}%;background:${rc}"></div></div><span class="rate-pct" style="color:${rc}">${rate}%</span></div>`
+          : `<span style="color:var(--muted);font-size:11px">—</span>`}
+        </td>
+      </tr>`;
+    }
+    const tRows = (ST.teachers||[]).length
+      ? ST.teachers.map(t=>staStaffRow(reverseName(t.name),`${t.groups}g · ${t.students}s`,t.attendanceRate)).join('')
+      : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px 0;font-size:13px">No teacher data</td></tr>`;
+    const sRows = (ST.support||[]).length
+      ? ST.support.map(t=>staStaffRow(reverseName(t.name),`${t.total} sessions`,t.rate)).join('')
+      : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px 0;font-size:13px">No session data</td></tr>`;
+
+    const archHTML = Object.entries(AR.byReason||{}).sort((a,b)=>b[1]-a[1])
+      .map(([k,v])=>`<div class="arch-pill"><span class="arch-pill-n">${v}</span><span class="arch-pill-l">${k}</span></div>`)
+      .join('') || `<span style="color:var(--muted);font-size:13px">No archived records</span>`;
+
+    const iFinance = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+    const iLeads   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`;
+    const iStaff   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+    const iArchive = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
+
+    document.getElementById('statContent').innerHTML = `
+
+      <!-- FINANCE LINE CHART -->
+      <div class="sec">
+        <div class="sec-hd">
+          <div class="sec-icon" style="background:#fde8e8">${iFinance.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
+          <h2>Finance</h2>
+          <span class="sec-meta">${staFmtM(F.totalRevenue)} total revenue · ${staFmtM(F.totalSpendings||0)} total spendings</span>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-title">Monthly Overview</div>
+          <div class="linechart-legend">
+            <span><span class="lc-dot" style="background:#c0392b"></span><span class="lc-label">Net Revenue</span></span>
+            <span><span class="lc-dot" style="background:#2563eb"></span><span class="lc-label">Pending</span></span>
+            <span><span class="lc-dot" style="background:#16a34a"></span><span class="lc-label">Spendings</span></span>
+          </div>
+          <div class="linechart-wrap" id="finChartWrap">
+            ${chartSVG}
+            <div class="linechart-tooltip" id="finTip"></div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-title">Payment Methods</div>
+            <div class="donut-wrap">
+              ${staDonutSVG(ptS)}
+              <div class="donut-legend">${legend||`<p style="color:var(--muted);font-size:13px;margin:0">No payments yet</p>`}</div>
+            </div>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
+            <div class="card-title" style="margin-bottom:4px">Summary</div>
+            ${[
+              ['Total Revenue',   staFmtM(F.totalRevenue),     '#16a34a'],
+              ['This Month',      staFmtM(F.thisMonthRevenue), '#c0392b'],
+              ['Pending',         staFmtM(F.pendingRevenue),   '#d97706'],
+              ['Total Spendings', staFmtM(F.totalSpendings||0),'#dc2626'],
+            ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
+              <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
+              <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- LEADS PIPELINE -->
+      <div class="sec">
+        <div class="sec-hd">
+          <div class="sec-icon" style="background:#eff6ff">${iLeads.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
+          <h2>Leads Pipeline</h2>
+          <span class="sec-meta">${L.total} active · ${L.leadsThisMonth} new this month</span>
+        </div>
+        <div class="g3">
+          <div class="card">
+            <div class="card-title">Pipeline Funnel</div>
+            <div class="funnel">${funnel}</div>
+          </div>
+          <div class="card">
+            <div class="card-title">Conversion Rate</div>
+            <div class="gauge-card">
+              ${staGaugeSVG(L.conversionRate||0)}
+              <div class="gauge-num">${L.conversionRate||0}%</div>
+              <div class="gauge-lbl">Leads → Students</div>
+              <div class="gauge-sub">${S.active} active students · ${S.total} total</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAFF EFFICIENCY -->
+      <div class="sec">
+        <div class="sec-hd">
+          <div class="sec-icon" style="background:#fde8e8">${iStaff.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
+          <h2>Staff Efficiency</h2>
+          <span class="sec-meta">Last 2 months · ${ST.total} staff</span>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-title">Teachers · Attendance Rate</div>
+            <div class="tscroll"><table class="stbl">
+              <thead><tr><th>Teacher</th><th>Load</th><th>Attendance</th></tr></thead>
+              <tbody>${tRows}</tbody>
+            </table></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Support Teachers · Completion Rate</div>
+            <div class="tscroll"><table class="stbl">
+              <thead><tr><th>Teacher</th><th>Sessions</th><th>Completion</th></tr></thead>
+              <tbody>${sRows}</tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const wrap = document.getElementById('finChartWrap');
+    if (wrap) {
+      const tip = document.getElementById('finTip');
+      wrap.querySelectorAll('.lc-hover').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          const vals = el.dataset.vals.split('|').map(v => {
+            const [lbl,num] = v.split(':');
+            return `<div style="display:flex;gap:16px;justify-content:space-between"><span style="opacity:.8">${lbl}</span><strong>${staFmtM(Number(num))}</strong></div>`;
+          }).join('');
+          tip.innerHTML = `<div style="font-weight:700;margin-bottom:5px;opacity:.7;font-size:11px">${el.dataset.month}</div>${vals}`;
+          tip.classList.add('show');
+        });
+        el.addEventListener('mousemove', e => {
+          const rect = wrap.getBoundingClientRect();
+          let left = e.clientX - rect.left + 14;
+          if (left + 200 > wrap.offsetWidth) left = e.clientX - rect.left - 210;
+          tip.style.left = left+'px';
+          tip.style.top  = (e.clientY - rect.top - 16)+'px';
+        });
+        el.addEventListener('mouseleave', () => tip.classList.remove('show'));
+      });
+    }
+  }
+
+  /* ══════════════════════════════════════════ FEEDBACK (fbk-prefixed) ══════════════════════════════════════════ */
+  let fbkItems = [];
+  let fbkFilter = 'all';
+
+  function fbkSwitchTab(f) {
+    fbkFilter = f;
+    ['all','unread','suggestion','complaint'].forEach(k => document.getElementById('fbkTab'+k[0].toUpperCase()+k.slice(1)).classList.toggle('on', k===f));
+    fbkRender();
+  }
+
+  async function fbkLoad() {
+    try {
+      fbkItems = await apiGet('/api/feedback');
+      fbkRender();
+    } catch (e) {
+      document.getElementById('fbkList').innerHTML = `<div class="fb-empty">${e.message}</div>`;
+    }
+  }
+
+  function fbkFmtDate(d) {
+    return new Date(d).toLocaleString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
+  }
+
+  function fbkRender() {
+    const box = document.getElementById('fbkList');
+    const rows = fbkItems.filter(it => fbkFilter === 'all' ? true : fbkFilter === 'unread' ? !it.read : it.type === fbkFilter);
+    if (!rows.length) { box.innerHTML = `<div class="fb-empty">Nothing here yet.</div>`; return; }
+    box.innerHTML = rows.map(it => `
+      <div class="fb-item ${it.read ? '' : 'unread'}">
+        <div class="fb-item-top">
+          <div>
+            <span class="fb-badge ${it.type}">${it.type === 'complaint' ? '⚠️ Complaint' : '💡 Suggestion'}</span>
+            <div class="fb-student" style="margin-top:6px">${escapeHtml(it.studentName)}</div>
+          </div>
+          <div class="fb-date">${fbkFmtDate(it.createdAt)}</div>
+        </div>
+        <div class="fb-message">${escapeHtml(it.message)}</div>
+        <div class="fb-actions">
+          ${it.read ? '' : `<button class="btn btn-outline" onclick="fbkMarkRead('${it.id}')">Mark read</button>`}
+          <button class="btn btn-outline" onclick="fbkRemoveItem('${it.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function fbkMarkRead(id) {
+    try { await apiPut(`/api/feedback/${id}/read`, {}); const it = fbkItems.find(x=>x.id===id); if (it) it.read = true; fbkRender(); refreshNotifCount(); }
+    catch (e) { showToast(e.message, 'error'); }
+  }
+
+  async function fbkRemoveItem(id) {
+    if (!confirm('Delete this message?')) return;
+    try { await apiDelete(`/api/feedback/${id}`); fbkItems = fbkItems.filter(x=>x.id!==id); fbkRender(); }
+    catch (e) { showToast(e.message, 'error'); }
+  }
+
+  /* ══════════════════════════════════════════ SHARED + INIT ══════════════════════════════════════════ */
+  function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  if (SHOW_STAFF) { stfLoad(); setupLive(['users'], () => stfLoad()); }
+  if (SHOW_ARCHIVED) { arcLoad(); setupLive(['students','leads'], () => arcLoad()); }
+  if (SHOW_ACTIONS) { actLoad(); setupLive(['activity','students','leads','groups','finance'], () => actLoad()); }
+  if (SHOW_STATISTICS) { staLoad(); setupLive(['students','leads','groups','finance','attendance'], () => staLoad()); }
+  if (SHOW_FEEDBACK) { fbkLoad(); setupLive(['feedback'], fbkLoad); }
+
+  (function initMainTab() {
+    const qp = new URLSearchParams(location.search);
+    const want = qp.get('tab');
+    const order = [
+      ['staff', SHOW_STAFF], ['archived', SHOW_ARCHIVED], ['actions', SHOW_ACTIONS],
+      ['statistics', SHOW_STATISTICS], ['feedback', SHOW_FEEDBACK],
+    ];
+    let tab = (order.find(([,ok]) => ok) || [null])[0];
+    const wantOk = order.find(([name]) => name === want);
+    if (wantOk && wantOk[1]) tab = want;
+    if (tab) switchMainTab(tab);
+  })();
+</script>
+</body>
+</html>
