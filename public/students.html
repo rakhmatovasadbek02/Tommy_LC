@@ -16,42 +16,44 @@
     .students-toolbar .search-bar { flex:1; min-width:160px; max-width:260px; }
     .students-table-wrap { overflow-x:auto; background:white; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
     .students-table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
-    .students-table thead th { background:#fafafa; padding:9px 10px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; }
+    .students-table thead th { background:#fafafa; padding:8px 10px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; }
     .students-table thead th.sortable { cursor:pointer; user-select:none; }
     .students-table thead th.sortable:hover { color:var(--text); }
     .students-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.1s; cursor:pointer; }
     .students-table tbody tr:last-child { border-bottom:none; }
     .students-table tbody tr:hover { background:var(--crimson-soft); }
     .students-table tbody tr:hover .st-name { color:var(--crimson); }
-    .students-table td { padding:9px 10px; vertical-align:middle; overflow:hidden; }
+    .students-table td { padding:7px 10px; vertical-align:middle; overflow:hidden; }
     /* Column widths */
     .col-check  { width:30px; }
-    .col-name   { width:19%; }
-    .col-phone  { width:13%; }
-    .col-status { width:8%; }
-    .col-groups { width:19%; }
+    .col-name   { width:20%; }
+    .col-phone  { width:12%; }
+    .col-status { width:7%; }
+    .col-groups { width:18%; }
     .col-teacher{ width:11%; }
-    .col-dates  { width:8%; }
-    .col-bal    { width:8%; }
-    .col-comment{ width:12%; }
-    .col-actions{ width:56px; }
+    .col-dates  { width:7%; }
+    .col-bal    { width:7%; }
+    .col-comment{ width:14%; }
+    .col-actions{ width:48px; }
     .students-table td.col-name, .students-table th.col-name { padding-left:8px; }
     .students-table td.col-actions { padding-right:8px; }
     .students-table td.col-check, .students-table td.col-status, .students-table td.col-bal { text-align:center; }
     .st-name { font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .st-sub  { font-size:11px; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .st-phone { font-size:12px; white-space:nowrap; }
-    .group-pill { display:flex; flex-direction:column; background:#F1F5F9; border-radius:6px; padding:3px 8px; font-size:11px; line-height:1.45; margin:2px 0; width:100%; box-sizing:border-box; }
-    .group-pill-name { font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .group-pill-sub  { color:var(--muted); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .st-teacher { font-size:12px; }
-    .st-dates { font-size:11px; color:var(--muted); }
+    /* Plain text, no pill/background — one line per group, comma-separated would wrap too
+       unpredictably so each group is still its own line, just without the boxed-in look. */
+    .group-line { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
+    .group-line-name { font-weight:600; color:var(--text); }
+    .group-line-sub { color:var(--muted); font-size:11px; }
+    .st-teacher { font-size:12px; line-height:1.5; }
+    .st-dates { font-size:11px; color:var(--muted); line-height:1.5; }
     .st-balance { font-weight:700; font-size:13px; white-space:nowrap; }
     .st-balance.pos { color:#16a34a; }
     .st-balance.neg { color:#dc2626; }
     .st-balance.zero { color:var(--muted); }
-    .st-comment-text { font-size:11px; color:var(--text); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .st-comment-meta { font-size:10px; color:var(--muted); margin-top:2px; }
+    .st-comment-text { font-size:11px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .st-comment-meta { font-size:10px; color:var(--muted); margin-top:1px; }
     .st-actions { display:flex; gap:4px; justify-content:flex-end; }
     input[type="checkbox"].row-check { cursor:pointer; width:14px; height:14px; accent-color:var(--crimson); }
     .st-status-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:100px; }
@@ -510,7 +512,7 @@
       const balClass = s.balance > 0 ? 'pos' : s.balance < 0 ? 'neg' : 'zero';
       const balStr = s.balance !== 0 ? s.balance.toLocaleString() : '0';
       const groupsHTML = (s.groups||[]).map(g =>
-        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="text-decoration:none"><div class="group-pill"><span class="group-pill-name">${g.name}</span><span class="group-pill-sub">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
+        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-line"><span class="group-line-name">${g.name}</span> <span class="group-line-sub">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
       ).join('') || '<span style="color:var(--muted);font-size:12px">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
       const teacherHTML = teachers.length ? teachers.map(t=>`<div>${reverseName(t)}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
