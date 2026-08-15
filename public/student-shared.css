@@ -22,13 +22,17 @@
 html { color-scheme: light; }
 body {
   font-family: 'Poppins', sans-serif; color: var(--text-primary); background: var(--bg);
-  min-height: 100vh; padding-bottom: 86px; -webkit-font-smoothing: antialiased;
+  min-height: 100vh; padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
 }
 a { color: inherit; text-decoration: none; }
 
 /* ── Top bar: brand + sign out only — section nav lives in the bottom tab bar ── */
-#spHeader { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 30; }
-.sp-header-inner { max-width: 480px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; }
+#spHeader { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 30; padding-top: env(safe-area-inset-top); }
+.sp-header-inner {
+  max-width: 480px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left));
+}
 .sp-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .sp-brand-mark { width: 30px; height: 30px; border-radius: 8px; display: block; object-fit: contain; }
 .sp-brand-text { font-size: 14px; font-weight: 700; color: var(--accent); line-height: 1.1; }
@@ -46,8 +50,12 @@ a { color: inherit; text-decoration: none; }
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
   background: var(--surface); border-top: 1px solid var(--border);
   box-shadow: 0 -2px 12px rgba(0,0,0,.05);
+  padding-bottom: env(safe-area-inset-bottom);
 }
-.sp-tabbar-inner { max-width: 480px; margin: 0 auto; display: flex; justify-content: space-around; align-items: center; padding: 8px 4px; gap: 4px; }
+.sp-tabbar-inner {
+  max-width: 480px; margin: 0 auto; display: flex; justify-content: space-around; align-items: center; gap: 4px;
+  padding: 8px max(4px, env(safe-area-inset-right)) 8px max(4px, env(safe-area-inset-left));
+}
 .sp-tab {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 4px;
   border-radius: 10px; font-size: 10.5px; font-weight: 600; color: var(--text-tertiary); transition: all .2s;
@@ -57,9 +65,22 @@ a { color: inherit; text-decoration: none; }
 .sp-tab.on { color: var(--accent); background: var(--accent-light); }
 
 /* ── Layout ── */
-.sp-main { max-width: 480px; margin: 0 auto; padding: 20px 20px 12px; }
+.sp-main {
+  max-width: 480px; margin: 0 auto;
+  padding: 20px max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left));
+}
 .sp-title { font-size: 24px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 3px; line-height: 1.2; color: var(--accent); }
 .sp-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 22px; }
+
+/* ── Small phones (iPhone SE / older Android, ≤360px wide) — tighten side padding
+   so cards get real content width instead of losing 40px+ to gutters ── */
+@media (max-width: 360px) {
+  .sp-main { padding-left: 14px; padding-right: 14px; }
+  .sp-card { padding: 16px 14px; }
+  .sp-auth-card { padding: 30px 22px; }
+  .sp-title { font-size: 21px; }
+  .sp-quiz-prompt { font-size: 19px; }
+}
 
 /* ── Cards (glass) ── */
 .sp-card {
@@ -136,7 +157,8 @@ a { color: inherit; text-decoration: none; }
 .sp-form-group label { display: block; font-size: 11px; font-weight: 600; letter-spacing: .3px; color: var(--text-secondary); margin-bottom: 7px; }
 .sp-input, .sp-select {
   width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
-  font-size: 14px; font-family: 'Poppins', sans-serif; color: var(--text-primary); background: var(--surface); outline: none;
+  /* 16px minimum — anything smaller makes iOS Safari auto-zoom the page on focus. */
+  font-size: 16px; font-family: 'Poppins', sans-serif; color: var(--text-primary); background: var(--surface); outline: none;
   transition: border-color .16s, box-shadow .16s;
 }
 .sp-input:focus, .sp-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
@@ -174,7 +196,8 @@ a { color: inherit; text-decoration: none; }
 /* ── Auth pages (login / register) — the only student pages without the tab bar ── */
 body.sp-auth-body { padding-bottom: 0; }
 .sp-auth-page {
-  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
   background: var(--bg);
 }
 .sp-auth-card { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-md); padding: 38px 34px; position: relative; z-index: 1; }
