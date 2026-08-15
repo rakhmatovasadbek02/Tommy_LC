@@ -543,10 +543,12 @@ function renderSidebar(activePage) {
    { feature:'support',   href:'support.html',    iconKey:'support',   label:'Support'    },
    { feature:'reminders',    href:'todolist.html',   iconKey:'todolist',  label:'Todolist'   },
    { feature:'manreminders', href:'reminders.html',  iconKey:'reminders', label:'Reminders'  },
-   { feature:'students',  href:'students.html',   iconKey:'students',  label:'Students'   },
+   // Vocabulary and Portal Codes now live as tabs on students.html itself (see students.html),
+   // so this one row covers all three — visible to anyone with 'students' or 'vocab' (a pure
+   // Teacher only has 'vocab' and lands straight on the Vocabulary tab there).
+   { feature:'_students_or_vocab', href:'students.html', iconKey:'students',
+     label: (!can('students') && can('vocab')) ? 'Vocabulary' : 'Students' },
    { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
-   { feature:'vocab',     href:'vocab-admin.html',iconKey:'vocab',     label:'Vocabulary' },
-   { feature:'students',  href:'student-codes.html',iconKey:'vocab',   label:'Portal Codes' },
    { feature:'payments',  href:'finance.html',    iconKey:'payments',  label:'Finance'    },
    { feature:'settings',  href:'users.html',      iconKey:'settings',  label:'Staff'      },
    { feature:'archived',  href:'archived.html',   iconKey:'archived',  label:'Archived'   },
@@ -560,15 +562,15 @@ function renderSidebar(activePage) {
  const roleLabel = (session.roles && session.roles.length > 1) ? session.roles.join(' · ') : (session.title || session.role || 'Staff');
  const navHTML = NAV_SECTIONS.map(section => {
    const links = section.items
-     .filter(item => can(item.feature))
-     .filter(item => !(isTeacher() && item.feature === 'students'))
+     .filter(item => item.feature === '_students_or_vocab' ? (can('students') || can('vocab')) : can(item.feature))
+     .filter(item => item.feature === '_students_or_vocab' ? true : !(isTeacher() && item.feature === 'students'))
      .filter(item => {
        if (item.feature !== 'payments') return true;
        const r = (session.roles || [session.title || '']).filter(Boolean);
        return !r.some(x => x === 'Head Admin' || x === 'Admin');
      })
      .map(item => {
-       const isActive = item.feature === activePage;
+       const isActive = item.feature === activePage || (item.feature === '_students_or_vocab' && activePage === 'students');
        return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span><span class="label">${item.label}</span></a>`;
      }).join('');
    if (!links) return '';

@@ -74,6 +74,39 @@
       .students-table { font-size:12px; }
       .topbar-right .btn span { display:none; }
     }
+
+    /* ── Shared with the Vocabulary / Portal Codes tabs (moved here from vocab-admin.html
+       and student-codes.html so the three don't have to live on separate nav rows) ── */
+    .vtabs{display:flex;gap:8px;margin-bottom:18px}
+    .vtab{padding:9px 16px;border-radius:9px;border:1.5px solid var(--border);background:white;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted)}
+    .vtab.on{border-color:var(--crimson);background:var(--crimson-soft);color:var(--crimson-dark)}
+    .vcard{background:white;border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+    .vcard-title{font-size:15px;font-weight:700;color:var(--text)}
+    .vcode-box{font-family:ui-monospace,monospace;font-size:26px;font-weight:800;letter-spacing:4px;color:var(--crimson-dark);background:var(--crimson-soft);border-radius:10px;padding:12px 18px;text-align:center;margin:12px 0}
+    .vtable{width:100%;border-collapse:collapse;font-size:13px}
+    .vtable th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border)}
+    .vtable td{padding:9px 10px;border-bottom:1px solid var(--border)}
+    .vbadge-used{color:var(--muted)}
+    .vbadge-pending{color:#b8860b;font-weight:700}
+    .student-pick{position:relative}
+    .student-pick-list{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--border);border-radius:9px;box-shadow:0 8px 20px rgba(0,0,0,.12);max-height:220px;overflow:auto;z-index:20;display:none}
+    .student-pick-list.open{display:block}
+    .student-pick-item{padding:9px 13px;cursor:pointer;font-size:13.5px}
+    .student-pick-item:hover{background:var(--surface)}
+    .unit-pick-list{border:1.5px solid var(--border);border-radius:10px;max-height:260px;overflow:auto}
+    .unit-pick-item{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer}
+    .unit-pick-item:last-child{border-bottom:none}
+    .unit-pick-item:hover{background:var(--surface)}
+    .unit-pick-item input{width:16px;height:16px;accent-color:var(--crimson);flex-shrink:0}
+    .unit-pick-name{font-size:13.5px;font-weight:600;color:var(--text)}
+    .unit-pick-sub{font-size:11.5px;color:var(--muted)}
+    .unit-pick-edit{margin-left:auto;display:flex;gap:4px}
+    .unit-pick-icon{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px}
+    .unit-pick-icon:hover{background:var(--border);color:var(--text)}
+    .word-pair-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
+    .word-pair-row input{margin:0}
+    .word-col-labels{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:4px}
+    .word-col-labels span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
   </style>
 </head>
 <body>
@@ -89,52 +122,126 @@
     </div>
   </div>
   <div class="page-content">
-    <div class="students-toolbar">
-      <div class="search-bar">
-        <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
-        <input type="text" id="searchInput" placeholder="Search by name or phone…" oninput="renderStudents()">
-      </div>
-      <select id="filterStatus" onchange="renderStudents()" style="width:auto;padding:9px 14px">
-        <option value="">All Statuses</option>
-        <option>Active</option><option>Frozen</option><option>Inactive</option>
-      </select>
-      <select id="filterLevel" onchange="renderStudents()" style="width:auto;padding:9px 14px">
-        <option value="">All Levels</option>
-        <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
-        <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
-      </select>
-      <select id="filterGroup" onchange="renderStudents()" style="width:auto;padding:9px 14px">
-        <option value="">All Groups</option>
-      </select>
-      <select id="filterTeacher" onchange="renderStudents()" style="width:auto;padding:9px 14px">
-        <option value="">All Teachers</option>
-      </select>
-      <select id="filterBalance" onchange="renderStudents()" style="width:auto;padding:9px 14px">
-        <option value="">All Balances</option>
-        <option value="pos">Credit (positive)</option>
-        <option value="neg">Debt (negative)</option>
-        <option value="zero">Zero</option>
-      </select>
+    <div class="vtabs">
+      <button class="vtab" id="mtabRoster" onclick="switchMainTab('roster')">Roster</button>
+      <button class="vtab" id="mtabVocab" onclick="switchMainTab('vocab')">Vocabulary</button>
+      <button class="vtab" id="mtabCodes" onclick="switchMainTab('codes')">Portal Codes</button>
     </div>
 
-    <div class="students-table-wrap">
-      <table class="students-table">
-        <thead>
-          <tr>
-            <th class="col-check"><input type="checkbox" id="checkAll" class="row-check" onchange="toggleAll(this)"></th>
-            <th class="col-name sortable" onclick="toggleSort('name')" id="th-name">Name <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
-            <th class="col-phone">Phone</th>
-            <th class="col-status">Status</th>
-            <th class="col-groups">Groups</th>
-            <th class="col-teacher">Teacher</th>
-            <th class="col-dates">Start</th>
-            <th class="col-bal sortable" onclick="toggleSort('balance')" id="th-balance">Balance <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
-            <th class="col-comment">Last comment</th>
-            <th class="col-actions"></th>
-          </tr>
-        </thead>
-        <tbody id="studentsTbody"></tbody>
-      </table>
+    <div id="panelRoster">
+      <div class="students-toolbar">
+        <div class="search-bar">
+          <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="searchInput" placeholder="Search by name or phone…" oninput="renderStudents()">
+        </div>
+        <select id="filterStatus" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+          <option value="">All Statuses</option>
+          <option>Active</option><option>Frozen</option><option>Inactive</option>
+        </select>
+        <select id="filterLevel" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+          <option value="">All Levels</option>
+          <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
+          <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
+        </select>
+        <select id="filterGroup" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+          <option value="">All Groups</option>
+        </select>
+        <select id="filterTeacher" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+          <option value="">All Teachers</option>
+        </select>
+        <select id="filterBalance" onchange="renderStudents()" style="width:auto;padding:9px 14px">
+          <option value="">All Balances</option>
+          <option value="pos">Credit (positive)</option>
+          <option value="neg">Debt (negative)</option>
+          <option value="zero">Zero</option>
+        </select>
+      </div>
+
+      <div class="students-table-wrap">
+        <table class="students-table">
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="checkAll" class="row-check" onchange="toggleAll(this)"></th>
+              <th class="col-name sortable" onclick="toggleSort('name')" id="th-name">Name <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
+              <th class="col-phone">Phone</th>
+              <th class="col-status">Status</th>
+              <th class="col-groups">Groups</th>
+              <th class="col-teacher">Teacher</th>
+              <th class="col-dates">Start</th>
+              <th class="col-bal sortable" onclick="toggleSort('balance')" id="th-balance">Balance <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
+              <th class="col-comment">Last comment</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody id="studentsTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="panelVocabWrap" style="display:none">
+      <div class="vtabs">
+        <button class="vtab on" id="vocTabGrant" onclick="vocSwitchTab('grant')">Grant Access</button>
+        <button class="vtab" id="vocTabHistory" onclick="vocSwitchTab('history')">History</button>
+      </div>
+
+      <div id="vocPanelGrant">
+        <div class="vcard">
+          <div class="vcard-title" style="margin-bottom:12px">Grant a student a one-time test code</div>
+          <div class="form-group student-pick">
+            <label>Student</label>
+            <input type="text" id="vocGrantStudentQuery" placeholder="Type a student name…" autocomplete="off" oninput="vocFilterStudentPick()" onfocus="vocFilterStudentPick()">
+            <div class="student-pick-list" id="vocStudentPickList"></div>
+            <input type="hidden" id="vocGrantStudentId">
+          </div>
+          <div class="form-group">
+            <label>Units / Themes <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(pick one or more — the test mixes all their words together)</span></label>
+            <div class="unit-pick-list" id="unitPickList"></div>
+          </div>
+          <button class="btn btn-primary" onclick="vocGrantAccess()">Generate Code</button>
+          <div id="vocGrantResult"></div>
+        </div>
+        <div class="vcard">
+          <div class="vcard-title" style="margin-bottom:10px">Access codes</div>
+          <table class="vtable" id="vocPendingTable"><thead><tr><th>Student</th><th>Units</th><th>Code</th><th>Status</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div id="vocPanelHistory" style="display:none">
+        <table class="vtable" id="vocHistoryTable"><thead><tr><th>Student</th><th>Units</th><th>Score</th><th>Completed</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div id="panelCodesWrap" style="display:none">
+      <div class="vtabs">
+        <button class="vtab on" id="pcTabGrant" onclick="pcSwitchTab('grant')">Grant Access</button>
+        <button class="vtab" id="pcTabHistory" onclick="pcSwitchTab('history')">History</button>
+      </div>
+
+      <div id="pcPanelGrant">
+        <div class="vcard">
+          <div class="vcard-title" style="margin-bottom:12px">Generate a one-time registration code</div>
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">Give this code to the student — they'll enter it on the portal registration page to set up their own login. Each code works once.</div>
+          <div class="form-group student-pick">
+            <label>Student</label>
+            <input type="text" id="pcGrantStudentQuery" placeholder="Type a student name…" autocomplete="off" oninput="pcFilterStudentPick()" onfocus="pcFilterStudentPick()">
+            <div class="student-pick-list" id="pcStudentPickList"></div>
+            <input type="hidden" id="pcGrantStudentId">
+          </div>
+          <button class="btn btn-primary" onclick="pcGrantCode()">Generate Code</button>
+          <div id="pcGrantResult"></div>
+        </div>
+        <div class="vcard">
+          <div class="vcard-title" style="margin-bottom:10px">Registration codes</div>
+          <table class="vtable" id="pcPendingTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th></th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <div id="pcPanelHistory" style="display:none">
+        <div class="vcard">
+          <div class="vcard-title" style="margin-bottom:10px">Redeemed codes</div>
+          <table class="vtable" id="pcHistoryTable"><thead><tr><th>Student</th><th>Code</th><th>Redeemed</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -236,9 +343,78 @@
   </div>
 </div>
 
+<!-- Vocabulary unit create/edit modal -->
+<div class="modal-overlay" id="unitModal">
+  <div class="modal" style="width:820px">
+    <div class="modal-header">
+      <div class="modal-title" id="unitModalTitle">New Unit</div>
+      <button class="modal-close" onclick="closeModal('unitModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="uId">
+      <div class="form-row">
+        <div class="form-group"><label>Unit / Theme name *</label><input type="text" id="uName" placeholder="Unit 4 — Food"></div>
+        <div class="form-group"><label>Level *</label><select id="uLevel"></select></div>
+      </div>
+      <div class="form-group">
+        <label>Words * <span style="font-weight:400;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0">(English / Russian / Uzbek)</span></label>
+        <div class="word-col-labels"><span>English</span><span>Russian</span><span>Uzbek</span><span></span></div>
+        <div id="wordRows"></div>
+        <button class="btn btn-outline" type="button" onclick="vocAddWordRow()" style="margin-top:4px">+ Add word</button>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px">Alternate accepted answers can be separated with "/" (e.g. <code>hi/hello</code>).</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('unitModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="vocSaveUnit()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 <script src="shared.js"></script>
 <script>
+  /* ── Entry gating ─────────────────────────────────────────────────────────────────
+     This page now covers Roster + Vocabulary + Portal Codes (previously three separate
+     nav rows/pages), so getting in requires 'students' OR 'vocab' — a pure Teacher has
+     only 'vocab' and should still land here and see the Vocabulary tab. Mirrors
+     requireAuth()'s own no-access fallback, just gated on the OR instead of one feature. */
+  requireAuth();
+  const isTeacherRole = isTeacher();
+  const SHOW_ROSTER = can('students') && !isTeacherRole;
+  const SHOW_CODES  = can('students') && !isTeacherRole;
+  const SHOW_VOCAB  = can('vocab');
+  if (!SHOW_ROSTER && !SHOW_CODES && !SHOW_VOCAB) {
+    const fallback = ['dashboard','students','groups','leads','finance','staff','actions','archived'].find(f => can(f));
+    const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html',
+      finance:'finance.html', staff:'users.html', actions:'actions.html', archived:'archived.html' };
+    if (fallback) window.location.replace(pageFor[fallback]);
+    else { sessionStorage.removeItem('lc_session'); localStorage.removeItem('lc_session'); window.location.replace('login.html'); }
+  }
+  renderSidebar('students');
+  document.getElementById('mtabRoster').style.display = SHOW_ROSTER ? '' : 'none';
+  document.getElementById('mtabVocab').style.display  = SHOW_VOCAB  ? '' : 'none';
+  document.getElementById('mtabCodes').style.display  = SHOW_CODES  ? '' : 'none';
+
+  // Shared by all three tabs (was duplicated identically in vocab-admin.html/student-codes.html).
+  function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  function switchMainTab(tab) {
+    document.getElementById('panelRoster').style.display    = tab==='roster' ? '' : 'none';
+    document.getElementById('panelVocabWrap').style.display = tab==='vocab'  ? '' : 'none';
+    document.getElementById('panelCodesWrap').style.display = tab==='codes'  ? '' : 'none';
+    document.getElementById('mtabRoster').classList.toggle('on', tab==='roster');
+    document.getElementById('mtabVocab').classList.toggle('on', tab==='vocab');
+    document.getElementById('mtabCodes').classList.toggle('on', tab==='codes');
+    document.getElementById('addStudentBtn').style.display = (tab==='roster' && SHOW_ROSTER) ? '' : 'none';
+    document.getElementById('quantityLabel').style.display  = tab==='roster' ? '' : 'none';
+    const qp = new URLSearchParams(location.search);
+    qp.set('tab', tab);
+    history.replaceState(null, '', location.pathname + '?' + qp.toString());
+  }
+
+  /* ══════════════════════════════════════════ ROSTER ══════════════════════════════════════════ */
   function fmtPhone(input) {
     let v = input.value.replace(/\D/g,'').slice(0,9), o='';
     if(v.length>0) o+=v.slice(0,2);
@@ -247,10 +423,6 @@
     if(v.length>7) o+=' '+v.slice(7,9);
     input.value = o;
   }
-
-  if (isTeacher()) { window.location.replace('index.html'); }
-  requireAuth('students');
-  renderSidebar('students');
 
   let students = [], archiveReasons = [];
   let sortCol = '', sortDir = 1;
@@ -513,8 +685,286 @@
     }, 400);
   }
 
-  load();
-  setupLive(['students'], () => load());
+  /* ══════════════════════════════════════════ VOCABULARY (voc-prefixed) ══════════════════════════════════════════ */
+  let VOC_UNITS = [], VOC_STUDENTS = [], VOC_ACCESS = [], VOC_ATTEMPTS = [], VOC_LEVELS = [];
+  let VOC_SELECTED_UNIT_IDS = new Set();
+  let VOC_SELECTED_STUDENT_LEVEL = null;
+  const vocCanManage = can('vocab');
+
+  async function vocLoadAll() {
+    [VOC_UNITS, VOC_STUDENTS, VOC_ACCESS, VOC_ATTEMPTS, VOC_LEVELS] = await Promise.all([
+      apiGet('/api/vocab/units'),
+      apiGet('/api/students'),
+      apiGet('/api/vocab/access'),
+      apiGet('/api/vocab/attempts'),
+      apiGet('/api/levels').catch(() => []),
+    ]);
+    document.getElementById('uLevel').innerHTML = VOC_LEVELS.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+    vocRenderUnitPickList();
+    vocRenderPending();
+    vocRenderHistory();
+    vocApplyStudentFromQuery();
+  }
+
+  // Arriving from a student's profile (students.html?tab=vocab&studentId=...): jump
+  // straight to Grant Access with that student pre-selected.
+  function vocApplyStudentFromQuery() {
+    const studentId = new URLSearchParams(location.search).get('studentId');
+    if (!studentId) return;
+    const s = VOC_STUDENTS.find(x => x.id === studentId);
+    if (!s) return;
+    vocSwitchTab('grant');
+    vocPickStudent(s.id, `${s.lastName} ${s.firstName}`);
+  }
+
+  function vocSwitchTab(t) {
+    ['grant','history'].forEach(x => {
+      document.getElementById('vocPanel'+x[0].toUpperCase()+x.slice(1)).style.display = x===t ? '' : 'none';
+      document.getElementById('vocTab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on', x===t);
+    });
+  }
+
+  function vocToggleUnit(id, checked) {
+    if (checked) VOC_SELECTED_UNIT_IDS.add(id); else VOC_SELECTED_UNIT_IDS.delete(id);
+  }
+
+  function vocRenderUnitPickList() {
+    const el = document.getElementById('unitPickList');
+    const list = VOC_SELECTED_STUDENT_LEVEL ? VOC_UNITS.filter(u => u.level === VOC_SELECTED_STUDENT_LEVEL) : VOC_UNITS;
+    if (!VOC_UNITS.length) { el.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px">No units yet — create one below.</div>'; return; }
+    if (!list.length) { el.innerHTML = `<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px">No ${escapeHtml(VOC_SELECTED_STUDENT_LEVEL)} units yet.</div>`; return; }
+    el.innerHTML = list.map(u => `
+      <label class="unit-pick-item">
+        <input type="checkbox" ${VOC_SELECTED_UNIT_IDS.has(u.id)?'checked':''} onchange="vocToggleUnit('${u.id}', this.checked)">
+        <div>
+          <div class="unit-pick-name">${escapeHtml(u.name)}</div>
+          <div class="unit-pick-sub">${u.wordCount} word${u.wordCount===1?'':'s'} · ${escapeHtml(u.level)}</div>
+        </div>
+        ${vocCanManage ? `<div class="unit-pick-edit">
+          <button type="button" class="unit-pick-icon" title="Edit" onclick="event.preventDefault();vocEditUnit('${u.id}')">${IC.edit}</button>
+          <button type="button" class="unit-pick-icon" title="Delete" onclick="event.preventDefault();vocDeleteUnit('${u.id}')">${IC.trash}</button>
+        </div>` : ''}
+      </label>
+    `).join('');
+  }
+
+  function vocFilterStudentPick() {
+    const q = document.getElementById('vocGrantStudentQuery').value.trim().toLowerCase();
+    const list = document.getElementById('vocStudentPickList');
+    if (!q) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    const matches = VOC_STUDENTS.filter(s => (s.lastName+' '+s.firstName).toLowerCase().includes(q)).slice(0, 15);
+    list.innerHTML = matches.map(s => `<div class="student-pick-item" onclick="vocPickStudent('${s.id}','${escapeHtml(s.lastName+' '+s.firstName).replace(/'/g,"\\'")}')">${escapeHtml(s.lastName)} ${escapeHtml(s.firstName)}</div>`).join('') || '<div class="student-pick-item" style="color:var(--muted)">No matches</div>';
+    list.classList.add('open');
+  }
+  function vocPickStudent(id, name) {
+    document.getElementById('vocGrantStudentId').value = id;
+    document.getElementById('vocGrantStudentQuery').value = name;
+    document.getElementById('vocStudentPickList').classList.remove('open');
+    const s = VOC_STUDENTS.find(x => x.id === id);
+    VOC_SELECTED_STUDENT_LEVEL = s?.groups?.[0]?.level || null;
+    VOC_SELECTED_UNIT_IDS = new Set(); // previous picks may not match the new student's level
+    vocRenderUnitPickList();
+  }
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.student-pick')) document.getElementById('vocStudentPickList')?.classList.remove('open');
+  });
+
+  async function vocGrantAccess() {
+    const studentId = document.getElementById('vocGrantStudentId').value;
+    const unitIds = [...VOC_SELECTED_UNIT_IDS];
+    if (!studentId) return showToast('Pick a student first.', 'error');
+    if (!unitIds.length) return showToast('Pick at least one unit.', 'error');
+    try {
+      const r = await apiPost('/api/vocab/access', { studentId, unitIds });
+      document.getElementById('vocGrantResult').innerHTML = `<div class="vcode-box">${r.code}</div><div style="text-align:center;color:var(--muted);font-size:12px">Give this code to the student on vocab-test.html. Single use.</div>`;
+      document.getElementById('vocGrantStudentQuery').value = '';
+      document.getElementById('vocGrantStudentId').value = '';
+      VOC_SELECTED_UNIT_IDS = new Set();
+      VOC_SELECTED_STUDENT_LEVEL = null;
+      await vocLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  function vocRenderPending() {
+    const tbody = document.querySelector('#vocPendingTable tbody');
+    tbody.innerHTML = VOC_ACCESS.map(a => `
+      <tr>
+        <td>${escapeHtml(a.studentName)}</td>
+        <td>${escapeHtml(a.unitNames.join(', '))}</td>
+        <td style="font-family:ui-monospace,monospace;font-weight:700">${a.code}</td>
+        <td>${a.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>'}</td>
+        <td>${escapeHtml(a.grantedBy||'')}</td>
+        <td>${vocCanManage && !a.used ? `<button class="btn btn-outline" onclick="vocRevokeAccess('${a.id}')">Revoke</button>` : ''}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes granted yet.</td></tr>';
+  }
+
+  async function vocRevokeAccess(id) {
+    try { await apiDelete('/api/vocab/access/'+id); await vocLoadAll(); } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  function vocRenderHistory() {
+    const tbody = document.querySelector('#vocHistoryTable tbody');
+    tbody.innerHTML = VOC_ATTEMPTS.map(t => `
+      <tr>
+        <td>${escapeHtml(t.studentName)}</td>
+        <td>${escapeHtml(t.unitNames.join(', '))}</td>
+        <td>${t.score} / ${t.total}</td>
+        <td>${new Date(t.completedAt).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false })}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="4" style="color:var(--muted);text-align:center">No completed tests yet.</td></tr>';
+  }
+
+  /* ---- Unit create/edit modal ---- */
+  function vocJoinAlt(main, alts) { return (main||'') + (alts && alts.length ? ('/'+alts.join('/')) : ''); }
+  function vocAddWordRow(en, enAlt, ru, ruAlt, uz, uzAlt) {
+    const wrap = document.getElementById('wordRows');
+    const row = document.createElement('div');
+    row.className = 'word-pair-row';
+    row.innerHTML = `
+      <input type="text" class="w-en" placeholder="English (+ /alt)" value="${escapeAttr(vocJoinAlt(en, enAlt))}">
+      <input type="text" class="w-ru" placeholder="Russian (+ /alt)" value="${escapeAttr(vocJoinAlt(ru, ruAlt))}">
+      <input type="text" class="w-uz" placeholder="Uzbek (+ /alt)" value="${escapeAttr(vocJoinAlt(uz, uzAlt))}">
+      <button class="btn btn-outline" type="button" onclick="this.parentElement.remove()">✕</button>
+    `;
+    wrap.appendChild(row);
+  }
+  function vocEditUnit(id) {
+    const u = VOC_UNITS.find(x => x.id === id);
+    if (!u) return;
+    document.getElementById('unitModalTitle').textContent = 'Edit Unit';
+    document.getElementById('uId').value = u.id;
+    document.getElementById('uName').value = u.name;
+    document.getElementById('uLevel').value = u.level;
+    document.getElementById('wordRows').innerHTML = '';
+    u.words.forEach(w => vocAddWordRow(w.en, w.enAlt, w.ru, w.ruAlt, w.uz, w.uzAlt));
+    openModal('unitModal');
+  }
+  async function vocDeleteUnit(id) {
+    if (!confirm('Delete this unit? Pending (unused) access codes that only cover this unit will be removed; codes covering other units too will just lose this one.')) return;
+    try {
+      await apiDelete('/api/vocab/units/'+id);
+      VOC_SELECTED_UNIT_IDS.delete(id);
+      await vocLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+  function vocParseWordCell(v) {
+    const parts = String(v||'').split('/').map(s => s.trim()).filter(Boolean);
+    return { main: parts[0]||'', alts: parts.slice(1) };
+  }
+  async function vocSaveUnit() {
+    const id = document.getElementById('uId').value;
+    const name = document.getElementById('uName').value.trim();
+    const level = document.getElementById('uLevel').value;
+    const words = [...document.querySelectorAll('#wordRows .word-pair-row')].map(row => {
+      const en = vocParseWordCell(row.querySelector('.w-en').value);
+      const ru = vocParseWordCell(row.querySelector('.w-ru').value);
+      const uz = vocParseWordCell(row.querySelector('.w-uz').value);
+      return { en: en.main, enAlt: en.alts, ru: ru.main, ruAlt: ru.alts, uz: uz.main, uzAlt: uz.alts };
+    }).filter(w => w.en && w.ru && w.uz);
+    if (!name || !level || !words.length) return showToast('Name, level, and at least one complete word (English + Russian + Uzbek) are required.', 'error');
+    try {
+      if (id) await apiPut('/api/vocab/units/'+id, { name, level, words });
+      else await apiPost('/api/vocab/units', { name, level, words });
+      closeModal('unitModal');
+      await vocLoadAll();
+      showToast('Saved.', 'success');
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  /* ══════════════════════════════════════════ PORTAL CODES (pc-prefixed) ══════════════════════════════════════════ */
+  let PC_STUDENTS = [], PC_CODES = [];
+  const pcCanManage = can('students');
+
+  async function pcLoadAll() {
+    [PC_STUDENTS, PC_CODES] = await Promise.all([
+      apiGet('/api/students'),
+      apiGet('/api/student-codes'),
+    ]);
+    pcRenderPending();
+    pcRenderHistory();
+  }
+
+  function pcSwitchTab(t) {
+    ['grant','history'].forEach(x => {
+      document.getElementById('pcPanel'+x[0].toUpperCase()+x.slice(1)).style.display = x===t ? '' : 'none';
+      document.getElementById('pcTab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on', x===t);
+    });
+  }
+
+  function pcFilterStudentPick() {
+    const q = document.getElementById('pcGrantStudentQuery').value.trim().toLowerCase();
+    const list = document.getElementById('pcStudentPickList');
+    if (!q) { list.classList.remove('open'); list.innerHTML = ''; return; }
+    const matches = PC_STUDENTS.filter(s => (s.lastName+' '+s.firstName).toLowerCase().includes(q)).slice(0, 15);
+    list.innerHTML = matches.map(s => `<div class="student-pick-item" onclick="pcPickStudent('${s.id}','${escapeHtml(s.lastName+' '+s.firstName).replace(/'/g,"\\'")}')">${escapeHtml(s.lastName)} ${escapeHtml(s.firstName)}</div>`).join('') || '<div class="student-pick-item" style="color:var(--muted)">No matches</div>';
+    list.classList.add('open');
+  }
+  function pcPickStudent(id, name) {
+    document.getElementById('pcGrantStudentId').value = id;
+    document.getElementById('pcGrantStudentQuery').value = name;
+    document.getElementById('pcStudentPickList').classList.remove('open');
+  }
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.student-pick')) document.getElementById('pcStudentPickList')?.classList.remove('open');
+  });
+
+  async function pcGrantCode() {
+    const studentId = document.getElementById('pcGrantStudentId').value;
+    if (!studentId) return showToast('Pick a student first.', 'error');
+    try {
+      const r = await apiPost('/api/student-codes', { studentId });
+      document.getElementById('pcGrantResult').innerHTML = `<div class="vcode-box">${r.code}</div><div style="text-align:center;color:var(--muted);font-size:12px">Give this code to the student on student-register.html. Single use.</div>`;
+      document.getElementById('pcGrantStudentQuery').value = '';
+      document.getElementById('pcGrantStudentId').value = '';
+      await pcLoadAll();
+    } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  function pcRenderPending() {
+    const tbody = document.querySelector('#pcPendingTable tbody');
+    const pending = PC_CODES.filter(c => !c.used);
+    tbody.innerHTML = pending.map(c => `
+      <tr>
+        <td>${escapeHtml(c.studentName)}</td>
+        <td style="font-family:ui-monospace,monospace;font-weight:700">${c.code}</td>
+        <td><span class="vbadge-pending">Pending</span></td>
+        <td>${escapeHtml(c.grantedBy||'')}</td>
+        <td>${pcCanManage ? `<button class="btn btn-outline" onclick="pcRevokeCode('${c.id}')">Revoke</button>` : ''}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center">No pending codes.</td></tr>';
+  }
+
+  async function pcRevokeCode(id) {
+    try { await apiDelete('/api/student-codes/'+id); await pcLoadAll(); } catch(e) { showToast(e.message, 'error'); }
+  }
+
+  function pcRenderHistory() {
+    const tbody = document.querySelector('#pcHistoryTable tbody');
+    const used = PC_CODES.filter(c => c.used);
+    tbody.innerHTML = used.map(c => `
+      <tr>
+        <td>${escapeHtml(c.studentName)}</td>
+        <td style="font-family:ui-monospace,monospace">${c.code}</td>
+        <td>${new Date(c.usedAt).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false })}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="3" style="color:var(--muted);text-align:center">No codes redeemed yet.</td></tr>';
+  }
+
+  /* ══════════════════════════════════════════ INIT ══════════════════════════════════════════ */
+  if (SHOW_ROSTER) { load(); setupLive(['students'], () => load()); }
+  if (SHOW_VOCAB) vocLoadAll();
+  if (SHOW_CODES) pcLoadAll();
+
+  (function initMainTab() {
+    const qp = new URLSearchParams(location.search);
+    const want = qp.get('tab');
+    let tab = SHOW_ROSTER ? 'roster' : SHOW_VOCAB ? 'vocab' : 'codes';
+    if (want === 'vocab' && SHOW_VOCAB) tab = 'vocab';
+    else if (want === 'codes' && SHOW_CODES) tab = 'codes';
+    else if (want === 'roster' && SHOW_ROSTER) tab = 'roster';
+    switchMainTab(tab);
+  })();
 </script>
 </body>
 </html>
