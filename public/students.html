@@ -38,17 +38,19 @@
     .students-table tbody tr:hover { background:#fafafa; }
     .students-table tbody tr:hover .st-name { color:var(--crimson); }
     .students-table td { padding:13px 16px; vertical-align:middle; overflow:hidden; color:var(--stw-text); }
-    /* Column widths — Checkbox/Balance/Actions fixed, everything else proportional */
+    /* Column widths — Student/Phone get the lion's share; Status/Group/Teacher/Balance are
+       sized to just fit their (short, centered) content, freeing that space up. */
     .col-check   { width:40px; text-align:center; }
-    .col-name    { width:26%; }
-    .col-phone   { width:16%; }
-    .col-status  { width:92px; }
-    .col-groups  { width:20%; }
-    .col-teacher { width:100px; }
-    .col-bal     { width:130px; text-align:right; }
-    .col-actions { width:60px; text-align:center; }
+    .col-name    { width:30%; }
+    .col-phone   { width:19%; }
+    .col-status  { width:90px; text-align:center; }
+    .col-groups  { width:110px; text-align:center; }
+    .col-teacher { width:90px; text-align:center; }
+    .col-bal     { width:110px; text-align:center; }
+    .col-actions { width:56px; text-align:center; }
     .students-table td.col-check { padding-left:8px; padding-right:8px; }
-    .students-table td.col-bal   { padding-right:16px; }
+    .students-table td.col-status, .students-table td.col-groups,
+    .students-table td.col-teacher, .students-table td.col-bal { padding-left:8px; padding-right:8px; }
     .students-table td.col-actions { padding-left:8px; padding-right:16px; }
     .st-name {
       font-weight:600; font-size:13.5px; color:var(--stw-text);
@@ -56,12 +58,12 @@
     }
     .st-phone { font-size:13px; color:var(--stw-text); white-space:nowrap; font-variant-numeric:tabular-nums; }
     /* Group: number visually stronger, level/time as a quiet second line underneath —
-       one block per group the student is in, stacked with a small gap. */
+       one block per group the student is in, stacked with a small gap, centered in column. */
     .group-block { line-height:1.35; }
     .group-block + .group-block { margin-top:6px; }
     .group-number { display:block; font-weight:700; font-size:13.5px; color:var(--stw-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .group-meta { display:block; font-size:11.5px; color:var(--stw-muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .st-teacher { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+    .st-teacher { display:flex; align-items:center; justify-content:center; gap:5px; flex-wrap:wrap; }
     .teacher-avatar {
       width:28px; height:28px; border-radius:50%; flex-shrink:0; display:inline-flex;
       align-items:center; justify-content:center; font-size:10.5px; font-weight:700; color:#fff;
