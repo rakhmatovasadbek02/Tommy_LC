@@ -16,10 +16,12 @@
 .sp-step-dot.done { background: var(--accent-dark); color: #fff; }
 .sp-step-line { flex: 1; height: 2px; background: var(--border); }
 .sp-step-line.done { background: var(--accent-dark); }
-.sp-day-block { margin-bottom: 6px; }
-.sp-day-block:last-child { margin-bottom: 0; }
-.sp-day-heading { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-.sp-day-heading span { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
+.sp-day-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.sp-day-tab { flex: 1; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); font-family: 'Poppins', sans-serif; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer; text-align: center; }
+.sp-day-tab:hover { border-color: var(--accent); }
+.sp-day-tab.on { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 700; }
+.sp-day-tab:disabled { opacity: .4; cursor: not-allowed; }
+.sp-day-tab:disabled:hover { border-color: var(--border); }
 .sp-slot-row {
   display: flex; align-items: center; gap: 14px; width: 100%; padding: 11px 0; border: none; border-bottom: 1px solid var(--border);
   background: none; cursor: pointer; font-family: 'Poppins', sans-serif; text-align: left;
@@ -64,6 +66,8 @@ const bookableDates = [0, 1, 2].map(n => { const d = new Date(nowTashkent); d.se
 
 let STATUS = null;
 let STEP = 1; // 1=slot, 2=details, 3=confirm
+let SLOT_DAYS = []; // [{date, slots}], one entry per bookable date, fetched together
+let activeDay = null; // which of bookableDates is currently shown
 let selDate = null;
 let selSlot = null; // { time, teacher }
 let theme = '';
@@ -164,33 +168,46 @@ function renderStep() {
   }
 }
 
-// Fetches slots for today + the next 2 days in parallel and renders them grouped by day —
-// no date picker: the full 3-day booking window is just shown up front.
+// Fetches slots for today + the next 2 days in parallel — no date picker, the full 3-day
+// booking window is fetched up front — then shows one day at a time behind day tabs so
+// the list doesn't turn into one long scroll of every day stacked together.
 async function loadAllSlots() {
   const wrap = document.getElementById('slotDays');
   if (!wrap) return;
-  let results;
   try {
-    results = await Promise.all(bookableDates.map(d =>
+    SLOT_DAYS = await Promise.all(bookableDates.map(d =>
       spGet(`/api/student/support/slots?date=${encodeURIComponent(d)}&duration=${DUR}`).then(slots => ({ date: d, slots }))
     ));
   } catch (e) { wrap.innerHTML = `<div class="sp-empty">Could not load times.</div>`; return; }
 
-  const withSlots = results.filter(r => r.slots.length);
-  if (!withSlots.length) { wrap.innerHTML = `<div class="sp-empty">No open times in the next 3 days.</div>`; return; }
+  if (!SLOT_DAYS.some(d => d.slots.length)) { wrap.innerHTML = `<div class="sp-empty">No open times in the next 3 days.</div>`; return; }
 
-  wrap.innerHTML = withSlots.map(({ date, slots }) => `
-    <div class="sp-day-block">
-      <div class="sp-day-heading">${spEscapeHtml(dayHeading(date))} <span>${spEscapeHtml(fmtDateLong(date))}</span></div>
-      ${slots.map(s => `
-        <button type="button" class="sp-slot-row" onclick='pickSlot(${JSON.stringify({date, time: s.time, teacher: s.teacher})})'>
-          <div class="sp-slot-time-badge">${spEscapeHtml(s.time)}</div>
-          <div class="sp-slot-teacher-name">${spEscapeHtml(s.teacher)}</div>
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      `).join('')}
+  activeDay = (SLOT_DAYS.find(d => d.slots.length) || SLOT_DAYS[0]).date;
+  renderSlotDays();
+}
+
+function renderSlotDays() {
+  const wrap = document.getElementById('slotDays');
+  if (!wrap) return;
+  const active = SLOT_DAYS.find(d => d.date === activeDay);
+  wrap.innerHTML = `
+    <div class="sp-day-tabs">
+      ${SLOT_DAYS.map(d => `<button type="button" class="sp-day-tab ${d.date===activeDay?'on':''}" onclick="selectDay('${d.date}')" ${d.slots.length?'':'disabled'}>${spEscapeHtml(dayHeading(d.date))}</button>`).join('')}
     </div>
-  `).join('');
+    <div class="sp-field-label" style="margin-bottom:10px">${spEscapeHtml(fmtDateLong(activeDay))}</div>
+    ${active.slots.length ? active.slots.map(s => `
+      <button type="button" class="sp-slot-row" onclick='pickSlot(${JSON.stringify({date: active.date, time: s.time, teacher: s.teacher})})'>
+        <div class="sp-slot-time-badge">${spEscapeHtml(s.time)}</div>
+        <div class="sp-slot-teacher-name">${spEscapeHtml(s.teacher)}</div>
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    `).join('') : `<div class="sp-empty">No open times ${spEscapeHtml(dayHeading(activeDay)).toLowerCase()}.</div>`}
+  `;
+}
+
+function selectDay(date) {
+  activeDay = date;
+  renderSlotDays();
 }
 
 function pickSlot(slot) {
