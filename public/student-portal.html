@@ -37,11 +37,6 @@
 spRequireAuth();
 spRenderHeader('home');
 
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric' });
-}
-function fmtMoney(n) { return Number(n||0).toLocaleString('en-US') + ' UZS'; }
 function todayLabel() {
   return new Date().toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent', weekday:'long', day:'numeric', month:'long' });
 }
@@ -63,11 +58,6 @@ async function load() {
       spGet('/api/student/me'),
       spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, vocabStats: null, recommendedUnits: [] })),
     ]);
-    const g = me.groups[0];
-    const attTotal = me.attendance.length;
-    const attPresent = me.attendance.filter(a => a.status === 'Present' || a.status === 'present').length;
-    const attPct = attTotal ? Math.round((attPresent/attTotal)*100) : null;
-
     const nextItems = [];
     if (home.pendingTest) {
       nextItems.push({ icon: 'fa-pen', title: 'Vocabulary test assigned', sub: `${(home.pendingTest.unitNames||[]).join(', ') || 'Ask your teacher for the code'}` });
@@ -97,26 +87,6 @@ async function load() {
     el.innerHTML = `
       <div class="sp-title">Welcome back, ${spEscapeHtml(me.firstName)}</div>
       <div class="sp-subtitle">${spEscapeHtml(todayLabel())}</div>
-
-      <div class="sp-stat-row">
-        <div class="sp-stat">
-          <div class="sp-stat-label">Attendance</div>
-          <div class="sp-stat-value">${attPct!==null ? attPct+'%' : '—'}</div>
-          ${attPct!==null ? `<div class="sp-progress-track"><div class="sp-progress-fill ${attPct>=80?'green':attPct>=50?'amber':''}" style="width:${attPct}%"></div></div>` : ''}
-        </div>
-        <div class="sp-stat">
-          <div class="sp-stat-label">Learning Streak</div>
-          <div class="sp-stat-value">${home.streak || 0} day${home.streak===1?'':'s'}</div>
-        </div>
-        <div class="sp-stat">
-          <div class="sp-stat-label">Balance</div>
-          <div class="sp-stat-value ${String(fmtMoney(me.balance)).length>10?'small':''}" style="${me.balance<0?'color:var(--red)':''}">${fmtMoney(me.balance)}</div>
-        </div>
-        ${g ? `<div class="sp-stat">
-          <div class="sp-stat-label">Current Unit</div>
-          <div class="sp-stat-value small">${spEscapeHtml(g.currentUnit||'—')}</div>
-        </div>` : ''}
-      </div>
 
       <div class="sp-card">
         <div class="sp-card-title">What's Next</div>
