@@ -424,6 +424,10 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_odd_end TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_start TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_even_end TEXT`,
+    // Which language(s) a support teacher can take sessions in — 'UZ', 'RU', or 'UZ/RU'
+    // (bilingual, available to any group). Defaults to bilingual so existing support
+    // teachers stay bookable by everyone until an admin narrows it.
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS support_lang TEXT DEFAULT 'UZ/RU'`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS roles JSONB DEFAULT '[]'`,
     `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS attended BOOLEAN`,
     `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS theme TEXT`,
@@ -884,16 +888,27 @@ app.post('/api/account/change-password', async (req, res) => {
 function cleanPerms(permissions) {
   return Array.isArray(permissions) ? permissions.filter(p => ALL_PERMISSIONS.includes(p)) : [];
 }
+// A support teacher's language ('UZ'/'RU'/'UZ/RU') gates which students can book them:
+// UZ-only and RU-only teachers only show up for students in a matching-language group;
+// UZ/RU (bilingual) teachers show up for everyone. A student with no group (or a group
+// with no lang set) falls back permissively and sees every teacher.
+function teacherLangMatches(teacherLang, studentLang) {
+  if (!teacherLang || teacherLang === 'UZ/RU') return true;
+  if (!studentLang) return true;
+  return teacherLang === studentLang;
+}
 // Support-teacher shifts (separate odd/even), only meaningful for Support Teacher.
 // A null start means the teacher does NOT work that day type.
 function supportShift(body, title) {
-  if (!isSupportTitle(title)) return { oddStart:null, oddEnd:null, evenStart:null, evenEnd:null };
+  if (!isSupportTitle(title)) return { oddStart:null, oddEnd:null, evenStart:null, evenEnd:null, lang:null };
   const v = t => /^\d{2}:\d{2}$/.test(t) ? t : null;
+  const lang = ['UZ','RU','UZ/RU'].includes(body.supportLang) ? body.supportLang : 'UZ/RU';
   return {
     oddStart:  body.oddStart  ? v(body.oddStart)  : null,
     oddEnd:    body.oddStart  ? (v(body.oddEnd)  || '18:00') : null,
     evenStart: body.evenStart ? v(body.evenStart) : null,
     evenEnd:   body.evenStart ? (v(body.evenEnd) || '18:00') : null,
+    lang,
   };
 }
 
@@ -907,7 +922,8 @@ app.get('/api/users', async (req, res) => {
       roles: Array.isArray(u.roles) && u.roles.length ? u.roles : [u.title || u.role],
       permissions: u.permissions || [],
       oddStart: u.support_odd_start, oddEnd: u.support_odd_end,
-      evenStart: u.support_even_start, evenEnd: u.support_even_end
+      evenStart: u.support_even_start, evenEnd: u.support_even_end,
+      supportLang: u.support_lang
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -930,8 +946,8 @@ app.post('/api/users', async (req, res) => {
     const perms = permsForRoles(roles);
     const sh = supportShift(req.body, roles.includes('Support Teacher') ? 'Support Teacher' : title);
     await pool.query(
-      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,roles,avatar,permissions,must_change_password,support_odd_start,support_odd_end,support_even_start,support_even_end) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12,$13,$14)',
-      [id, firstName, lastName, phone, password, title, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd]
+      'INSERT INTO users(id,first_name,last_name,phone,password,role,title,roles,avatar,permissions,must_change_password,support_odd_start,support_odd_end,support_even_start,support_even_end,support_lang) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12,$13,$14,$15)',
+      [id, firstName, lastName, phone, password, title, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang]
     );
     broadcast('users');
     res.json({ ok: true });
@@ -956,13 +972,13 @@ app.put('/api/users/:id', async (req, res) => {
       const pwErr = validateCreatePassword(password);
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,roles=$6,avatar=$7,permissions=$8,must_change_password=TRUE,support_odd_start=$9,support_odd_end=$10,support_even_start=$11,support_even_end=$12 WHERE id=$13',
-        [firstName, lastName, phone, password, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,roles=$6,avatar=$7,permissions=$8,must_change_password=TRUE,support_odd_start=$9,support_odd_end=$10,support_even_start=$11,support_even_end=$12,support_lang=$13 WHERE id=$14',
+        [firstName, lastName, phone, password, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang, req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,roles=$5,avatar=$6,permissions=$7,support_odd_start=$8,support_odd_end=$9,support_even_start=$10,support_even_end=$11 WHERE id=$12',
-        [firstName, lastName, phone, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, req.params.id]
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,role=$4,title=$4,roles=$5,avatar=$6,permissions=$7,support_odd_start=$8,support_odd_end=$9,support_even_start=$10,support_even_end=$11,support_lang=$12 WHERE id=$13',
+        [firstName, lastName, phone, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang, req.params.id]
       );
     }
     broadcast('users');
@@ -2938,7 +2954,12 @@ app.get('/api/student/vocab/history', async (req, res) => {
 
 app.get('/api/student/support/teachers', async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name");
+    const [teachersR, groupR] = await Promise.all([
+      pool.query("SELECT first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end, support_lang FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name"),
+      pool.query(`SELECT lang FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]),
+    ]);
+    const studentLang = groupR.rows[0]?.lang || null;
+    const rows = teachersR.rows.filter(u => teacherLangMatches(u.support_lang, studentLang));
     res.json(rows.map(u => ({
       name: u.first_name + ' ' + u.last_name,
       odd:  u.support_odd_start  ? { start: u.support_odd_start,  end: u.support_odd_end  } : null,
@@ -2964,15 +2985,18 @@ app.get('/api/student/support/slots', async (req, res) => {
     const isToday = date === todayISO;
     const nowMin = isToday ? nowTz.getHours() * 60 + nowTz.getMinutes() : 0;
 
-    const [teachersR, sessionsR] = await Promise.all([
-      pool.query("SELECT first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name"),
+    const [teachersR, sessionsR, groupR] = await Promise.all([
+      pool.query("SELECT first_name, last_name, support_odd_start, support_odd_end, support_even_start, support_even_end, support_lang FROM users WHERE title='Support Teacher' OR roles @> '[\"Support Teacher\"]' ORDER BY first_name"),
       pool.query('SELECT time, duration, teacher FROM support_sessions WHERE date=$1', [date]),
+      pool.query(`SELECT lang FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]),
     ]);
+    const studentLang = groupR.rows[0]?.lang || null;
     const dt = dateDayType(date);
     const existing = sessionsR.rows.map(s => ({ start: toMin(s.time), end: toMin(s.time) + Number(s.duration || 30), teacher: s.teacher }));
 
     const slots = [];
     for (const t of teachersR.rows) {
+      if (!teacherLangMatches(t.support_lang, studentLang)) continue;
       const shiftStart = dt === 'odd' ? t.support_odd_start : dt === 'even' ? t.support_even_start : null;
       const shiftEnd   = dt === 'odd' ? t.support_odd_end   : dt === 'even' ? t.support_even_end   : null;
       if (!shiftStart) continue;

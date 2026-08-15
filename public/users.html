@@ -126,6 +126,13 @@
           <div class="shift-times"><select id="uEvenStart"></select><span>–</span><select id="uEvenEnd"></select></div>
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:4px">Tick the days the teacher works and set hours for each.</div>
+        <label style="margin-top:12px">Support Language *</label>
+        <select id="uSupportLang">
+          <option value="UZ/RU">UZ/RU (any group)</option>
+          <option value="UZ">UZ (only UZ groups)</option>
+          <option value="RU">RU (only RU groups)</option>
+        </select>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Controls which students can self-book this teacher in the student portal.</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -274,6 +281,7 @@
     buildTimeOpts(document.getElementById('uEvenStart'), u.evenStart||'14:00');
     buildTimeOpts(document.getElementById('uEvenEnd'), u.evenEnd||'18:30');
     toggleShift('Odd'); toggleShift('Even');
+    document.getElementById('uSupportLang').value = u.supportLang || 'UZ/RU';
     document.getElementById('pwHint').style.display='block';
     document.getElementById('pwLabel').textContent='(optional)';
     document.getElementById('userModalTitle').textContent='Edit Staff Member';
@@ -298,6 +306,7 @@
       if(!odd&&!even){showToast('Select at least one working shift (odd or even).','error');return;}
       if(odd){ data.oddStart=document.getElementById('uOddStart').value; data.oddEnd=document.getElementById('uOddEnd').value; if(data.oddStart>=data.oddEnd){showToast('Odd shift end must be after start.','error');return;} }
       if(even){ data.evenStart=document.getElementById('uEvenStart').value; data.evenEnd=document.getElementById('uEvenEnd').value; if(data.evenStart>=data.evenEnd){showToast('Even shift end must be after start.','error');return;} }
+      data.supportLang=document.getElementById('uSupportLang').value;
     }
     if(pass)data.password=pass;
     try {
@@ -326,6 +335,7 @@
     buildTimeOpts(document.getElementById('uEvenStart'),'14:00');
     buildTimeOpts(document.getElementById('uEvenEnd'),'18:30');
     toggleShift('Odd'); toggleShift('Even');
+    document.getElementById('uSupportLang').value='UZ/RU';
     document.getElementById('pwHint').style.display='none';
     document.getElementById('pwLabel').textContent='*';
   }
