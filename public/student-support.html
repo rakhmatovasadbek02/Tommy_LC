@@ -16,15 +16,19 @@
 .sp-step-dot.done { background: var(--accent-dark); color: #fff; }
 .sp-step-line { flex: 1; height: 2px; background: var(--border); }
 .sp-step-line.done { background: var(--accent-dark); }
-.sp-slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
-.sp-slot-btn { padding: 12px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); }
-.sp-slot-btn:hover { border-color: var(--accent); background: var(--accent-light); }
-.sp-day-block { margin-bottom: 18px; }
+.sp-day-block { margin-bottom: 6px; }
 .sp-day-block:last-child { margin-bottom: 0; }
-.sp-day-heading { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.sp-day-heading { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .sp-day-heading span { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
-.sp-slot-group-time { font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .5px; margin: 10px 0 6px; }
-.sp-slot-group-time:first-child { margin-top: 0; }
+.sp-slot-row {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 11px 0; border: none; border-bottom: 1px solid var(--border);
+  background: none; cursor: pointer; font-family: 'Poppins', sans-serif; text-align: left;
+}
+.sp-slot-row:last-child { border-bottom: none; }
+.sp-slot-row:hover { background: var(--accent-light); margin: 0 -20px; padding-left: 20px; padding-right: 20px; border-radius: 8px; }
+.sp-slot-time-badge { width: 60px; flex-shrink: 0; text-align: center; background: var(--accent-light); border-radius: 10px; padding: 7px 0; font-size: 13px; font-weight: 700; color: var(--accent); }
+.sp-slot-teacher-name { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.sp-slot-row i { color: var(--text-tertiary); font-size: 12px; flex-shrink: 0; }
 .sp-confirm-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .sp-confirm-row:last-child { border-bottom: none; }
 .sp-confirm-label { color: var(--text-secondary); font-weight: 500; }
@@ -175,21 +179,18 @@ async function loadAllSlots() {
   const withSlots = results.filter(r => r.slots.length);
   if (!withSlots.length) { wrap.innerHTML = `<div class="sp-empty">No open times in the next 3 days.</div>`; return; }
 
-  wrap.innerHTML = withSlots.map(({ date, slots }) => {
-    const byTime = new Map();
-    slots.forEach(s => { if (!byTime.has(s.time)) byTime.set(s.time, []); byTime.get(s.time).push(s.teacher); });
-    return `
-      <div class="sp-day-block">
-        <div class="sp-day-heading">${spEscapeHtml(dayHeading(date))} <span>${spEscapeHtml(fmtDateLong(date))}</span></div>
-        ${[...byTime.entries()].map(([time, teachers]) => `
-          <div class="sp-slot-group-time">${spEscapeHtml(time)}</div>
-          <div class="sp-slot-grid">
-            ${teachers.map(t => `<button type="button" class="sp-slot-btn" onclick='pickSlot(${JSON.stringify({date, time, teacher: t})})'>${spEscapeHtml(t)}</button>`).join('')}
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }).join('');
+  wrap.innerHTML = withSlots.map(({ date, slots }) => `
+    <div class="sp-day-block">
+      <div class="sp-day-heading">${spEscapeHtml(dayHeading(date))} <span>${spEscapeHtml(fmtDateLong(date))}</span></div>
+      ${slots.map(s => `
+        <button type="button" class="sp-slot-row" onclick='pickSlot(${JSON.stringify({date, time: s.time, teacher: s.teacher})})'>
+          <div class="sp-slot-time-badge">${spEscapeHtml(s.time)}</div>
+          <div class="sp-slot-teacher-name">${spEscapeHtml(s.teacher)}</div>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      `).join('')}
+    </div>
+  `).join('');
 }
 
 function pickSlot(slot) {
