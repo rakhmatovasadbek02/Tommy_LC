@@ -25,7 +25,7 @@
     .students-table tbody tr:hover .st-name { color:var(--crimson); }
     .students-table td { padding:4px 10px; vertical-align:middle; overflow:hidden; }
     /* Column widths */
-    .col-check  { width:32px; }
+    .col-check  { width:28px; }
     .col-name   { width:18%; }
     .col-phone  { width:13%; }
     .col-status { width:8%; }
@@ -34,9 +34,9 @@
     .col-dates  { width:9%; }
     .col-bal    { width:8%; }
     .col-comment{ width:13%; }
-    .col-actions{ width:64px; }
-    .st-name-cell { display:flex; align-items:center; gap:7px; }
-    .st-avatar { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:9.5px; color:white; flex-shrink:0; }
+    .col-actions{ width:52px; }
+    .students-table td.col-name, .students-table th.col-name { padding-left:6px; }
+    .students-table td.col-actions { padding-right:6px; }
     .st-name { font-weight:600; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .st-sub  { font-size:10.5px; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .st-phone { font-size:11.5px; white-space:nowrap; }
@@ -457,6 +457,13 @@
     renderStudents();
   }
 
+  // Short level labels so the group pill (level · time) stays compact.
+  const LEVEL_SHORT = {
+    'RoundUp':'RndUp', 'Beginner':'Beg', 'Elementary':'Elem',
+    'Pre-Intermediate':'Pre-Int', 'Intermediate':'Int', 'CEFR':'CEFR', 'IELTS':'IELTS',
+  };
+  function shortLevel(level) { return LEVEL_SHORT[level] || level || ''; }
+
   function toggleSort(col) {
     if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
     ['name','balance'].forEach(c => {
@@ -499,11 +506,10 @@
     }
     tbody.innerHTML = filtered.map((s, i) => {
       const name = s.lastName+' '+s.firstName;
-      const col  = avatarColor(name);
       const balClass = s.balance > 0 ? 'pos' : s.balance < 0 ? 'neg' : 'zero';
       const balStr = s.balance !== 0 ? s.balance.toLocaleString() : '0';
       const groupsHTML = (s.groups||[]).map(g =>
-        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="text-decoration:none"><div class="group-pill"><span class="group-pill-name">${g.name}</span><span class="group-pill-sub">${g.level||''}${g.time?' ('+g.time+')':''}</span></div></a>`
+        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="text-decoration:none"><div class="group-pill"><span class="group-pill-name">${g.name}</span><span class="group-pill-sub">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
       ).join('') || '<span style="color:var(--muted);font-size:12px">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
       const teacherHTML = teachers.length ? teachers.map(t=>`<div>${reverseName(t)}</div>`).join('') : '<span style="color:var(--muted)">—</span>';
@@ -519,12 +525,7 @@
       return `<tr onclick="location.href='student-profile.html?id=${s.id}'">
         <td class="col-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${selectedIds.has(s.id)?'checked':''}></td>
         <td class="col-name">
-          <div class="st-name-cell">
-            <div class="st-avatar" style="background:${col}">${initials(name)}</div>
-            <div style="min-width:0">
-              <div class="st-name"><a href="student-profile.html?id=${s.id}" onclick="event.stopPropagation()" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()" style="color:inherit;text-decoration:none">${name}</a></div>
-            </div>
-          </div>
+          <div class="st-name"><a href="student-profile.html?id=${s.id}" onclick="event.stopPropagation()" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()" style="color:inherit;text-decoration:none">${name}</a></div>
         </td>
         <td class="col-phone st-phone">${s.phone?'+998 '+s.phone:'<span style="color:var(--muted)">—</span>'}</td>
         <td class="col-status"><span class="badge ${SBADGE[s.status]||'badge-grey'} st-status-badge">${s.status}</span></td>
