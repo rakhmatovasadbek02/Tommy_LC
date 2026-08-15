@@ -197,7 +197,7 @@
       <div class="vcard">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div class="vcard-title" style="margin-bottom:0">Access Codes</div>
-          <button class="btn btn-outline" id="vocHistoryBtn" onclick="vocToggleHistory()">History</button>
+          <button class="btn btn-outline" onclick="vocOpenHistory()">History</button>
         </div>
         <table class="vtable" id="vocCombinedTable"><thead><tr><th>Student</th><th>Units</th><th>Code / Score</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
@@ -219,7 +219,7 @@
       <div class="vcard">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div class="vcard-title" style="margin-bottom:0">Registration Codes</div>
-          <button class="btn btn-outline" id="pcHistoryBtn" onclick="pcToggleHistory()">History</button>
+          <button class="btn btn-outline" onclick="pcOpenHistory()">History</button>
         </div>
         <table class="vtable" id="pcCombinedTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
       </div>
@@ -348,6 +348,32 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('unitModal')">Cancel</button>
       <button class="btn btn-primary" onclick="vocSaveUnit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Vocabulary: Access Codes + History, merged into one table -->
+<div class="modal-overlay" id="vocHistoryModal">
+  <div class="modal" style="width:min(800px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">Access Codes &amp; History</div>
+      <button class="modal-close" onclick="closeModal('vocHistoryModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <table class="vtable" id="vocHistoryModalTable"><thead><tr><th>Student</th><th>Units</th><th>Code / Score</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- Portal Codes: Registration Codes + History, merged into one table -->
+<div class="modal-overlay" id="pcHistoryModal">
+  <div class="modal" style="width:min(700px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">Registration Codes &amp; History</div>
+      <button class="modal-close" onclick="closeModal('pcHistoryModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <table class="vtable" id="pcHistoryModalTable"><thead><tr><th>Student</th><th>Code</th><th>Status</th><th>Granted by</th><th>Date</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 </div>
@@ -757,49 +783,49 @@
     } catch(e) { showToast(e.message, 'error'); }
   }
 
-  // Access codes list, by default just the actionable (pending) ones — tap History to reveal
-  // used codes and completed-test results mixed in together, sorted newest-first.
-  let VOC_SHOW_HISTORY = false;
-  function vocToggleHistory() {
-    VOC_SHOW_HISTORY = !VOC_SHOW_HISTORY;
-    const btn = document.getElementById('vocHistoryBtn');
-    btn.classList.toggle('btn-primary', VOC_SHOW_HISTORY);
-    btn.classList.toggle('btn-outline', !VOC_SHOW_HISTORY);
-    btn.textContent = VOC_SHOW_HISTORY ? 'Hide History' : 'History';
-    vocRenderCombined();
-  }
+  // Access Codes table: every code, pending or used (unfiltered). "History" opens a modal
+  // that additionally mixes in completed-test results — the actual merged codes+history view.
   function vocFmtDate(d) {
     return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
   }
-  function vocRenderCombined() {
-    const codeRows = VOC_ACCESS.map(a => ({
+  function vocCodeRows() {
+    return VOC_ACCESS.map(a => ({
       studentName: a.studentName, unitNames: a.unitNames, code: a.code, used: a.used,
       grantedBy: a.grantedBy, date: a.used ? a.usedAt : a.createdAt, id: a.id, isCode: true,
-    }));
+    })).sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
+  }
+  function vocAllRows() {
     const attemptRows = VOC_ATTEMPTS.map(t => ({
       studentName: t.studentName, unitNames: t.unitNames, score: `${t.score} / ${t.total}`,
       passed: t.passed, date: t.completedAt, isCode: false,
     }));
-    let rows = [...codeRows, ...attemptRows].sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
-    if (!VOC_SHOW_HISTORY) rows = rows.filter(r => r.isCode && !r.used);
+    return [...vocCodeRows(), ...attemptRows].sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
+  }
+  function vocRowHtml(r) {
+    const codeOrScore = r.isCode
+      ? `<span style="font-family:ui-monospace,monospace;font-weight:700">${r.code}</span>`
+      : r.score;
+    const status = r.isCode
+      ? (r.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>')
+      : (r.passed ? '<span class="vbadge-used" style="color:#1D8A4C">Passed</span>' : '<span class="vbadge-pending" style="color:#C0202E">Not passed</span>');
+    const action = (r.isCode && !r.used && vocCanManage) ? `<button class="btn btn-outline" onclick="vocRevokeAccess('${r.id}')">Revoke</button>` : '';
+    return `<tr>
+      <td>${escapeHtml(r.studentName)}</td>
+      <td>${escapeHtml(r.unitNames.join(', '))}</td>
+      <td>${codeOrScore}</td>
+      <td>${status}</td>
+      <td>${vocFmtDate(r.date)}</td>
+      <td>${action}</td>
+    </tr>`;
+  }
+  function vocRenderCombined() {
     const tbody = document.querySelector('#vocCombinedTable tbody');
-    tbody.innerHTML = rows.map(r => {
-      const codeOrScore = r.isCode
-        ? `<span style="font-family:ui-monospace,monospace;font-weight:700">${r.code}</span>`
-        : r.score;
-      const status = r.isCode
-        ? (r.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>')
-        : (r.passed ? '<span class="vbadge-used" style="color:#1D8A4C">Passed</span>' : '<span class="vbadge-pending" style="color:#C0202E">Not passed</span>');
-      const action = (r.isCode && !r.used && vocCanManage) ? `<button class="btn btn-outline" onclick="vocRevokeAccess('${r.id}')">Revoke</button>` : '';
-      return `<tr>
-        <td>${escapeHtml(r.studentName)}</td>
-        <td>${escapeHtml(r.unitNames.join(', '))}</td>
-        <td>${codeOrScore}</td>
-        <td>${status}</td>
-        <td>${vocFmtDate(r.date)}</td>
-        <td>${action}</td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">Nothing yet.</td></tr>';
+    tbody.innerHTML = vocCodeRows().map(vocRowHtml).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes granted yet.</td></tr>';
+  }
+  function vocOpenHistory() {
+    const tbody = document.querySelector('#vocHistoryModalTable tbody');
+    tbody.innerHTML = vocAllRows().map(vocRowHtml).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">Nothing yet.</td></tr>';
+    openModal('vocHistoryModal');
   }
 
   async function vocRevokeAccess(id) {
@@ -904,34 +930,32 @@
     } catch(e) { showToast(e.message, 'error'); }
   }
 
-  // Registration codes list, by default just the pending ones — tap History to reveal
-  // redeemed codes too, mixed in together, sorted newest-first.
-  let PC_SHOW_HISTORY = false;
-  function pcToggleHistory() {
-    PC_SHOW_HISTORY = !PC_SHOW_HISTORY;
-    const btn = document.getElementById('pcHistoryBtn');
-    btn.classList.toggle('btn-primary', PC_SHOW_HISTORY);
-    btn.classList.toggle('btn-outline', !PC_SHOW_HISTORY);
-    btn.textContent = PC_SHOW_HISTORY ? 'Hide History' : 'History';
-    pcRenderCombined();
-  }
+  // Registration Codes table: every code, pending or redeemed (unfiltered). "History" opens
+  // a modal with the same merged codes+history view for a focused, larger look.
   function pcFmtDate(d) {
     return d ? new Date(d).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:false }) : '—';
   }
+  function pcAllRows() {
+    return [...PC_CODES].sort((a, b) => new Date(b.used ? b.usedAt : b.createdAt) - new Date(a.used ? a.usedAt : a.createdAt));
+  }
+  function pcRowHtml(c, withActions) {
+    return `<tr>
+      <td>${escapeHtml(c.studentName)}</td>
+      <td style="font-family:ui-monospace,monospace;font-weight:700">${c.code}</td>
+      <td>${c.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>'}</td>
+      <td>${escapeHtml(c.grantedBy||'')}</td>
+      <td>${pcFmtDate(c.used ? c.usedAt : c.createdAt)}</td>
+      ${withActions ? `<td>${!c.used && pcCanManage ? `<button class="btn btn-outline" onclick="pcRevokeCode('${c.id}')">Revoke</button>` : ''}</td>` : ''}
+    </tr>`;
+  }
   function pcRenderCombined() {
-    let sorted = [...PC_CODES].sort((a, b) => new Date(b.used ? b.usedAt : b.createdAt) - new Date(a.used ? a.usedAt : a.createdAt));
-    if (!PC_SHOW_HISTORY) sorted = sorted.filter(c => !c.used);
     const tbody = document.querySelector('#pcCombinedTable tbody');
-    tbody.innerHTML = sorted.map(c => `
-      <tr>
-        <td>${escapeHtml(c.studentName)}</td>
-        <td style="font-family:ui-monospace,monospace;font-weight:700">${c.code}</td>
-        <td>${c.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>'}</td>
-        <td>${escapeHtml(c.grantedBy||'')}</td>
-        <td>${pcFmtDate(c.used ? c.usedAt : c.createdAt)}</td>
-        <td>${!c.used && pcCanManage ? `<button class="btn btn-outline" onclick="pcRevokeCode('${c.id}')">Revoke</button>` : ''}</td>
-      </tr>
-    `).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes yet.</td></tr>';
+    tbody.innerHTML = pcAllRows().map(c => pcRowHtml(c, true)).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center">No codes yet.</td></tr>';
+  }
+  function pcOpenHistory() {
+    const tbody = document.querySelector('#pcHistoryModalTable tbody');
+    tbody.innerHTML = pcAllRows().map(c => pcRowHtml(c, false)).join('') || '<tr><td colspan="5" style="color:var(--muted);text-align:center">Nothing yet.</td></tr>';
+    openModal('pcHistoryModal');
   }
 
   async function pcRevokeCode(id) {
