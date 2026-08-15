@@ -39,6 +39,47 @@ async function spPost(path, data) {
 
 function spEscapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+// ── First-time tour: a short step-through overlay introducing each tab. Shown once
+// automatically (tracked per-browser via localStorage), and replayable anytime via the
+// "?" button next to Sign Out in the header.
+const SP_TOUR_STEPS = [
+  { icon: 'fa-hand-sparkles', title: 'Welcome to Tommy LC!', body: "Here's a quick look at what you can do in your student portal." },
+  { icon: 'fa-house', title: 'Home', body: "See what's coming up next, your vocabulary stats, and a unit recommended just for you." },
+  { icon: 'fa-lightbulb', title: 'Vocab', body: 'Practice any unit whenever you like. Practice results only save to your own history — no pressure.' },
+  { icon: 'fa-comments', title: 'Support', body: 'Book one free support session a day with a teacher, at a time that works for you.' },
+  { icon: 'fa-user', title: 'Profile', body: 'Check your group, schedule, and contact details. Ask your admin if anything needs to change.' },
+];
+function spTourSeen() { try { return !!localStorage.getItem('lc_student_tutorial_seen'); } catch { return true; } }
+function spTourMarkSeen() { try { localStorage.setItem('lc_student_tutorial_seen', '1'); } catch {} }
+function spStartTutorial() {
+  let idx = 0;
+  const overlay = document.createElement('div');
+  overlay.className = 'sp-tour-overlay';
+  document.body.appendChild(overlay);
+  function close() { spTourMarkSeen(); overlay.remove(); }
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  function render() {
+    const step = SP_TOUR_STEPS[idx];
+    const isLast = idx === SP_TOUR_STEPS.length - 1;
+    overlay.innerHTML = `
+      <div class="sp-tour-card">
+        <div class="sp-tour-icon"><i class="fas ${step.icon}"></i></div>
+        <div class="sp-tour-title">${spEscapeHtml(step.title)}</div>
+        <div class="sp-tour-body">${spEscapeHtml(step.body)}</div>
+        <div class="sp-tour-dots">${SP_TOUR_STEPS.map((_, i) => `<span class="sp-tour-dot${i === idx ? ' on' : ''}"></span>`).join('')}</div>
+        <div class="sp-tour-actions">
+          <button class="sp-btn sp-btn-outline" id="spTourBack">${idx > 0 ? 'Back' : 'Skip'}</button>
+          <button class="sp-btn sp-btn-primary" id="spTourNext">${isLast ? 'Get Started' : 'Next'}</button>
+        </div>
+      </div>`;
+    document.getElementById('spTourNext').onclick = () => { if (isLast) close(); else { idx++; render(); } };
+    document.getElementById('spTourBack').onclick = () => { if (idx > 0) { idx--; render(); } else close(); };
+  }
+  render();
+}
+// Auto-shown once on Home, a beat after the page's own content has rendered.
+function spMaybeAutoStartTutorial() { if (!spTourSeen()) setTimeout(spStartTutorial, 500); }
+
 function spInitials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
@@ -71,6 +112,7 @@ function spRenderHeader(activeKey) {
         </a>
         <div class="sp-header-right">
           <span class="sp-header-name">${spEscapeHtml(s ? s.name : '')}</span>
+          <button class="sp-logout-btn" onclick="spStartTutorial()" title="Take the tour"><i class="fas fa-circle-question"></i></button>
           <button class="sp-logout-btn" onclick="spLogout()" title="Sign out"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
       </div>`;
