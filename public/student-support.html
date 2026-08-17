@@ -40,14 +40,6 @@
 .sp-confirm-label { color: var(--text-secondary); font-weight: 500; }
 .sp-confirm-value { font-weight: 700; text-align: right; }
 .sp-step-actions { display: flex; gap: 10px; margin-top: 18px; }
-.sp-session-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.sp-session-item:last-child { border-bottom: none; }
-.sp-session-date { width: 44px; flex-shrink: 0; text-align: center; background: var(--accent-light); border-radius: 10px; padding: 6px 0; }
-.sp-session-day { font-size: 9.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--accent); }
-.sp-session-num { font-size: 14px; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
-.sp-session-info { flex: 1; min-width: 0; }
-.sp-session-meta { font-size: 12.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
-.sp-session-topic { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 360px) {
   .sp-day-tab-label { font-size: 11px; }
   .sp-day-tab-date { font-size: 9.5px; }
@@ -252,25 +244,24 @@ async function loadHistory() {
   const box = document.getElementById('historyBox');
   try {
     const hist = await spGet('/api/student/support/history');
-    box.innerHTML = hist.length ? hist.map(h => {
-      const dp = dateParts(h.date);
-      const statusBadge = h.attended===true ? '<span class="sp-badge green">Attended</span>'
-        : h.attended===false ? '<span class="sp-badge red">Missed</span>'
-        : '<span class="sp-badge">Pending</span>';
-      return `
-        <div class="sp-session-item">
-          <div class="sp-session-date">
-            <div class="sp-session-day">${spEscapeHtml(dp.day)}</div>
-            <div class="sp-session-num">${spEscapeHtml(dp.num)}</div>
-          </div>
-          <div class="sp-session-info">
-            <div class="sp-session-meta">${spEscapeHtml(h.time)} · ${spEscapeHtml(h.teacher)}</div>
-            <div class="sp-session-topic">${spEscapeHtml(h.theme||'No topic noted')}</div>
-          </div>
-          ${statusBadge}
-        </div>
-      `;
-    }).join('') : `<div class="sp-empty">No sessions booked yet.</div>`;
+    box.innerHTML = hist.length ? `
+      <table class="sp-table">
+        <thead><tr><th>Date</th><th>Teacher</th><th>Topic</th><th>Status</th></tr></thead>
+        <tbody>
+          ${hist.map(h => {
+            const dp = dateParts(h.date);
+            const statusBadge = h.attended===true ? '<span class="sp-badge green">Attended</span>'
+              : h.attended===false ? '<span class="sp-badge red">Missed</span>'
+              : '<span class="sp-badge">Pending</span>';
+            return `<tr>
+              <td>${spEscapeHtml(dp.day)} ${spEscapeHtml(dp.num)} · ${spEscapeHtml(h.time)}</td>
+              <td>${spEscapeHtml(h.teacher)}</td>
+              <td>${spEscapeHtml(h.theme||'—')}</td>
+              <td>${statusBadge}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>` : `<div class="sp-empty">No sessions booked yet.</div>`;
   } catch (e) { box.innerHTML = `<div class="sp-empty">Could not load history.</div>`; }
 }
 
