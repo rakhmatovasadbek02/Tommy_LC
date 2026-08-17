@@ -22,6 +22,8 @@
     .teacher-stats td{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--border)}
     .teacher-stats tr:last-child td{border-bottom:none}
     .fined-list{display:flex;flex-direction:column;gap:8px;margin-bottom:28px}
+    .admin-extra-cols{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;align-items:start}
+    @media(max-width:900px){ .admin-extra-cols{grid-template-columns:1fr} }
     .timetable-wrap{background:white;border:1px solid #e0a0a0;border-radius:var(--radius);overflow:auto;box-shadow:var(--shadow)}
     .sup-datenav{display:flex;align-items:center;gap:4px;border:1.5px solid var(--border);border-radius:8px;background:white;overflow:hidden}
     .sup-datenav button{border:none;background:none;cursor:pointer;font-size:18px;line-height:1;color:var(--crimson);padding:7px 12px;font-family:'Inter',sans-serif}
@@ -261,7 +263,12 @@
           }).join('')}</tbody>
         </table></div>` : '';
 
-      document.getElementById('adminExtra').innerHTML = teacherHtml + fineHtml;
+      document.getElementById('adminExtra').innerHTML = (teacherHtml || fineHtml)
+        ? `<div class="admin-extra-cols">
+            ${teacherHtml ? `<div>${teacherHtml}</div>` : ''}
+            ${fineHtml ? `<div>${fineHtml}</div>` : ''}
+          </div>`
+        : '';
     }
 
     // Today's sessions
