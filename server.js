@@ -3922,7 +3922,7 @@ app.get('/api/statistics', async (req, res) => {
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
-    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR, spendR] = await Promise.all([
+    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR, spendR, loginR, codeR, practiceR] = await Promise.all([
       pool.query("SELECT id, status, balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
       pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
@@ -3936,6 +3936,9 @@ app.get('/api/statistics', async (req, res) => {
       pool.query(`SELECT teacher, attended, date FROM support_sessions WHERE date >= $1`, [prevMonthStart]),
       pool.query(`SELECT created_at FROM leads WHERE status='Registration' OR (archived IS TRUE AND pre_archive_status='Registration')`),
       pool.query(`SELECT amount, month, created_at FROM spendings ORDER BY created_at ASC`),
+      pool.query(`SELECT student_id, created_at FROM student_logins`),
+      pool.query(`SELECT used, created_at FROM student_portal_codes`),
+      pool.query(`SELECT score, total, passed, completed_at FROM vocab_practice_attempts`),
     ]);
 
     const students = stuR.rows;
@@ -4023,12 +4026,26 @@ app.get('/api/statistics', async (req, res) => {
     const archiveByReason = {};
     archR.rows.forEach(a => { const k = a.archive_reason || 'Other'; archiveByReason[k] = (archiveByReason[k] || 0) + 1; });
 
+    // ── Student portal adoption & usage ──
+    const accountsCreated = loginR.rows.length;
+    const accountsThisMonth = loginR.rows.filter(r => r.created_at && r.created_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
+    const adoptionRate = students.length > 0 ? Math.round(accountsCreated / students.length * 100) : 0;
+    const codesIssued = codeR.rows.length;
+    const codesUsed = codeR.rows.filter(c => c.used).length;
+    const codesPending = codesIssued - codesUsed;
+    const practiceAttempts = practiceR.rows.length;
+    const practicePassed = practiceR.rows.filter(p => p.passed).length;
+    const practicePassRate = practiceAttempts > 0 ? Math.round(practicePassed / practiceAttempts * 100) : 0;
+    const practiceThisMonth = practiceR.rows.filter(p => p.completed_at && p.completed_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
+    const supportSessionsThisMonth = supR.rows.filter(s => s.date && s.date.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
+
     res.json({
       students: { total: students.length, active: activeStudents, inactive: students.length - activeStudents, debtors, totalBalance },
       leads: { total: totalLeads, byStatus: leadsByStatus, conversionRate, leadsThisMonth, funnelOrder: FUNNEL_ORDER },
       finance: { totalRevenue, pendingRevenue, revenueByMonth, revenueByType, thisMonthRevenue, prevMonthRevenue, paidCount: paidInvoices.length, pendingByMonth: (() => { const m={}; invoices.filter(i=>i.status==='Pending').forEach(i=>{ const k=i.month||(i.created_at?i.created_at.toISOString().slice(0,7):null); if(k) m[k]=(m[k]||0)+Number(i.total||0); }); return m; })(), spendingByMonth, totalSpendings },
       staff: { teachers: teacherStats, support: supportStats, total: users.length },
       archive: { total: archR.rows.length, byReason: archiveByReason },
+      portal: { accountsCreated, accountsThisMonth, adoptionRate, codesIssued, codesUsed, codesPending, practiceAttempts, practicePassRate, practiceThisMonth, supportSessionsThisMonth },
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

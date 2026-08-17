@@ -1166,7 +1166,7 @@
   }
 
   function staRender(d) {
-    const {students:S, leads:L, finance:F, staff:ST, archive:AR} = d;
+    const {students:S, leads:L, finance:F, staff:ST, archive:AR, portal:P} = d;
 
     const allMonths = new Set([
       ...Object.keys(F.revenueByMonth||{}),
@@ -1239,6 +1239,7 @@
     const iLeads   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`;
     const iStaff   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
     const iArchive = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
+    const iPortal  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`;
 
     document.getElementById('statContent').innerHTML = `
 
@@ -1304,6 +1305,49 @@
               <div class="gauge-lbl">Leads → Students</div>
               <div class="gauge-sub">${S.active} active students · ${S.total} total</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STUDENT PORTAL -->
+      <div class="sec">
+        <div class="sec-hd">
+          <div class="sec-icon" style="background:#eff6ff">${iPortal.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
+          <h2>Student Portal</h2>
+          <span class="sec-meta">${P.accountsCreated} accounts · ${P.adoptionRate}% adoption</span>
+        </div>
+        <div class="g3">
+          <div class="card">
+            <div class="card-title">Adoption</div>
+            <div class="gauge-card">
+              ${staGaugeSVG(P.adoptionRate||0)}
+              <div class="gauge-num">${P.adoptionRate||0}%</div>
+              <div class="gauge-lbl">Students with an account</div>
+              <div class="gauge-sub">${P.accountsCreated} of ${S.total} · +${P.accountsThisMonth} this month</div>
+            </div>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
+            <div class="card-title" style="margin-bottom:4px">Vocabulary Practice</div>
+            ${[
+              ['Attempts (all time)', P.practiceAttempts, '#2563eb'],
+              ['Attempts this month', P.practiceThisMonth, '#c0392b'],
+              ['Pass rate', P.practicePassRate+'%', '#16a34a'],
+            ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
+              <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
+              <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
+            </div>`).join('')}
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
+            <div class="card-title" style="margin-bottom:4px">Registration Codes &amp; Support</div>
+            ${[
+              ['Codes issued', P.codesIssued, '#2563eb'],
+              ['Codes used', P.codesUsed, '#16a34a'],
+              ['Codes pending', P.codesPending, '#d97706'],
+              ['Support sessions this month', P.supportSessionsThisMonth, '#c0392b'],
+            ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
+              <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
+              <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
+            </div>`).join('')}
           </div>
         </div>
       </div>
