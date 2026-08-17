@@ -63,6 +63,8 @@
     .student-table td{padding:13px 16px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border)}
     .student-table tr:last-child td{border-bottom:none}
     .fine-badge{background:#ffe4e4;color:var(--crimson);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap}
+    .history-icon-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;border-radius:9px;border:1.5px solid var(--border);background:white;color:var(--muted);cursor:pointer}
+    .history-icon-btn:hover{border-color:var(--crimson);color:var(--crimson-dark);background:var(--crimson-soft)}
     @media(max-width:640px){
       .form-row { grid-template-columns:1fr !important; }
       .teacher-stats { overflow-x:auto; }
@@ -105,10 +107,23 @@
       <div id="supportGrid"></div>
     </div>
 
-    <div class="section-title">Today's Sessions</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+      <div class="section-title" style="margin:0">Today's Sessions</div>
+      <button class="history-icon-btn" id="historyIconBtn" onclick="openHistoryModal()" title="History" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>
+    </div>
     <div id="todaySessions" class="session-list"></div>
-    <div id="historySection" style="display:none">
-      <div class="section-title">Sessions History</div>
+  </div>
+</div>
+<!-- Sessions History -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="width:min(760px,96vw)">
+    <div class="modal-header">
+      <div class="modal-title">Sessions History</div>
+      <button class="modal-close" onclick="closeModal('historyModal')">✕</button>
+    </div>
+    <div class="modal-body">
       <div class="student-table">
         <table>
           <thead>
@@ -276,9 +291,9 @@
       }).join('');
     }
 
-    // History (admin only)
+    // History (admin only) — hidden behind the History icon, opened as a modal
     if (data.isAdmin && data.history && data.history.length) {
-      document.getElementById('historySection').style.display = '';
+      document.getElementById('historyIconBtn').style.display = '';
       document.getElementById('historyBody').innerHTML = data.history.map(s => {
         const badge = s.attended === true ? `<span class="attended-badge present">Present</span>`
           : s.attended === false ? `<span class="attended-badge absent">Absent</span>`
@@ -295,9 +310,11 @@
         </tr>`;
       }).join('');
     } else {
-      document.getElementById('historySection').style.display = 'none';
+      document.getElementById('historyIconBtn').style.display = 'none';
     }
   }
+
+  function openHistoryModal() { openModal('historyModal'); }
 
   async function deleteSession(id) {
     if (!confirm('Delete this support session?')) return;
