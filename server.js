@@ -2148,7 +2148,7 @@ app.get('/api/support-dashboard', async (req, res) => {
       pool.query('SELECT id, student_id, blocked_until FROM support_fines WHERE blocked_until > NOW()'),
       isSupport
         ? pool.query(`SELECT * FROM support_sessions WHERE teacher=$1 AND date=$2 ORDER BY time`, [myName, today])
-        : pool.query(`SELECT * FROM support_sessions WHERE date=$1 ORDER BY teacher, time`, [today]),
+        : pool.query(`SELECT * FROM support_sessions WHERE date=$1 ORDER BY time`, [today]),
       isSupport
         ? pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE teacher=$1 AND date>=$2 AND date<$3`, [myName, monthStart, monthEnd])
         : pool.query(`SELECT teacher, duration, attended FROM support_sessions WHERE date>=$1 AND date<$2`, [monthStart, monthEnd]),
