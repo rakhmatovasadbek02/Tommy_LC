@@ -713,6 +713,23 @@
   let VOC_SELECTED_STUDENT_LEVEL = null;
   const vocCanManage = can('vocab');
 
+  // Natural sort matching the server's naturalUnitCompare (server.js): level first, then
+  // the first number found anywhere in the name — so "1A", "2 Practical English" and
+  // "Phase 1" .. "Phase 19" all rise in the right numeric order instead of a plain
+  // string sort putting "Phase 10" before "Phase 2".
+  function vocNaturalUnitCompare(a, b) {
+    const level = String(a.level || '').localeCompare(String(b.level || ''));
+    if (level !== 0) return level;
+    const parse = s => {
+      const str = String(s || '');
+      const m = str.match(/(\d+)/);
+      return m ? [parseInt(m[1], 10), str] : [Infinity, str];
+    };
+    const [an, arest] = parse(a.name);
+    const [bn, brest] = parse(b.name);
+    return an !== bn ? an - bn : arest.localeCompare(brest);
+  }
+
   async function vocLoadAll() {
     [VOC_UNITS, VOC_STUDENTS, VOC_ACCESS, VOC_ATTEMPTS, VOC_LEVELS] = await Promise.all([
       apiGet('/api/vocab/units'),
@@ -721,6 +738,7 @@
       apiGet('/api/vocab/attempts'),
       apiGet('/api/levels').catch(() => []),
     ]);
+    VOC_UNITS.sort(vocNaturalUnitCompare);
     document.getElementById('uLevel').innerHTML = VOC_LEVELS.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
     vocRenderUnitPickList();
     vocApplyStudentFromQuery();

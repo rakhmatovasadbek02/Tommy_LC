@@ -697,6 +697,8 @@ document.getElementById('attTable').innerHTML = thead + tbody;
 // Pass/fail is computed server-side (server.js: vocabPassed) and stored per attempt —
 // read att.passed directly rather than recomputing the rule here.
 function shortUnitLabel(name) {
+  const ph = name.match(/^Phase\s+(\d{1,2})$/);
+  if (ph) return 'Ph' + ph[1];
   const m = name.match(/^(\d{1,2}[A-C])\b/) || name.match(/^(\d{1,2})\s+Practical/);
   if (!m) return name.slice(0, 6);
   return m[1] + (name.match(/Practical/) && !/[A-C]$/.test(m[1]) ? ' PE' : '');
@@ -704,7 +706,10 @@ function shortUnitLabel(name) {
 // Book order. Practical English lessons are numbered 1-6 in the PDF but each actually
 // sits right after an odd module's C unit: PE1 after 1C, PE2 after 3C, PE3 after 5C,
 // PE4 after 7C, PE5 after 9C, PE6 after 11C (module = 2*PE_number - 1).
+// "Phase N" (CEFR vocabulary phases) sort numerically after the textbook units.
 function unitSortKey(name) {
+  const ph = name.match(/^Phase\s+(\d{1,2})$/);
+  if (ph) return [1000 + parseInt(ph[1], 10), 0];
   const pe = name.match(/^(\d{1,2})\s+Practical/);
   if (pe) return [2 * parseInt(pe[1], 10) - 1, 2.5];
   const m = name.match(/^(\d{1,2})([A-C])?/);

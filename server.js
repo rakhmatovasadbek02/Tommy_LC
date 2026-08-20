@@ -2886,9 +2886,13 @@ function naturalUnitCompare(a, b) {
   // different courses shuffled together looks like nothing is in order at all.
   const level = String(a.level || '').localeCompare(String(b.level || ''));
   if (level !== 0) return level;
+  // Find the first number anywhere in the name, not just a leading one — "1A Welcome…"
+  // and "Phase 1" both need to sort as 1, 2, 3…, not have "Phase *" fall through to
+  // Infinity and get string-sorted ("Phase 10" before "Phase 2").
   const parse = s => {
-    const m = String(s || '').match(/^\s*(\d+)\s*(.*)$/);
-    return m ? [parseInt(m[1], 10), m[2]] : [Infinity, String(s || '')];
+    const str = String(s || '');
+    const m = str.match(/(\d+)/);
+    return m ? [parseInt(m[1], 10), str] : [Infinity, str];
   };
   const [an, arest] = parse(a.name);
   const [bn, brest] = parse(b.name);
