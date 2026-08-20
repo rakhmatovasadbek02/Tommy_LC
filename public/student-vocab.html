@@ -126,7 +126,7 @@ function renderQuestion() {
       <div class="sp-quiz-prompt">${spEscapeHtml(q.prompt)}</div>
       ${q.options ? `
         <div class="sp-quiz-options" id="optWrap">
-          ${q.options.map(o => `<button type="button" class="sp-quiz-option" onclick="pickOption('${spEscapeHtml(o).replace(/'/g,"\\'")}', this)">${spEscapeHtml(o)}</button>`).join('')}
+          ${q.options.map(o => `<button type="button" class="sp-quiz-option" onclick="pickOption('${spJsStrAttr(o)}', this)">${spEscapeHtml(o)}</button>`).join('')}
         </div>
       ` : `
         <input type="text" class="sp-quiz-input" id="freeAnswer" placeholder="Type the English word…" autocomplete="off" autofocus onkeydown="if(event.key==='Enter')nextQuestion()">

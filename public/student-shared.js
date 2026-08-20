@@ -38,6 +38,17 @@ async function spPost(path, data) {
 }
 
 function spEscapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// For a value embedded as a single-quoted JS string literal inside a double-quoted HTML
+// attribute (e.g. onclick="fn('${spJsStrAttr(word)}')") — spEscapeHtml() alone turns '
+// into &#39;, which the browser HTML-decodes back to ' when parsing the attribute,
+// landing an unescaped quote mid-string and breaking the onclick with a silent JS syntax
+// error (e.g. an answer option like "o'clock"). JS-escape the backslash/quote first, then
+// HTML-escape only the attribute-breaking chars, leaving the JS-escaped quote alone.
+function spJsStrAttr(s) {
+  return String(s==null?'':s)
+    .replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 // ── Guided tour: spotlights the real buttons (Vocab tab → unit picker → Start Practice,
 // Support tab → day picker → a time slot → Profile tab) instead of just describing them.

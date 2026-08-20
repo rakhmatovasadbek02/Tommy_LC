@@ -426,6 +426,20 @@
   // Shared by all three tabs (was duplicated identically in vocab-admin.html/student-codes.html).
   function escapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escapeAttr(s) { return escapeHtml(s); }
+  // For a value embedded as a single-quoted JS string literal inside a double-quoted
+  // HTML attribute (e.g. onclick="fn('${jsStrAttr(name)}')") — names with an apostrophe
+  // (very common in Uzbek: "Ro'ziqulov", "G'aybullayev") broke this before: escapeHtml()
+  // turned ' into &#39;, so the later JS-escape step found no raw quote left to escape;
+  // the browser then HTML-decodes &#39; back to ' when parsing the attribute, landing an
+  // unescaped quote mid-string and throwing a silent JS syntax error on click — the
+  // picker item just did nothing. Escape order here matters: JS-escape the backslash and
+  // quote first, then HTML-escape only the attribute-breaking chars, explicitly leaving
+  // the already-JS-escaped quote alone.
+  function jsStrAttr(s) {
+    return String(s==null?'':s)
+      .replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
   function switchMainTab(tab) {
     document.getElementById('panelRoster').style.display    = tab==='roster' ? '' : 'none';
@@ -783,7 +797,7 @@
     const list = document.getElementById('vocStudentPickList');
     if (!q) { list.classList.remove('open'); list.innerHTML = ''; return; }
     const matches = VOC_STUDENTS.filter(s => (s.lastName+' '+s.firstName).toLowerCase().includes(q)).slice(0, 15);
-    list.innerHTML = matches.map(s => `<div class="student-pick-item" onclick="vocPickStudent('${s.id}','${escapeHtml(s.lastName+' '+s.firstName).replace(/'/g,"\\'")}')">${escapeHtml(s.lastName)} ${escapeHtml(s.firstName)}</div>`).join('') || '<div class="student-pick-item" style="color:var(--muted)">No matches</div>';
+    list.innerHTML = matches.map(s => `<div class="student-pick-item" onclick="vocPickStudent('${s.id}','${jsStrAttr(s.lastName+' '+s.firstName)}')">${escapeHtml(s.lastName)} ${escapeHtml(s.firstName)}</div>`).join('') || '<div class="student-pick-item" style="color:var(--muted)">No matches</div>';
     list.classList.add('open');
   }
   function vocPickStudent(id, name) {
@@ -937,7 +951,7 @@
     const list = document.getElementById('pcStudentPickList');
     if (!q) { list.classList.remove('open'); list.innerHTML = ''; return; }
     const matches = PC_STUDENTS.filter(s => (s.lastName+' '+s.firstName).toLowerCase().includes(q)).slice(0, 15);
-    list.innerHTML = matches.map(s => `<div class="student-pick-item" onclick="pcPickStudent('${s.id}','${escapeHtml(s.lastName+' '+s.firstName).replace(/'/g,"\\'")}')">${escapeHtml(s.lastName)} ${escapeHtml(s.firstName)}</div>`).join('') || '<div class="student-pick-item" style="color:var(--muted)">No matches</div>';
+    list.innerHTML = matches.map(s => `<div class="student-pick-item" onclick="pcPickStudent('${s.id}','${jsStrAttr(s.lastName+' '+s.firstName)}')">${escapeHtml(s.lastName)} ${escapeHtml(s.firstName)}</div>`).join('') || '<div class="student-pick-item" style="color:var(--muted)">No matches</div>';
     list.classList.add('open');
   }
   function pcPickStudent(id, name) {
