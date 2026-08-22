@@ -456,6 +456,9 @@ selectedUnit = group.currentUnit || '1A';
 document.getElementById('pageTitle').textContent =
 [group.name, group.level, group.teacher ? reverseName(group.teacher) : null].filter(Boolean).join(' · ');
 document.getElementById('unitBadgeVal').textContent = selectedUnit;
+// CEFR groups don't follow the textbook's 1A/1B/1C unit numbering — they progress
+// through vocab Phases instead, so "current unit" has nothing to track here.
+document.getElementById('unitBadge').style.display = group.level === 'CEFR' ? 'none' : '';
 document.getElementById('loadingState').style.display = 'none';
 document.getElementById('groupLayout').style.display = 'grid';
 renderGroupInfo();

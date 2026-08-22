@@ -239,7 +239,7 @@ onblur="this.style.borderColor='var(--border)'">
     <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Group</div><div style="font-weight:600" id="spGroupName">—</div></div>
     <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Level</div><div style="font-weight:600" id="spGroupLevel">—</div></div>
     <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Teacher</div><div style="font-weight:600" id="spGroupTeacher">—</div></div>
-    <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Current Unit</div><div style="font-weight:600" id="spGroupUnit">—</div></div>
+    <div id="spGroupUnitBlock"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Current Unit</div><div style="font-weight:600" id="spGroupUnit">—</div></div>
   </div>
 </div>
 <div class="form-group"><label>Support Theme *</label><input type="text" id="spTheme" placeholder="e.g. Past Simple exercises, Unit 3 vocabulary…"></div>
@@ -467,7 +467,7 @@ style="position:absolute;top:2px;left:2px;width:${blockW}px;bottom:2px;backgroun
 ${cls.lang?`<span class="tt-chip" style="font-size:11px;background:rgba(255,255,255,0.38);border-radius:4px;padding:0 4px;line-height:1.5;flex-shrink:0">${LANG_FLAG[cls.lang]||''}</span>`:''}
 </div>
 <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-${cls.currentUnit?`<span class="tt-chip" style="font-size:10px;font-weight:700;color:${c};background:${textCol};padding:1px 5px;border-radius:4px;white-space:nowrap">${cls.currentUnit}</span>`:''}
+${cls.currentUnit && cls.level !== 'CEFR'?`<span class="tt-chip" style="font-size:10px;font-weight:700;color:${c};background:${textCol};padding:1px 5px;border-radius:4px;white-space:nowrap">${cls.currentUnit}</span>`:''}
 ${enrolled?`<span class="tt-chip" style="font-size:10px;font-weight:600;color:${textCol};background:rgba(255,255,255,0.22);padding:1px 5px;border-radius:4px;white-space:nowrap">👥 ${enrolled}</span>`:''}
 </div>
 </div>
@@ -757,6 +757,8 @@ if (grp) {
   document.getElementById('spGroupLevel').textContent = grp.level || '—';
   document.getElementById('spGroupTeacher').textContent = grp.teacher ? reverseName(grp.teacher) : '—';
   document.getElementById('spGroupUnit').textContent = grp.currentUnit || grp.current_unit || '—';
+  // CEFR groups track progress via vocab Phases, not the textbook's 1A/1B/1C units.
+  document.getElementById('spGroupUnitBlock').style.display = grp.level === 'CEFR' ? 'none' : '';
 }
 document.getElementById('spStudentResults').style.display='none';
 }

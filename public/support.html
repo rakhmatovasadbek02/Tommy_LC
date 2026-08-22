@@ -176,7 +176,7 @@
     <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Group</div><div style="font-weight:600" id="spGroupName">—</div></div>
     <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Level</div><div style="font-weight:600" id="spGroupLevel">—</div></div>
     <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Teacher</div><div style="font-weight:600" id="spGroupTeacher">—</div></div>
-    <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Current Unit</div><div style="font-weight:600" id="spGroupUnit">—</div></div>
+    <div id="spGroupUnitBlock"><div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Current Unit</div><div style="font-weight:600" id="spGroupUnit">—</div></div>
   </div>
 </div>
 <div class="form-group"><label>Support Theme *</label><input type="text" id="spTheme" placeholder="e.g. Past Simple exercises, Unit 3 vocabulary…"></div>
@@ -449,6 +449,8 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
       document.getElementById('spGroupLevel').textContent=grp.level||'—';
       document.getElementById('spGroupTeacher').textContent=grp.teacher?reverseName(grp.teacher):'—';
       document.getElementById('spGroupUnit').textContent=grp.currentUnit||grp.current_unit||'—';
+      // CEFR groups track progress via vocab Phases, not the textbook's 1A/1B/1C units.
+      document.getElementById('spGroupUnitBlock').style.display = grp.level === 'CEFR' ? 'none' : '';
     }
     document.getElementById('spStudentResults').style.display='none';
   }
