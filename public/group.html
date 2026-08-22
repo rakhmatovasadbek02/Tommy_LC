@@ -752,10 +752,15 @@ function renderVocab() {
     const name = s.lastName+' '+s.firstName;
     // Most recent attempt (by completedAt) covering each unit decides that cell.
     const mine = VOCAB_ATTEMPTS.filter(a => a.studentId === s.id).sort((a,b) => new Date(b.completedAt)-new Date(a.completedAt));
+    // Portal registration, not identity, is what matters on this table — swap the usual
+    // initials avatar for a tick/cross so it's visible at a glance who can self-practice.
+    const portalMark = s.hasPortalAccount
+      ? `<div class="att-avatar" style="background:#1D8A4C" title="Registered on the Student Portal">${IC_CHECK}</div>`
+      : `<div class="att-avatar" style="background:#C0202E" title="Not registered on the Student Portal">${IC_X}</div>`;
     tbody += `<tr>
       <td class="name-col">
         <div class="att-name-cell">
-          <div class="att-avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
+          ${portalMark}
           <span ${_isTeacher ? '' : `style="cursor:pointer" onclick="window.location.href='student-profile.html?id=${s.id}'"`} onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()">${name}</span>
         </div>
       </td>

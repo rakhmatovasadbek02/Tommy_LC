@@ -443,6 +443,9 @@ async function initDB() {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS roles JSONB DEFAULT '[]'`,
     `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS attended BOOLEAN`,
     `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS theme TEXT`,
+    // Distinguishes a student's own self-booking (student portal) from one an
+    // admin/teacher scheduled for them on the staff side.
+    `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS booked_by TEXT NOT NULL DEFAULT 'admin'`,
     `CREATE TABLE IF NOT EXISTS support_fines (id TEXT PRIMARY KEY, student_id TEXT NOT NULL, issued_at TIMESTAMPTZ DEFAULT NOW(), blocked_until TIMESTAMPTZ NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
     `CREATE TABLE IF NOT EXISTS support_sessions (id TEXT PRIMARY KEY, date DATE, time TEXT, duration INT DEFAULT 30, teacher TEXT, student_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -1019,11 +1022,12 @@ app.delete('/api/users/:id', async (req, res) => {
 /* STUDENTS */
 app.get('/api/students', async (req, res) => {
   try {
-    const [studRes, grpRes, cmtRes] = await Promise.all([
+    const [studRes, grpRes, cmtRes, loginRes] = await Promise.all([
       pool.query("SELECT * FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE ORDER BY created_at DESC"),
       pool.query('SELECT id,name,teacher,level,time,start_date,student_ids FROM groups'),
       pool.query(`SELECT DISTINCT ON (student_id) student_id, text, actor, created_at
-                  FROM student_comments ORDER BY student_id, created_at DESC`)
+                  FROM student_comments ORDER BY student_id, created_at DESC`),
+      pool.query('SELECT student_id FROM student_logins'),
     ]);
     const groups = grpRes.rows;
     const studentGroups = {};
@@ -1036,6 +1040,7 @@ app.get('/api/students', async (req, res) => {
     const lastComment = {};
     for (const c of cmtRes.rows) lastComment[c.student_id] = c;
     const enrolled = new Set(groups.flatMap(g => g.student_ids || []));
+    const hasAccount = new Set(loginRes.rows.map(r => r.student_id));
     res.json(studRes.rows.map(s => {
       const lc = lastComment[s.id];
       return {
@@ -1043,6 +1048,7 @@ app.get('/api/students', async (req, res) => {
         phone: s.phone, phoneParent: s.phone_parent, phoneMother: s.phone_mother, phoneOther: s.phone_other,
         level: s.level,
         status: enrolled.has(s.id) ? (s.status === 'Frozen' ? 'Frozen' : 'Active') : 'Inactive',
+        hasPortalAccount: hasAccount.has(s.id),
         balance: Number(s.balance || 0),
         balance_frozen: s.balance_frozen || false,
         frozen_comment: s.frozen_comment || null,
@@ -1988,7 +1994,7 @@ function studentMaxBookingDate(nowTz) {
 // Shared validation + insert for booking a support session — used by both the admin
 // booking route (POST /api/support) and the student self-booking route
 // (POST /api/student/support/book). Throws { status, message } on any rule violation.
-async function createSupportSession({ id, date, time, duration, teacher, studentId, theme }) {
+async function createSupportSession({ id, date, time, duration, teacher, studentId, theme, bookedBy }) {
   if (!date || !time || !teacher || !studentId) throw { status: 400, message: 'Date, time, teacher and student are required.' };
   if (!theme || !theme.trim()) throw { status: 400, message: 'Theme is required.' };
   // Block past times
@@ -2022,8 +2028,8 @@ async function createSupportSession({ id, date, time, duration, teacher, student
   if (overlap.length >= 2) throw { status: 409, message: 'Both support slots are already taken at this time.' };
   if (overlap.some(s => s.teacher === teacher)) throw { status: 409, message: 'This teacher already has a session at this time.' };
   await pool.query(
-    'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme) VALUES($1,$2,$3,$4,$5,$6,$7)',
-    [id, date, time, dur, teacher, studentId, theme.trim()]
+    'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme,booked_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+    [id, date, time, dur, teacher, studentId, theme.trim(), bookedBy === 'student' ? 'student' : 'admin']
   );
   broadcast('support');
 }
@@ -2059,13 +2065,15 @@ app.get('/api/support/:date', async (req, res) => {
     const { rows } = isSupport && !isAdmin
       ? await pool.query('SELECT * FROM support_sessions WHERE date=$1 AND teacher=$2 ORDER BY time', [req.params.date, myName])
       : await pool.query('SELECT * FROM support_sessions WHERE date=$1 ORDER BY time', [req.params.date]);
-    res.json(rows.map(s => ({ id:s.id, date:s.date, time:s.time, duration:s.duration, teacher:s.teacher, studentId:s.student_id, theme:s.theme, attended:s.attended })));
+    res.json(rows.map(s => ({ id:s.id, date:s.date, time:s.time, duration:s.duration, teacher:s.teacher, studentId:s.student_id, theme:s.theme, attended:s.attended, bookedBy:s.booked_by })));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/support', async (req, res) => {
   try {
-    await createSupportSession(req.body);
+    // Always 'admin' here regardless of body content — this is the staff-side booking
+    // route; student self-booking only ever goes through POST /api/student/support/book.
+    await createSupportSession({ ...req.body, bookedBy: 'admin' });
     res.json({ ok: true });
   } catch(e) {
     if (e && e.status) return res.status(e.status).json({ error: e.message });
@@ -2172,6 +2180,7 @@ app.get('/api/support-dashboard', async (req, res) => {
         teacher: s.teacher,
         attended: s.attended,
         theme: s.theme,
+        bookedBy: s.booked_by,
       };
     });
 
@@ -2184,6 +2193,7 @@ app.get('/api/support-dashboard', async (req, res) => {
         studentName: stu ? stu.last_name + ' ' + stu.first_name : '?',
         attended: s.attended,
         theme: s.theme,
+        bookedBy: s.booked_by,
       };
     });
 
@@ -3067,7 +3077,7 @@ app.post('/api/student/support/book', async (req, res) => {
     const already = await pool.query('SELECT 1 FROM support_sessions WHERE student_id=$1 AND date=$2 LIMIT 1', [studentId, date]);
     if (already.rows.length) return res.status(409).json({ error: 'You already booked a support session today.' });
     const id = genVocabId('sup');
-    await createSupportSession({ id, date, time, duration, teacher, studentId, theme });
+    await createSupportSession({ id, date, time, duration, teacher, studentId, theme, bookedBy: 'student' });
     res.json({ ok: true });
   } catch(e) {
     if (e && e.status) return res.status(e.status).json({ error: e.message });
