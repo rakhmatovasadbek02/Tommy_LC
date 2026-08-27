@@ -517,17 +517,30 @@
     selectedIds = cb.checked ? new Set(students.map(s=>s.id)) : new Set();
   }
 
+  // Phones are stored as "XX XXX XX XX" (no country code), but people search however they
+  // typed/copied the number: with spaces, dashes, parens, a +998/998 prefix, a leading 0,
+  // or as one unbroken string. Strip everything but digits on both sides so all of those
+  // match the same way, and drop a leading country code / trunk-prefix zero from the query.
+  function normalizePhoneQuery(q) {
+    let d = String(q || '').replace(/\D/g, '');
+    if (d.startsWith('998') && d.length > 9) d = d.slice(3);
+    else if (d.startsWith('0') && d.length > 9) d = d.slice(1);
+    return d;
+  }
   function renderStudents() {
-    const q  = document.getElementById('searchInput').value.toLowerCase();
+    const qRaw = document.getElementById('searchInput').value;
+    const q  = qRaw.toLowerCase();
+    const qDigits = normalizePhoneQuery(qRaw);
     const fs = document.getElementById('filterStatus').value;
     const fl = document.getElementById('filterLevel').value;
     const fg = document.getElementById('filterGroup').value;
     const ft = document.getElementById('filterTeacher').value;
     const fb = document.getElementById('filterBalance').value;
+    const phoneMatch = field => qDigits.length >= 2 && String(field || '').replace(/\D/g, '').includes(qDigits);
     let filtered = students.filter(s => {
       const name = (s.firstName+' '+s.lastName).toLowerCase();
       const bal  = Number(s.balance||0);
-      return (!q || name.includes(q) || (s.phone||'').includes(q))
+      return (!q || name.includes(q) || phoneMatch(s.phone) || phoneMatch(s.phoneParent) || phoneMatch(s.phoneMother) || phoneMatch(s.phoneOther))
           && (!fs || s.status === fs)
           && (!fl || s.level === fl)
           && (!fg || (s.groups||[]).some(g=>g.id===fg))

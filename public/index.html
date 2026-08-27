@@ -324,17 +324,30 @@ async function ensureStudents() {
 if (_studentsLoaded) return;
 try { window._students = await apiGet('/api/students'); if (isTeacher()) window._students = window._students.filter(s=>(s.groups||[]).some(ownsGroup)); _studentsLoaded = true; } catch { window._students = []; }
 }
+// Phones are stored as "XX XXX XX XX" (no country code), but people search however they
+// typed/copied the number: with spaces, dashes, parens, a +998/998 prefix, a leading 0,
+// or as one unbroken string. Strip everything but digits on both sides so all of those
+// match the same way, and drop a leading country code / trunk-prefix zero from the query
+// so e.g. "+998 97 902 06 05", "998979020605" and "097 902 06 05" all find "97 902 06 05".
+function normalizePhoneQuery(q) {
+  let d = String(q || '').replace(/\D/g, '');
+  if (d.startsWith('998') && d.length > 9) d = d.slice(3);
+  else if (d.startsWith('0') && d.length > 9) d = d.slice(1);
+  return d;
+}
 async function searchStudents(q) {
 const dd = document.getElementById('searchDropdown');
 if (!q.trim()) { dd.style.display = 'none'; return; }
 await ensureStudents();
 const ql = q.toLowerCase();
+const qDigits = normalizePhoneQuery(q);
+const phoneMatch = field => qDigits.length >= 2 && String(field || '').replace(/\D/g, '').includes(qDigits);
 const results = (window._students || []).filter(s =>
 (s.firstName+' '+s.lastName).toLowerCase().includes(ql) ||
-(s.phone||'').includes(q) ||
-(s.phoneParent||'').includes(q) ||
-(s.phoneMother||'').includes(q) ||
-(s.phoneOther||'').includes(q) ||
+phoneMatch(s.phone) ||
+phoneMatch(s.phoneParent) ||
+phoneMatch(s.phoneMother) ||
+phoneMatch(s.phoneOther) ||
 (s.level||'').toLowerCase().includes(ql)
 ).slice(0, 8);
 const SBADGE = { Active:'#1E6B45', Trial:'#A05C00', Lead:'#1D4ED8', Inactive:'#666' };
