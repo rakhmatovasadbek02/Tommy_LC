@@ -172,12 +172,20 @@
         </div>
         <select id="filterStatus" onchange="renderStudents()" style="width:auto;padding:9px 14px">
           <option value="">All Statuses</option>
-          <option>Active</option><option>Frozen</option><option>Inactive</option>
+          <!-- Explicit value= is required here: shared.js's i18n rewrites every visible text
+               node (including option labels) when the UI language isn't English, and an
+               option with no value= attribute uses its own text as its value — so without
+               this, selecting "Faol"/"Активный" etc. produced a value that never matched
+               the student's (always-English) status field, silently breaking this filter
+               in Russian/Uzbek. -->
+          <option value="Active">Active</option><option value="Frozen">Frozen</option><option value="Inactive">Inactive</option>
         </select>
         <select id="filterLevel" onchange="renderStudents()" style="width:auto;padding:9px 14px">
           <option value="">All Levels</option>
-          <option>RoundUp</option><option>Beginner</option><option>Elementary</option>
-          <option>Pre-Intermediate</option><option>Intermediate</option><option>CEFR</option><option>IELTS</option>
+          <!-- Same explicit-value= precaution as filterStatus above — these aren't currently
+               translated, but would silently break the same way the moment they are. -->
+          <option value="RoundUp">RoundUp</option><option value="Beginner">Beginner</option><option value="Elementary">Elementary</option>
+          <option value="Pre-Intermediate">Pre-Intermediate</option><option value="Intermediate">Intermediate</option><option value="CEFR">CEFR</option><option value="IELTS">IELTS</option>
         </select>
         <select id="filterGroup" onchange="renderStudents()" style="width:auto;padding:9px 14px">
           <option value="">All Groups</option>
@@ -304,7 +312,7 @@
       </div>
       <div class="form-row" id="sStatusRow" style="display:none">
         <div class="form-group"><label>Status</label>
-          <select id="sStatus"><option>Active</option><option>Frozen</option><option>Inactive</option></select>
+          <select id="sStatus"><option value="Active">Active</option><option value="Frozen">Frozen</option><option value="Inactive">Inactive</option></select>
         </div>
         <div class="form-group"><label>Exam Date</label><input type="date" id="sExamDate"></div>
       </div>
