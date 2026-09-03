@@ -56,7 +56,7 @@ async function load() {
   try {
     const [me, home] = await Promise.all([
       spGet('/api/student/me'),
-      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, vocabStats: null, recommendedUnits: [] })),
+      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, vocabStats: null, attendance: null, recommendedUnits: [] })),
     ]);
     const nextItems = [];
     if (home.pendingTest) {
@@ -70,8 +70,12 @@ async function load() {
     }
 
     const vs = home.vocabStats;
-    function vstatRow(title, stat) {
-      const total = stat?.total || 0, passed = stat?.passed || 0;
+    const att = home.attendance;
+    // `verb`/`emptyLabel` let this same percent-bar layout read naturally for both
+    // vocab stats ("3 of 5 passed") and attendance ("8 of 10 attended").
+    function vstatRow(title, stat, verb, emptyLabel) {
+      verb = verb || 'passed'; emptyLabel = emptyLabel || 'No attempts yet';
+      const total = stat?.total || 0, passed = stat?.passed ?? stat?.present ?? 0;
       const pct = total ? Math.round((passed/total)*100) : null;
       return `
         <div class="sp-vstat">
@@ -79,7 +83,7 @@ async function load() {
             <span class="sp-vstat-title">${title}</span>
             <span class="sp-vstat-pct">${pct!==null ? pct+'%' : '—'}</span>
           </div>
-          <div class="sp-vstat-sub">${total ? `${passed} of ${total} passed` : 'No attempts yet'}</div>
+          <div class="sp-vstat-sub">${total ? `${passed} of ${total} ${verb}` : emptyLabel}</div>
           ${pct!==null ? `<div class="sp-progress-track"><div class="sp-progress-fill ${pct>=80?'green':pct>=50?'amber':''}" style="width:${pct}%"></div></div>` : ''}
         </div>`;
     }
@@ -100,6 +104,12 @@ async function load() {
           </div>
         `).join('') : `<div class="sp-empty">Nothing scheduled right now.</div>`}
       </div>
+
+      ${att ? `
+      <div class="sp-card">
+        <div class="sp-card-title">Attendance</div>
+        ${vstatRow('This Month', att, 'attended', 'No classes recorded yet this month')}
+      </div>` : ''}
 
       ${vs ? `
       <div class="sp-card">
