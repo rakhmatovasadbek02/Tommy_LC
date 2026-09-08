@@ -587,7 +587,8 @@
         <td class="col-teacher st-teacher">${teacherHTML}</td>
         <td class="col-bal"><span class="st-balance ${balClass}">${balStr}</span></td>
         <td class="col-actions" onclick="event.stopPropagation()">
-          ${isTeacher()?'':`<button class="st-edit-btn" onclick="editStudent('${s.id}')" title="Edit">${IC.edit}</button>`}
+          ${isTeacher()?'':`<button class="st-edit-btn" onclick="editStudent('${s.id}')" title="Edit">${IC.edit}</button>
+          <button class="st-edit-btn" onclick="deleteStudent('${s.id}')" title="Archive">${IC.trash}</button>`}
         </td>
       </tr>`;
     }).join('');
