@@ -257,7 +257,7 @@
             </div>
 
             <div class="pc2-bottom-actions">
-              <button class="pc2-action-btn" onclick="switchTabByName('groups')" title="View groups">
+              <button class="pc2-action-btn" onclick="openAddToGroupModal()" title="Add to group">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                 Group
               </button>
@@ -475,6 +475,28 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('archiveModal')">Cancel</button>
       <button class="btn btn-danger" onclick="confirmArchive()">Archive</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addGroupModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Add to Group</div>
+      <button class="modal-close" onclick="closeModal('addGroupModal')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 12px;font-weight:700;font-size:15px" id="addGroupStudentName"></p>
+      <div class="form-group">
+        <label>Group *</label>
+        <select id="addGroupSelect">
+          <option value="">— Select group —</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('addGroupModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddToGroup()">Add</button>
     </div>
   </div>
 </div>
@@ -865,6 +887,37 @@
   function switchTabByName(name) {
     const btn = [...document.querySelectorAll('.profile-tab')].find(t => t.getAttribute('onclick')?.includes(`'${name}'`));
     if (btn) switchTab(name, btn);
+  }
+
+  // The "Group" quick-action actually adds the student to a group (not just a view —
+  // "Groups" is the default active tab, so a plain tab-switch there was invisible/no-op
+  // most of the time and read as a dead button).
+  async function openAddToGroupModal() {
+    document.getElementById('addGroupStudentName').textContent = student ? student.lastName+' '+student.firstName : '';
+    const allGrps = await apiGet('/api/groups');
+    const currentIds = new Set((studentGroups||[]).map(g => g.id));
+    const sel = document.getElementById('addGroupSelect');
+    sel.innerHTML = '<option value="">— Select group —</option>' +
+      allGrps.filter(g => !currentIds.has(g.id)).map(g =>
+        `<option value="${g.id}">${g.name}${g.level?' · '+g.level:''}</option>`
+      ).join('');
+    openModal('addGroupModal');
+  }
+  async function submitAddToGroup() {
+    const targetId = document.getElementById('addGroupSelect').value;
+    if (!targetId) { showToast('Select a group.', 'error'); return; }
+    try {
+      const allGrps = await apiGet('/api/groups');
+      const target = allGrps.find(g => g.id === targetId);
+      if (!target) { showToast('Group not found.', 'error'); return; }
+      const newIds = [...new Set([...(target.studentIds||[]), STUDENT_ID])];
+      await apiPatch('/api/groups/'+targetId+'/students', { studentIds: newIds });
+      closeModal('addGroupModal');
+      logActivity(`Added ${student?.lastName} ${student?.firstName} to ${target.name}`, '');
+      showToast(`Added to ${target.name}.`);
+      await loadProfile();
+      switchTabByName('groups');
+    } catch(e) { showToast('Error adding to group.', 'error'); }
   }
 
 
