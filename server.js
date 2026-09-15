@@ -2556,7 +2556,7 @@ app.get('/api/vocab/attempts', async (req, res) => {
         SELECT t.*, s.first_name AS s_first, s.last_name AS s_last
         FROM vocab_attempts t
         LEFT JOIN students s ON s.id = t.student_id
-        ORDER BY t.completed_at DESC LIMIT 300
+        ORDER BY t.completed_at DESC
       `),
       pool.query('SELECT id, name FROM vocab_units'),
     ]);
