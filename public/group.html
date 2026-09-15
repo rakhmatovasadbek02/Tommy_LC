@@ -780,6 +780,25 @@ function renderVocab() {
   table.innerHTML = thead + tbody;
 }
 let _autoSaveTimer = null;
+// If the tab is closed/navigated away within the debounce window below, the pending
+// mark would otherwise never be sent — flush it immediately via a keepalive fetch,
+// which (unlike a plain fetch) is allowed to outlive page unload.
+function flushPendingAttendance() {
+  if (!_autoSaveTimer) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = null;
+  Object.entries(attData).forEach(([date, records]) => {
+    const arr = Object.entries(records).map(([studentId,status])=>({studentId,status}));
+    fetch(`/api/attendance/${groupId}/${date}`, {
+      method: 'POST',
+      headers: authHeaders({'Content-Type':'application/json'}),
+      body: JSON.stringify({ records: arr }),
+      keepalive: true
+    }).catch(()=>{});
+  });
+}
+window.addEventListener('pagehide', flushPendingAttendance);
+window.addEventListener('beforeunload', flushPendingAttendance);
 function scheduleAutoSave() {
   if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
   const ind = document.getElementById('autoSaveInd');
