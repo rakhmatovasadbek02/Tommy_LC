@@ -84,6 +84,8 @@
   .progress-fill{height:100%;background:linear-gradient(90deg,var(--crimson-light),var(--crimson));border-radius:99px;transition:width .35s cubic-bezier(.3,.8,.3,1)}
 
   .qcounter{text-align:center;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:10px}
+  .qtimer{text-align:center;font-size:14px;font-weight:800;color:var(--muted);margin-bottom:6px;transition:color .2s}
+  .qtimer.low{color:var(--crimson-dark);animation:shake .3s}
   .qprompt{font-size:36px;font-weight:800;text-align:center;margin:4px 0 30px;line-height:1.25;word-break:break-word}
   @media (min-width:700px){ .qprompt{font-size:42px} }
 
@@ -166,6 +168,7 @@
     <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     <div id="questionBody">
       <div class="qcounter" id="qCounter"></div>
+      <div class="qtimer" id="qTimer"></div>
       <div class="qprompt" id="qPrompt"></div>
       <input type="text" id="qAnswer" placeholder="Type in English…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')nextQuestion()">
       <div class="mc-options hide" id="mcOptions"></div>
@@ -197,6 +200,50 @@ let IDX = 0;
 let ANSWERS = [];
 let SELECTED_MC = null;
 
+// ── Per-word timer ──
+// Each word gets 15s, but time isn't reset per word — whatever's left when the student
+// moves on (by answering or skipping) rolls into the next word's allowance, so unused
+// time from easy words banks up for harder ones later. A single running "bank" number
+// models this: it only ever grows by +15 at each transition, never resets to a flat 15.
+const TIME_PER_WORD = 15;
+let TIMER_BANK = TIME_PER_WORD;
+let TIMER_INTERVAL = null;
+
+function startTimer() {
+  stopTimer();
+  renderTimer();
+  TIMER_INTERVAL = setInterval(() => {
+    TIMER_BANK--;
+    if (TIMER_BANK <= 0) { TIMER_BANK = 0; renderTimer(); stopTimer(); handleTimeout(); return; }
+    renderTimer();
+  }, 1000);
+}
+function stopTimer() {
+  if (TIMER_INTERVAL) { clearInterval(TIMER_INTERVAL); TIMER_INTERVAL = null; }
+}
+function renderTimer() {
+  const el = document.getElementById('qTimer');
+  if (!el) return;
+  el.textContent = TIMER_BANK + 's';
+  el.classList.toggle('low', TIMER_BANK <= 5);
+}
+// Whatever's left on the clock when leaving a word (by answer, skip, or 0 timeout)
+// carries into the next word's allowance.
+function rolloverTimer() {
+  stopTimer();
+  TIMER_BANK += TIME_PER_WORD;
+}
+function handleTimeout() {
+  if (IDX >= QUESTIONS.length) return;
+  const q = QUESTIONS[IDX];
+  ANSWERS.push({ qid: q.qid, given: '' });
+  rolloverTimer();
+  IDX++;
+  if (IDX < QUESTIONS.length) { renderQuestion(); return; }
+  document.getElementById('progressFill').style.width = '100%';
+  submitTest();
+}
+
 // ── Anti-cheat guard ──
 // Switching tabs, minimizing, or closing the page while a test is in progress reports a
 // violation the instant it happens (visibilitychange fires before the page actually
@@ -209,6 +256,7 @@ function reportViolation(reason) {
   if (!TEST_ACTIVE || VIOLATION_SENT) return;
   VIOLATION_SENT = true;
   TEST_ACTIVE = false;
+  stopTimer();
   try {
     fetch('/api/public/vocab/test/' + ACCESS_ID + '/violation', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -252,6 +300,7 @@ function show(id) {
 function resetToStart() {
   ACCESS_ID = null; QUESTIONS = []; IDX = 0; ANSWERS = []; SELECTED_MC = null;
   TEST_ACTIVE = false; VIOLATION_SENT = false;
+  stopTimer(); TIMER_BANK = TIME_PER_WORD;
   const codeInput = document.getElementById('codeInput');
   codeInput.value = '';
   document.getElementById('entryErr').style.display = 'none';
@@ -287,6 +336,7 @@ async function beginTest() {
   ANSWERS = [];
   TEST_ACTIVE = true;
   VIOLATION_SENT = false;
+  TIMER_BANK = TIME_PER_WORD;
   show('viewTest');
   renderQuestion();
 }
@@ -315,6 +365,7 @@ function renderQuestion() {
     input.value = '';
     input.focus();
   }
+  startTimer();
 }
 
 function selectMc(btn, i) {
@@ -329,6 +380,7 @@ function selectMc(btn, i) {
 function skipQuestion() {
   const [q] = QUESTIONS.splice(IDX, 1);
   QUESTIONS.push(q);
+  rolloverTimer();
   renderQuestion();
 }
 
@@ -338,6 +390,7 @@ async function nextQuestion() {
   const given = q.options ? (SELECTED_MC || '') : document.getElementById('qAnswer').value.trim();
   if (q.options && !given) return; // must pick an option first
   ANSWERS.push({ qid: q.qid, given });
+  rolloverTimer();
   IDX++;
   if (IDX < QUESTIONS.length) { renderQuestion(); return; }
   document.getElementById('progressFill').style.width = '100%';
@@ -346,6 +399,7 @@ async function nextQuestion() {
 
 async function submitTest() {
   TEST_ACTIVE = false; // a normal finish shouldn't be caught by the anti-cheat guard
+  stopTimer();
   const r = await fetch('/api/public/vocab/test/' + ACCESS_ID + '/submit', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: ANSWERS })
