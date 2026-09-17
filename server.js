@@ -388,6 +388,10 @@ async function initDB() {
   // units matching the student's group level.
   await pool.query(`ALTER TABLE vocab_units ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'Elementary'`).catch(() => {});
   await pool.query(`ALTER TABLE vocab_attempts ADD COLUMN IF NOT EXISTS passed BOOLEAN`).catch(() => {});
+  // Set when the graded test (vocab-test.html) was auto-failed by the anti-cheat guard
+  // (student switched tabs / left the page) rather than actually completed — lets admins
+  // tell an auto-fail apart from a genuine attempt in the history views.
+  await pool.query(`ALTER TABLE vocab_attempts ADD COLUMN IF NOT EXISTS terminated_reason TEXT`).catch(() => {});
 
   // student_history table (added as separate migration for safety)
   await pool.query(`CREATE TABLE IF NOT EXISTS student_history (
@@ -2568,6 +2572,7 @@ app.get('/api/vocab/attempts', async (req, res) => {
       unitNames: (t.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
       // Older attempts recorded before the `passed` column existed: fall back to computing it.
       score: t.score, total: t.total, passed: t.passed !== null ? t.passed : vocabPassed(t.score, t.total),
+      terminatedReason: t.terminated_reason || null,
       completedAt: t.completed_at
     })));
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -3194,6 +3199,30 @@ app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
     await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
     broadcast('vocab');
     res.json({ ok: true, score, total, passed, details });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public, unauthenticated: anti-cheat guard on vocab-test.html. The client reports this the
+// instant the tab is hidden/closed while a test is in progress (switching tabs, minimizing,
+// closing the page) — the attempt is recorded as an immediate fail and the code is burned,
+// exactly like a normal submit, so the student can't resume or reuse it.
+app.put('/api/public/vocab/test/:accessId/violation', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM vocab_access WHERE id=$1', [req.params.accessId]);
+    const row = rows[0];
+    if (!row) return res.status(404).json({ error: 'Access not found.' });
+    if (row.used) return res.json({ ok: true }); // already finished/terminated — idempotent no-op
+    if (!row.question_set) return res.status(400).json({ error: 'Test was never started.' });
+
+    const reason = String(req.body?.reason || 'left_test').slice(0, 40);
+    await pool.query(
+      `INSERT INTO vocab_attempts(id, access_id, student_id, unit_ids, score, total, passed, answers, terminated_reason)
+       VALUES($1,$2,$3,$4,0,$5,FALSE,'[]',$6)`,
+      [genVocabId('vatt'), row.id, row.student_id, JSON.stringify(row.unit_ids), row.question_set.length, reason]
+    );
+    await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+    broadcast('vocab');
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

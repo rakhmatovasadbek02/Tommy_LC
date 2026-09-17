@@ -194,6 +194,51 @@ let IDX = 0;
 let ANSWERS = [];
 let SELECTED_MC = null;
 
+// ── Anti-cheat guard ──
+// Switching tabs, minimizing, or closing the page while a test is in progress reports a
+// violation the instant it happens (visibilitychange fires before the page actually
+// unloads, so this also catches an outright close) — the server auto-fails the attempt
+// and burns the code, so there is no way to switch away/look something up and come back.
+let TEST_ACTIVE = false;
+let VIOLATION_SENT = false;
+
+function reportViolation(reason) {
+  if (!TEST_ACTIVE || VIOLATION_SENT) return;
+  VIOLATION_SENT = true;
+  TEST_ACTIVE = false;
+  try {
+    fetch('/api/public/vocab/test/' + ACCESS_ID + '/violation', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }), keepalive: true
+    }).catch(() => {});
+  } catch (e) {}
+  showTerminated();
+}
+
+function showTerminated() {
+  const glow = document.getElementById('resultGlow');
+  const badge = document.getElementById('resultBadge');
+  const title = document.getElementById('resultTitle');
+  glow.className = 'result-glow fail';
+  badge.className = 'result-badge fail';
+  badge.innerHTML = IC_X;
+  title.className = 'result-title fail';
+  title.textContent = 'Test Terminated';
+  document.getElementById('resultSubtitle').textContent =
+    'You left the test, so this attempt was recorded as failed. Ask your admin for a new code.';
+  document.getElementById('resultScore').style.display = 'none';
+  document.getElementById('resultList').innerHTML = '';
+  show('viewResult');
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') reportViolation('left_page');
+});
+window.addEventListener('pagehide', () => reportViolation('left_page'));
+window.addEventListener('beforeunload', (e) => {
+  if (TEST_ACTIVE) { e.preventDefault(); e.returnValue = ''; }
+});
+
 const IC_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const IC_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
@@ -203,6 +248,7 @@ function show(id) {
 
 function resetToStart() {
   ACCESS_ID = null; QUESTIONS = []; IDX = 0; ANSWERS = []; SELECTED_MC = null;
+  TEST_ACTIVE = false; VIOLATION_SENT = false;
   const codeInput = document.getElementById('codeInput');
   codeInput.value = '';
   document.getElementById('entryErr').style.display = 'none';
@@ -236,6 +282,8 @@ async function beginTest() {
   QUESTIONS = data.questions;
   IDX = 0;
   ANSWERS = [];
+  TEST_ACTIVE = true;
+  VIOLATION_SENT = false;
   show('viewTest');
   renderQuestion();
 }
@@ -285,6 +333,7 @@ async function nextQuestion() {
 }
 
 async function submitTest() {
+  TEST_ACTIVE = false; // a normal finish shouldn't be caught by the anti-cheat guard
   const r = await fetch('/api/public/vocab/test/' + ACCESS_ID + '/submit', {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers: ANSWERS })
@@ -292,6 +341,7 @@ async function submitTest() {
   const data = await r.json();
   if (!r.ok) { alert(data.error || 'Could not submit test.'); return; }
 
+  document.getElementById('resultScore').style.display = '';
   const state = data.passed ? 'pass' : 'fail';
   const glow = document.getElementById('resultGlow');
   const badge = document.getElementById('resultBadge');

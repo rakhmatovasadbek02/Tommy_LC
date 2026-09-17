@@ -771,7 +771,8 @@ function renderVocab() {
         const att = mine.find(a => (a.unitIds||[]).includes(u.id));
         if (!att) return `<td><span class="chip-locked"></span></td>`;
         const pass = att.passed;
-        const title = `${att.score}/${att.total} · ${new Date(att.completedAt).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent' })}`;
+        const title = `${att.score}/${att.total} · ${new Date(att.completedAt).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent' })}`
+          + (att.terminatedReason ? ' · left test (auto-failed)' : '');
         return `<td><span class="chip ${pass?'chip-present':'chip-absent'} chip-locked" title="${title}">${pass?IC_CHECK:IC_X}</span></td>`;
       }).join('')}
     </tr>`;

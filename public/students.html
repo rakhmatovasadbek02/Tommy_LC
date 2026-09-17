@@ -865,7 +865,7 @@
   function vocAllRows() {
     const attemptRows = VOC_ATTEMPTS.map(t => ({
       studentName: t.studentName, unitNames: t.unitNames, score: `${t.score} / ${t.total}`,
-      passed: t.passed, date: t.completedAt, isCode: false,
+      passed: t.passed, terminatedReason: t.terminatedReason, date: t.completedAt, isCode: false,
     }));
     return [...vocCodeRows(), ...attemptRows].sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
   }
@@ -875,7 +875,9 @@
       : r.score;
     const status = r.isCode
       ? (r.used ? '<span class="vbadge-used">Used</span>' : '<span class="vbadge-pending">Pending</span>')
-      : (r.passed ? '<span class="vbadge-used" style="color:#1D8A4C">Passed</span>' : '<span class="vbadge-pending" style="color:#C0202E">Not passed</span>');
+      : r.terminatedReason
+        ? '<span class="vbadge-pending" style="color:#C0202E" title="Auto-failed: left the test">Left test</span>'
+        : (r.passed ? '<span class="vbadge-used" style="color:#1D8A4C">Passed</span>' : '<span class="vbadge-pending" style="color:#C0202E">Not passed</span>');
     const action = (r.isCode && !r.used && vocCanManage) ? `<button class="btn btn-outline" onclick="vocRevokeAccess('${r.id}')">Revoke</button>` : '';
     return `<tr>
       <td>${escapeHtml(r.studentName)}</td>
