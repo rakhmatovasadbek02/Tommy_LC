@@ -3993,18 +3993,20 @@ app.get('/api/statistics', async (req, res) => {
     if (!callerRoles_.includes('CEO')) return res.status(403).json({ error: 'CEO only.' });
 
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }));
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
-    // Staff Efficiency reports on one calendar month at a time, chosen via ?month=YYYY-MM
-    // (defaults to the current month) — independent of the portal's own "this month" stats below.
+    // The whole Statistics page reports on one calendar month at a time, chosen via
+    // ?month=YYYY-MM (defaults to the current month) — every event-based figure below
+    // (revenue, new leads, conversions, portal signups/attempts/sessions) is scoped to it.
+    // Pure current-state snapshots (active student count/balance, the live lead funnel,
+    // archive-by-reason tallies) have no historical record to show instead, so they stay
+    // "as of right now" regardless of which month is selected.
     const staffMonth = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : now.toISOString().slice(0, 7);
     const [staffYear, staffMonthNum] = staffMonth.split('-').map(Number);
     const staffMonthStart = new Date(staffYear, staffMonthNum - 1, 1).toISOString().split('T')[0];
     const staffMonthEnd = new Date(staffYear, staffMonthNum, 1).toISOString().split('T')[0];
+    const prevSelectedMonth = new Date(staffYear, staffMonthNum - 2, 1).toISOString().slice(0, 7);
 
-    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, allLeadsEverR, leadConvCountR, spendR, loginR, codeR, practiceR, supThisMonthR] = await Promise.all([
+    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadsInMonthR, convInMonthR, spendR, loginR, codeR, practiceR] = await Promise.all([
       pool.query("SELECT id, status, balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
       pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
@@ -4016,20 +4018,17 @@ app.get('/api/statistics', async (req, res) => {
                   FROM attendance a JOIN groups g ON g.id=a.group_id
                   WHERE a.date >= $1 AND a.date < $2`, [staffMonthStart, staffMonthEnd]),
       pool.query(`SELECT teacher, attended, date FROM support_sessions WHERE date >= $1 AND date < $2`, [staffMonthStart, staffMonthEnd]),
-      // The conversion-rate inputs below: leads.status='Registration' is actually the
-      // *entry* stage of the funnel (new leads default to it — see POST /api/leads), not
-      // a converted one, so counting it as "registered" both mislabels the metric and
-      // double-counts leads already included in totalLeads. lead_conversions is the
-      // authoritative one-row-per-real-conversion record (written once by /convert),
-      // and the denominator is every lead ever created, not just the currently-visible
-      // (non-archived) pipeline, so lost/rejected leads count against the rate too.
-      pool.query('SELECT COUNT(*)::int AS n FROM leads'),
-      pool.query('SELECT COUNT(*)::int AS n FROM lead_conversions'),
+      // Conversion rate is scoped to the selected month: of the leads *created* in that
+      // month, what fraction have a lead_conversions row (the authoritative
+      // one-row-per-real-conversion record written by /convert) dated in that same month.
+      // leads.status='Registration' is actually the funnel's *entry* stage (new leads
+      // default to it — see POST /api/leads), not a converted one, so it's never used here.
+      pool.query('SELECT COUNT(*)::int AS n FROM leads WHERE created_at >= $1 AND created_at < $2', [staffMonthStart, staffMonthEnd]),
+      pool.query('SELECT COUNT(*)::int AS n FROM lead_conversions WHERE converted_at >= $1 AND converted_at < $2', [staffMonthStart, staffMonthEnd]),
       pool.query(`SELECT amount, month, created_at FROM spendings ORDER BY created_at ASC`),
       pool.query(`SELECT student_id, created_at FROM student_logins`),
       pool.query(`SELECT used, created_at FROM student_portal_codes`),
       pool.query(`SELECT score, total, passed, completed_at FROM vocab_practice_attempts`),
-      pool.query(`SELECT COUNT(*) FROM support_sessions WHERE date >= $1`, [monthStart]),
     ]);
 
     const students = stuR.rows;
@@ -4048,13 +4047,13 @@ app.get('/api/statistics', async (req, res) => {
     const leadsByStatus = {};
     leads.forEach(l => { leadsByStatus[l.status] = (leadsByStatus[l.status] || 0) + 1; });
     const totalLeads = leads.length;
-    // Conversion rate: of every lead ever created (including lost/archived ones — they
-    // count against the rate too), what fraction actually became a paying student per
-    // lead_conversions, the one-row-per-real-conversion record written by /convert.
-    const totalLeadsEver = Number(allLeadsEverR.rows[0]?.n || 0);
-    const convertedLeadsCount = Number(leadConvCountR.rows[0]?.n || 0);
-    const conversionRate = totalLeadsEver > 0 ? Math.round(convertedLeadsCount / totalLeadsEver * 100) : 0;
-    const leadsThisMonth = leads.filter(l => l.created_at && l.created_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
+    // Conversion rate: of the leads created in the selected month, what fraction have a
+    // lead_conversions row (the authoritative one-row-per-real-conversion record written
+    // by /convert) dated in that same month.
+    const leadsCreatedInMonth = Number(leadsInMonthR.rows[0]?.n || 0);
+    const convertedInMonth = Number(convInMonthR.rows[0]?.n || 0);
+    const conversionRate = leadsCreatedInMonth > 0 ? Math.round(convertedInMonth / leadsCreatedInMonth * 100) : 0;
+    const leadsThisMonth = leadsCreatedInMonth;
 
     // ── Finance ──
     const paidInvoices = invoices.filter(i => i.status === 'Paid');
@@ -4076,14 +4075,9 @@ app.get('/api/statistics', async (req, res) => {
     });
     const totalSpendings = spendR.rows.reduce((sum, s) => sum + Number(s.amount || 0), 0);
 
-    const thisMonthRevenue = paidInvoices.filter(i => {
-      const key = i.month || (i.created_at ? i.created_at.toISOString().slice(0, 7) : '');
-      return key === now.toISOString().slice(0, 7);
-    }).reduce((sum, i) => sum + Number(i.total || 0), 0);
-    const prevMonthRevenue = paidInvoices.filter(i => {
-      const key = i.month || (i.created_at ? i.created_at.toISOString().slice(0, 7) : '');
-      return key === prevMonthStart.slice(0, 7);
-    }).reduce((sum, i) => sum + Number(i.total || 0), 0);
+    // Both already fall out of revenueByMonth above — no need to re-filter paidInvoices.
+    const thisMonthRevenue = revenueByMonth[staffMonth] || 0;
+    const prevMonthRevenue = revenueByMonth[prevSelectedMonth] || 0;
 
     // ── Staff efficiency ──
     const teacherMap = {};
@@ -4123,7 +4117,7 @@ app.get('/api/statistics', async (req, res) => {
 
     // ── Student portal adoption & usage ──
     const accountsCreated = loginR.rows.length;
-    const accountsThisMonth = loginR.rows.filter(r => r.created_at && r.created_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
+    const accountsThisMonth = loginR.rows.filter(r => r.created_at && r.created_at.toISOString().slice(0,7) === staffMonth).length;
     const adoptionRate = students.length > 0 ? Math.round(accountsCreated / students.length * 100) : 0;
     const codesIssued = codeR.rows.length;
     const codesUsed = codeR.rows.filter(c => c.used).length;
@@ -4131,10 +4125,13 @@ app.get('/api/statistics', async (req, res) => {
     const practiceAttempts = practiceR.rows.length;
     const practicePassed = practiceR.rows.filter(p => p.passed).length;
     const practicePassRate = practiceAttempts > 0 ? Math.round(practicePassed / practiceAttempts * 100) : 0;
-    const practiceThisMonth = practiceR.rows.filter(p => p.completed_at && p.completed_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
-    const supportSessionsThisMonth = Number(supThisMonthR.rows[0].count);
+    const practiceThisMonth = practiceR.rows.filter(p => p.completed_at && p.completed_at.toISOString().slice(0,7) === staffMonth).length;
+    // supR is already scoped to [staffMonthStart, staffMonthEnd) for the Staff Efficiency
+    // table above — same rows, so no need for a separate count query here.
+    const supportSessionsThisMonth = supR.rows.length;
 
     res.json({
+      month: staffMonth,
       students: { total: students.length, active: activeStudents, inactive: students.length - activeStudents, debtors, totalBalance },
       leads: { total: totalLeads, byStatus: leadsByStatus, conversionRate, leadsThisMonth, funnelOrder: FUNNEL_ORDER },
       finance: { totalRevenue, pendingRevenue, revenueByMonth, revenueByType, thisMonthRevenue, prevMonthRevenue, paidCount: paidInvoices.length, pendingByMonth: (() => { const m={}; invoices.filter(i=>i.status==='Pending').forEach(i=>{ const k=i.month||(i.created_at?i.created_at.toISOString().slice(0,7):null); if(k) m[k]=(m[k]||0)+Number(i.total||0); }); return m; })(), spendingByMonth, totalSpendings },

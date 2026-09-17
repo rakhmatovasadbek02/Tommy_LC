@@ -91,6 +91,7 @@
   <div class="topbar">
     <div class="page-title">Statistics</div>
     <div class="topbar-right">
+      <select class="input" id="monthPicker" style="width:auto;padding:6px 10px;font-size:13px" onchange="staChangeMonth(this.value)"></select>
       <span class="refresh-tag" id="refreshedAt"></span>
     </div>
   </div>
@@ -198,19 +199,26 @@ function staGaugeSVG(val) {
   </svg>`;
 }
 
-let STAFF_MONTH = null; // null = let the server default to the current month
+// One month selection drives the whole page — every event-based figure (revenue, new
+// leads, conversions, portal signups/attempts/sessions, staff efficiency) is scoped to it.
+// Pure current-state snapshots (active student count, the live lead funnel, archive
+// tallies) have no historical record to show instead, so they stay "as of right now".
+let SELECTED_MONTH = null; // null = let the server default to the current month
 async function staLoad() {
-  const d = await apiGet('/api/statistics' + (STAFF_MONTH ? `?month=${STAFF_MONTH}` : ''));
-  STAFF_MONTH = d.staff.month; // reflect the server's resolved default back into the picker
+  const d = await apiGet('/api/statistics' + (SELECTED_MONTH ? `?month=${SELECTED_MONTH}` : ''));
+  SELECTED_MONTH = d.month; // reflect the server's resolved default back into the picker
+  const picker = document.getElementById('monthPicker');
+  if (picker.dataset.built !== '1') { picker.innerHTML = staMonthOptions(); picker.dataset.built = '1'; }
+  picker.value = SELECTED_MONTH;
   document.getElementById('refreshedAt').textContent =
     'Updated ' + new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   staRender(d);
 }
 function staChangeMonth(month) {
-  STAFF_MONTH = month;
+  SELECTED_MONTH = month;
   staLoad();
 }
-function staMonthOptions(selected) {
+function staMonthOptions() {
   const opts = [];
   const d = new Date();
   for (let i = 0; i < 12; i++) {
@@ -218,7 +226,7 @@ function staMonthOptions(selected) {
     const dt = new Date(y, m, 1);
     const val = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
     const label = dt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    opts.push(`<option value="${val}" ${val===selected?'selected':''}>${label}</option>`);
+    opts.push(`<option value="${val}">${label}</option>`);
   }
   return opts.join('');
 }
@@ -416,9 +424,6 @@ function staRender(d) {
         <div class="sec-icon" style="background:#fde8e8">${iStaff.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
         <h2>Staff Efficiency</h2>
         <span class="sec-meta">${ST.total} staff</span>
-        <select class="input" style="margin-left:auto;width:auto;padding:6px 10px;font-size:13px" onchange="staChangeMonth(this.value)">
-          ${staMonthOptions(ST.month)}
-        </select>
       </div>
       <div class="g2">
         <div class="card">
