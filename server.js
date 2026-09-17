@@ -1375,10 +1375,10 @@ app.post('/api/students/:id/activate', async (req, res) => {
         if (schedType === 'odd')    return [1, 3, 5];
         if (schedType === 'even')   return [2, 4, 6];
         if (schedType === 'daily')  return [1, 2, 3, 4, 5];
-        if (schedType === 'custom' && customDays?.length) {
-          const map = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
-          return customDays.map(d => map[d]).filter(d => d !== undefined);
-        }
+        // custom_days is already stored as Date#getDay()-style numbers (0=Sun..6=Sat) —
+        // see groups.html's day picker and group.html's attendance getClassDays, which
+        // both compare it directly against getDay(). No name->number translation needed.
+        if (schedType === 'custom' && customDays?.length) return customDays;
         return [1, 3, 5];
       }
       function countLessons(year, month, days, fromDay) {

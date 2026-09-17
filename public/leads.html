@@ -998,12 +998,13 @@ function calcLeadActivation(group) {
   const schedType = group.schedType;
   let customDays = group.customDays;
   if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
-  const dayMap = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:0 };
   let lessonDays;
   if (schedType === 'odd')        lessonDays = [1,3,5];
   else if (schedType === 'even')  lessonDays = [2,4,6];
   else if (schedType === 'daily') lessonDays = [1,2,3,4,5];
-  else if (schedType === 'custom') lessonDays = (customDays||[]).map(d=>dayMap[d]).filter(d=>d!==undefined);
+  // customDays is already stored as getDay()-style numbers (0=Sun..6=Sat) — no
+  // name->number translation needed.
+  else if (schedType === 'custom') lessonDays = customDays||[];
   else                            lessonDays = [1,3,5];
   const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
   const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
