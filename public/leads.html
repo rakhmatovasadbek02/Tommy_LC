@@ -591,9 +591,18 @@ async function onDrop(event, status, subContainer) {
   event.stopPropagation();
   event.currentTarget.classList.remove('drag-over');
   if (!_dragId) return;
-  const l = leads.find(x => x.id === _dragId);
+  const draggedId = _dragId;
   _dragId = null;
+  const l = leads.find(x => x.id === draggedId);
   if (!l) return;
+
+  // Trial and Student are consequential transitions with real side effects (assigning a
+  // group, or actually creating the student record + migrating attendance + adding them
+  // to the group roster) — route a drop onto either through the same confirm modal the
+  // action buttons use, instead of silently relabeling the card with no side effects.
+  if (status === 'Trial' && l.status !== 'Trial') { openTrial(draggedId); return; }
+  if (status === 'Student' && l.status !== 'Student') { openActivate(draggedId); return; }
+
   const newSub = subContainer || null;
   if (l.status === status && (l.subContainer || null) === newSub) return;
   l.status = status;
