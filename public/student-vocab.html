@@ -89,6 +89,7 @@ async function showPicker() {
   const preselect = new URLSearchParams(location.search).get('unit');
   if (preselect && UNITS.some(u => u.id === preselect)) SELECTED.add(preselect);
   renderPicker();
+  loadGradedHistory();
   loadHistory();
 }
 
@@ -108,6 +109,10 @@ function renderPicker() {
         <input type="checkbox" ${timerEnabled()?'checked':''} onchange="setTimerEnabled(this.checked)">
       </label>
       <button class="sp-btn sp-btn-primary" id="startPracticeBtn" style="margin-top:14px" onclick="startPractice()">Start Practice</button>
+    </div>
+    <div class="sp-card">
+      <div class="sp-card-title">Official Test Results</div>
+      <div id="gradedBox"><div class="sp-empty">Loading…</div></div>
     </div>
     <div class="sp-card">
       <div class="sp-card-title">My Practice History</div>
@@ -139,6 +144,40 @@ function renderPicker() {
     : UNITS.map(itemHtml).join('');
 }
 function toggleUnit(id, checked) { if (checked) SELECTED.add(id); else SELECTED.delete(id); }
+
+async function loadGradedHistory() {
+  const box = document.getElementById('gradedBox');
+  try {
+    const hist = await spGet('/api/student/vocab/graded-history');
+    if (!hist.length) { box.innerHTML = `<div class="sp-empty">No official test results yet — ask your teacher for a test code.</div>`; return; }
+    const passed = hist.filter(h => h.passed && !h.terminatedReason).length;
+    const pct = Math.round(passed / hist.length * 100);
+    const barColor = pct>=80 ? 'var(--green)' : pct>=60 ? 'var(--amber)' : 'var(--red)';
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+        <div style="flex:1">
+          <div style="font-size:10.5px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Pass Rate</div>
+          <div style="background:var(--border);border-radius:20px;height:8px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${barColor};border-radius:20px;transition:width .4s"></div>
+          </div>
+        </div>
+        <div style="font-size:24px;font-weight:800;color:${barColor};white-space:nowrap">${pct}%</div>
+      </div>
+      <table class="sp-table">
+        <thead><tr><th>Units</th><th>Score</th><th>Result</th><th>Date</th></tr></thead>
+        <tbody>
+          ${hist.map(h => `<tr>
+            <td>${spEscapeHtml(h.unitNames.join(', '))}</td>
+            <td>${h.score} / ${h.total}</td>
+            <td>${h.terminatedReason
+              ? '<span class="sp-badge red">Left test</span>'
+              : (h.passed ? '<span class="sp-badge green">Passed</span>' : '<span class="sp-badge red">Not passed</span>')}</td>
+            <td>${new Date(h.completedAt).toLocaleString('en-GB', { timeZone:'Asia/Tashkent', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false })}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) { box.innerHTML = `<div class="sp-empty">Could not load test results.</div>`; }
+}
 
 async function loadHistory() {
   const box = document.getElementById('historyBox');

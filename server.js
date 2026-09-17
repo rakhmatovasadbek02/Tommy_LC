@@ -3018,6 +3018,25 @@ app.get('/api/student/vocab/history', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// The student's own official, admin-graded test results (one-time-code tests) — separate
+// from the ungraded self-practice history above, so students can see their real pass rate.
+app.get('/api/student/vocab/graded-history', async (req, res) => {
+  try {
+    const [attemptsR, unitsR] = await Promise.all([
+      pool.query('SELECT * FROM vocab_attempts WHERE student_id=$1 ORDER BY completed_at DESC LIMIT 100', [req.student.id]),
+      pool.query('SELECT id, name FROM vocab_units'),
+    ]);
+    const unitNames = new Map(unitsR.rows.map(u => [u.id, u.name]));
+    res.json(attemptsR.rows.map(t => ({
+      id: t.id, unitIds: t.unit_ids || [],
+      unitNames: (t.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
+      score: t.score, total: t.total, passed: t.passed !== null ? t.passed : vocabPassed(t.score, t.total),
+      terminatedReason: t.terminated_reason || null,
+      completedAt: t.completed_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/student/support/teachers', async (req, res) => {
   try {
     const [teachersR, groupR] = await Promise.all([
