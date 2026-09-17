@@ -1366,7 +1366,11 @@ app.post('/api/students/:id/activate', async (req, res) => {
     }
 
     if (monthlyPrice > 0) {
-      // Calculate pro-rated amount based on remaining lessons this month
+      // Calculate pro-rated amount based on remaining lessons this month. Every group is
+      // billed as a fixed 12 lessons/month (never the literal calendar count for that
+      // specific month's schedule) — this must match the "of 12 lessons" pro-ration shown
+      // to staff in every activation confirmation modal (leads.html, group.html,
+      // control.html), which is the actual, correct business rule.
       function getLessonDays(schedType, customDays) {
         if (schedType === 'odd')    return [1, 3, 5];
         if (schedType === 'even')   return [2, 4, 6];
@@ -1391,17 +1395,14 @@ app.post('/api/students/:id/activate', async (req, res) => {
       let customDays = g.custom_days;
       if (typeof customDays === 'string') { try { customDays = JSON.parse(customDays); } catch(e) { customDays = []; } }
       const lessonDays = getLessonDays(g.sched_type, customDays);
-      const totalLessons = countLessons(year, month, lessonDays, 1);
-      const remaining    = Math.max(0, countLessons(year, month, lessonDays, today));
-      const amount       = totalLessons > 0
-        ? Math.round(monthlyPrice * remaining / totalLessons / 1000) * 1000
-        : monthlyPrice;
+      const remaining = Math.max(0, countLessons(year, month, lessonDays, today));
+      const amount    = Math.round(monthlyPrice * remaining / 12 / 1000) * 1000;
 
       // Record invoice + update balance
       const invId  = 'inv-' + Date.now();
       const invNum = 'INV-' + Date.now().toString().slice(-6);
       const mStr   = `${year}-${String(month + 1).padStart(2, '0')}`;
-      const activationDesc = `Activation – ${remaining} of ${totalLessons} lessons (${g.name})`;
+      const activationDesc = `Activation – ${remaining} of 12 lessons (${g.name})`;
       await pool.query(
         `INSERT INTO invoices(id,number,student_id,group_id,month,description,total,status,payment_type)
          VALUES($1,$2,$3,$4,$5,$6,$7,'Pending','Auto')`,
