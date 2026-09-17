@@ -40,7 +40,6 @@
     .students-table td { padding:13px 16px; vertical-align:middle; overflow:hidden; color:var(--stw-text); }
     /* Column widths — Student/Phone get the lion's share; Status/Group/Teacher/Balance are
        sized to just fit their (short, centered) content, freeing that space up. */
-    .col-check   { width:40px; text-align:center; }
     .col-name    { width:30%; }
     .col-phone   { width:19%; }
     .col-status  { width:90px; text-align:center; }
@@ -48,7 +47,6 @@
     .col-teacher { width:90px; text-align:center; }
     .col-bal     { width:110px; text-align:center; }
     .col-actions { width:56px; text-align:center; }
-    .students-table td.col-check { padding-left:8px; padding-right:8px; }
     .students-table td.col-status, .students-table td.col-groups,
     .students-table td.col-teacher, .students-table td.col-bal { padding-left:8px; padding-right:8px; }
     .students-table td.col-actions { padding-left:8px; padding-right:16px; }
@@ -73,7 +71,6 @@
     .st-balance.pos { color:#16a34a; }
     .st-balance.neg { color:#dc2626; }
     .st-balance.zero { color:var(--stw-muted-soft); font-weight:600; }
-    input[type="checkbox"].row-check { cursor:pointer; width:15px; height:15px; accent-color:var(--crimson); vertical-align:middle; }
     .st-status-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:100px; white-space:nowrap; }
     .st-edit-btn {
       display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
@@ -205,7 +202,6 @@
         <table class="students-table">
           <thead>
             <tr>
-              <th class="col-check"><input type="checkbox" id="checkAll" class="row-check" onchange="toggleAll(this)"></th>
               <th class="col-name sortable" onclick="toggleSort('name')" id="th-name">Student <span class="sort-arrow"><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 0L8 5H0z" fill="currentColor"/></svg><svg width="8" height="5" viewBox="0 0 8 5"><path d="M4 5L0 0H8z" fill="currentColor"/></svg></span></th>
               <th class="col-phone">Phone</th>
               <th class="col-status">Status</th>
@@ -477,7 +473,6 @@
 
   let students = [], archiveReasons = [];
   let sortCol = '', sortDir = 1;
-  let selectedIds = new Set();
 
   const SBADGE = { Active:'badge-green', Trial:'badge-gold', Lead:'badge-blue', Frozen:'badge-blue', Inactive:'badge-grey' };
 
@@ -520,12 +515,7 @@
     renderStudents();
   }
 
-  function toggleAll(cb) {
-    document.querySelectorAll('.row-check:not(#checkAll)').forEach(c => { c.checked = cb.checked; });
-    selectedIds = cb.checked ? new Set(students.map(s=>s.id)) : new Set();
-  }
-
-  // Phones are stored as "XX XXX XX XX" (no country code), but people search however they
+// Phones are stored as "XX XXX XX XX" (no country code), but people search however they
   // typed/copied the number: with spaces, dashes, parens, a +998/998 prefix, a leading 0,
   // or as one unbroken string. Strip everything but digits on both sides so all of those
   // match the same way, and drop a leading country code / trunk-prefix zero from the query.
@@ -561,7 +551,7 @@
     document.getElementById('quantityLabel').textContent = `Quantity — ${filtered.length}`;
     const tbody = document.getElementById('studentsTbody');
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">No students found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">No students found.</td></tr>`;
       return;
     }
     tbody.innerHTML = filtered.map((s, i) => {
@@ -577,7 +567,6 @@
         ? teachers.map(t => { const rn = reverseName(t); return `<span class="teacher-avatar" style="background:${avatarColor(rn)}" title="${rn.replace(/"/g,'&quot;')}">${initials(rn)}</span>`; }).join('')
         : '<span style="color:var(--stw-muted-soft)">—</span>';
       return `<tr onclick="location.href='student-profile.html?id=${s.id}'">
-        <td class="col-check" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${selectedIds.has(s.id)?'checked':''}></td>
         <td class="col-name">
           <a class="st-name" href="student-profile.html?id=${s.id}" title="${nameAttr}" onclick="event.stopPropagation()" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()" style="color:inherit;text-decoration:none">${name}</a>
         </td>
