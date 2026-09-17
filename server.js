@@ -3945,7 +3945,14 @@ app.get('/api/statistics', async (req, res) => {
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
 
-    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR, spendR, loginR, codeR, practiceR] = await Promise.all([
+    // Staff Efficiency reports on one calendar month at a time, chosen via ?month=YYYY-MM
+    // (defaults to the current month) — independent of the portal's own "this month" stats below.
+    const staffMonth = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : now.toISOString().slice(0, 7);
+    const [staffYear, staffMonthNum] = staffMonth.split('-').map(Number);
+    const staffMonthStart = new Date(staffYear, staffMonthNum - 1, 1).toISOString().split('T')[0];
+    const staffMonthEnd = new Date(staffYear, staffMonthNum, 1).toISOString().split('T')[0];
+
+    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR, spendR, loginR, codeR, practiceR, supThisMonthR] = await Promise.all([
       pool.query("SELECT id, status, balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
       pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
@@ -3955,13 +3962,14 @@ app.get('/api/statistics', async (req, res) => {
                   UNION ALL SELECT archive_reason FROM leads WHERE archived IS TRUE`),
       pool.query(`SELECT a.group_id, a.student_id, a.status, g.teacher
                   FROM attendance a JOIN groups g ON g.id=a.group_id
-                  WHERE a.date >= $1`, [prevMonthStart]),
-      pool.query(`SELECT teacher, attended, date FROM support_sessions WHERE date >= $1`, [prevMonthStart]),
+                  WHERE a.date >= $1 AND a.date < $2`, [staffMonthStart, staffMonthEnd]),
+      pool.query(`SELECT teacher, attended, date FROM support_sessions WHERE date >= $1 AND date < $2`, [staffMonthStart, staffMonthEnd]),
       pool.query(`SELECT created_at FROM leads WHERE status='Registration' OR (archived IS TRUE AND pre_archive_status='Registration')`),
       pool.query(`SELECT amount, month, created_at FROM spendings ORDER BY created_at ASC`),
       pool.query(`SELECT student_id, created_at FROM student_logins`),
       pool.query(`SELECT used, created_at FROM student_portal_codes`),
       pool.query(`SELECT score, total, passed, completed_at FROM vocab_practice_attempts`),
+      pool.query(`SELECT COUNT(*) FROM support_sessions WHERE date >= $1`, [monthStart]),
     ]);
 
     const students = stuR.rows;
@@ -4060,13 +4068,13 @@ app.get('/api/statistics', async (req, res) => {
     const practicePassed = practiceR.rows.filter(p => p.passed).length;
     const practicePassRate = practiceAttempts > 0 ? Math.round(practicePassed / practiceAttempts * 100) : 0;
     const practiceThisMonth = practiceR.rows.filter(p => p.completed_at && p.completed_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
-    const supportSessionsThisMonth = supR.rows.filter(s => s.date && s.date.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
+    const supportSessionsThisMonth = Number(supThisMonthR.rows[0].count);
 
     res.json({
       students: { total: students.length, active: activeStudents, inactive: students.length - activeStudents, debtors, totalBalance },
       leads: { total: totalLeads, byStatus: leadsByStatus, conversionRate, leadsThisMonth, funnelOrder: FUNNEL_ORDER },
       finance: { totalRevenue, pendingRevenue, revenueByMonth, revenueByType, thisMonthRevenue, prevMonthRevenue, paidCount: paidInvoices.length, pendingByMonth: (() => { const m={}; invoices.filter(i=>i.status==='Pending').forEach(i=>{ const k=i.month||(i.created_at?i.created_at.toISOString().slice(0,7):null); if(k) m[k]=(m[k]||0)+Number(i.total||0); }); return m; })(), spendingByMonth, totalSpendings },
-      staff: { teachers: teacherStats, support: supportStats, total: users.length },
+      staff: { teachers: teacherStats, support: supportStats, total: users.length, month: staffMonth },
       archive: { total: archR.rows.length, byReason: archiveByReason },
       portal: { accountsCreated, accountsThisMonth, adoptionRate, codesIssued, codesUsed, codesPending, practiceAttempts, practicePassRate, practiceThisMonth, supportSessionsThisMonth },
     });

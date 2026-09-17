@@ -1158,11 +1158,29 @@
     </svg>`;
   }
 
+  let STAFF_MONTH = null; // null = let the server default to the current month
   async function staLoad() {
-    const d = await apiGet('/api/statistics');
+    const d = await apiGet('/api/statistics' + (STAFF_MONTH ? `?month=${STAFF_MONTH}` : ''));
+    STAFF_MONTH = d.staff.month; // reflect the server's resolved default back into the picker
     document.getElementById('refreshedAt').textContent =
       'Updated ' + new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
     staRender(d);
+  }
+  function staChangeMonth(month) {
+    STAFF_MONTH = month;
+    staLoad();
+  }
+  function staMonthOptions(selected) {
+    const opts = [];
+    const d = new Date();
+    for (let i = 0; i < 12; i++) {
+      const y = d.getFullYear(), m = d.getMonth() - i;
+      const dt = new Date(y, m, 1);
+      const val = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+      const label = dt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      opts.push(`<option value="${val}" ${val===selected?'selected':''}>${label}</option>`);
+    }
+    return opts.join('');
   }
 
   function staRender(d) {
@@ -1357,7 +1375,10 @@
         <div class="sec-hd">
           <div class="sec-icon" style="background:#fde8e8">${iStaff.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
           <h2>Staff Efficiency</h2>
-          <span class="sec-meta">Last 2 months · ${ST.total} staff</span>
+          <span class="sec-meta">${ST.total} staff</span>
+          <select class="input" style="margin-left:auto;width:auto;padding:6px 10px;font-size:13px" onchange="staChangeMonth(this.value)">
+            ${staMonthOptions(ST.month)}
+          </select>
         </div>
         <div class="g2">
           <div class="card">
