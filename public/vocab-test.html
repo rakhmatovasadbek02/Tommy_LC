@@ -170,7 +170,10 @@
       <input type="text" id="qAnswer" placeholder="Type in English…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')nextQuestion()">
       <div class="mc-options hide" id="mcOptions"></div>
     </div>
-    <button class="btn" onclick="nextQuestion()">Next</button>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-outline" style="flex:0 0 auto;width:auto;padding-left:22px;padding-right:22px" onclick="skipQuestion()">Skip</button>
+      <button class="btn" style="flex:1" onclick="nextQuestion()">Next</button>
+    </div>
   </div>
 
   <div id="viewResult" class="hide">
@@ -318,6 +321,15 @@ function selectMc(btn, i) {
   SELECTED_MC = QUESTIONS[IDX].options[i];
   document.querySelectorAll('#mcOptions .mc-option').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
+}
+
+// Sends the current word to the back of the queue instead of answering it — the word
+// isn't removed or scored, it just comes back around later (each question keeps its own
+// qid, so this reordering never affects how answers are matched up when scoring).
+function skipQuestion() {
+  const [q] = QUESTIONS.splice(IDX, 1);
+  QUESTIONS.push(q);
+  renderQuestion();
 }
 
 async function nextQuestion() {

@@ -131,7 +131,8 @@ function renderQuestion() {
       ` : `
         <input type="text" class="sp-quiz-input" id="freeAnswer" placeholder="Type the English word…" autocomplete="off" autofocus onkeydown="if(event.key==='Enter')nextQuestion()">
       `}
-      <div style="display:flex;justify-content:flex-end;margin-top:18px">
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px">
+        <button class="sp-btn sp-btn-outline" onclick="skipQuestion()">Skip</button>
         <button class="sp-btn sp-btn-primary" onclick="nextQuestion()">${CUR===total-1?'Finish':'Next →'}</button>
       </div>
     </div>
@@ -143,6 +144,15 @@ function pickOption(val, btn) {
   ANSWERS[SESSION.questions[CUR].qid] = val;
   document.querySelectorAll('#optWrap .sp-quiz-option').forEach(b => b.classList.remove('picked'));
   btn.classList.add('picked');
+}
+
+// Sends the current word to the back of the queue instead of answering it — the word
+// isn't removed or scored, it just comes back around later (each question keeps its own
+// qid, so this reordering never affects how answers are matched up when scoring).
+function skipQuestion() {
+  const [q] = SESSION.questions.splice(CUR, 1);
+  SESSION.questions.push(q);
+  renderQuestion();
 }
 
 async function nextQuestion() {
