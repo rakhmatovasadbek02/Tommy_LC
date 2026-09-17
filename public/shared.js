@@ -552,7 +552,8 @@ function renderSidebar(activePage) {
      label: (!can('students') && can('vocab')) ? 'Vocabulary' : 'Students' },
    { feature:'groups',    href:'groups.html',     iconKey:'groups',    label:'Groups'     },
    { feature:'payments',  href:'finance.html',    iconKey:'payments',  label:'Finance'    },
-   // Staff, Archived, Actions, Statistics, and Feedback now live as tabs on control.html
+   { feature:'statistics', href:'statistics.html', iconKey:'statistics', label:'Statistics' },
+   // Staff, Archived, Actions, and Feedback now live as tabs on control.html
    // (see control.html) — one combined row, visible to anyone with at least one of those.
    { feature:'_control', href:'control.html', iconKey:'control', label:'Control' },
  ]},
@@ -564,7 +565,7 @@ function renderSidebar(activePage) {
    const links = section.items
      .filter(item => {
        if (item.feature === '_students_or_vocab') return can('students') || can('vocab');
-       if (item.feature === '_control') return can('staff') || can('archived') || can('actions') || can('statistics') || can('feedback');
+       if (item.feature === '_control') return can('staff') || can('archived') || can('actions') || can('feedback');
        return can(item.feature);
      })
      .filter(item => (item.feature === '_students_or_vocab' || item.feature === '_control') ? true : !(isTeacher() && item.feature === 'students'))

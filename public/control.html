@@ -145,78 +145,6 @@
       .action-time { margin-left:0; }
     }
 
-    /* ── Statistics — scoped under .stat-page so its .card/.card-title overrides never
-       bleed into the other Control tabs, which use the plain shared.css .card look ── */
-    .stat-page { padding-bottom:64px; --cr:#c0392b; --sg:#16a34a; --sb:#2563eb; --sa:#d97706; --sp:#7c3aed; }
-    .stat-page .sec { margin-bottom:40px; }
-    .stat-page .sec-hd { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #f0dede; }
-    .stat-page .sec-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .stat-page .sec-icon svg { width:15px; height:15px; }
-    .stat-page .sec-hd h2 { font-size:14px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:var(--text); margin:0; }
-    .stat-page .sec-meta { font-size:12px; color:var(--muted); margin-left:auto; font-weight:500; }
-    .stat-page .card { background:white; border:1px solid #f0dede; border-radius:16px; padding:22px 24px; box-shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.04); }
-    .stat-page .card-title { font-size:11px; font-weight:700; letter-spacing:.9px; text-transform:uppercase; color:var(--muted); margin:0 0 20px; }
-    .stat-page .g2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .stat-page .g3 { display:grid; grid-template-columns:3fr 2fr; gap:14px; }
-    @media(max-width:1100px){ .stat-page .g3{ grid-template-columns:1fr; } }
-    @media(max-width:860px){ .stat-page .g2{ grid-template-columns:1fr; } }
-    .linechart-wrap { position:relative; width:100%; }
-    .linechart-legend { display:flex; gap:20px; margin-bottom:14px; flex-wrap:wrap; }
-    .lc-dot { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:5px; }
-    .lc-label { font-size:12px; color:var(--text); font-weight:600; }
-    .linechart-svg { width:100%; overflow:visible; display:block; }
-    .linechart-tooltip { position:absolute; background:rgba(20,10,10,.88); color:white; border-radius:8px; padding:8px 12px; font-size:12px; pointer-events:none; white-space:nowrap; opacity:0; transition:opacity .15s; z-index:10; }
-    .linechart-tooltip.show { opacity:1; }
-    .funnel { display:flex; flex-direction:column; gap:7px; }
-    .f-row { display:flex; align-items:center; gap:10px; }
-    .f-lbl { font-size:12px; font-weight:600; color:var(--text); width:88px; flex-shrink:0; text-align:right; }
-    .f-track { flex:1; height:36px; background:#fdf2f2; border-radius:8px; overflow:hidden; min-width:0; }
-    .f-fill { height:100%; border-radius:8px; display:flex; align-items:center; padding-left:12px; transition:width .7s cubic-bezier(.4,0,.2,1); }
-    .f-fill span { font-size:12px; font-weight:800; color:rgba(255,255,255,.95); white-space:nowrap; }
-    .f-n { font-size:12px; font-weight:800; color:var(--text); width:28px; text-align:right; flex-shrink:0; }
-    @media(max-width:480px){ .f-lbl{ width:60px; font-size:11px; } }
-    .gauge-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding-top:10px; gap:2px; }
-    .gauge-num { font-size:44px; font-weight:900; color:var(--cr); letter-spacing:-3px; line-height:1; margin-top:-6px; }
-    .gauge-lbl { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; }
-    .gauge-sub { font-size:12px; color:var(--muted); margin-top:6px; }
-    .donut-wrap { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
-    .donut-legend { flex:1; min-width:0; display:flex; flex-direction:column; gap:9px; }
-    .dl-row { display:flex; align-items:center; gap:8px; }
-    .dl-sw { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
-    .dl-lbl { font-size:12.5px; color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .dl-pct { font-size:12px; font-weight:800; color:var(--text); }
-    .dl-amt { font-size:10px; color:var(--muted); margin-left:2px; }
-    .tscroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    .stbl { width:100%; border-collapse:collapse; min-width:340px; }
-    .stbl th { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); padding:0 8px 10px; text-align:left; white-space:nowrap; }
-    .stbl th:not(:first-child) { text-align:right; }
-    .stbl td { padding:8px; border-top:1px solid #fae8e8; font-size:13px; color:var(--text); vertical-align:middle; }
-    .stbl td:not(:first-child) { text-align:right; }
-    .stbl tbody tr:hover td { background:#fdf7f7; }
-    .sname { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; white-space:nowrap; }
-    .savatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:white; flex-shrink:0; }
-    .rate-cell { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
-    .rate-track { width:52px; height:5px; background:#f3e8e8; border-radius:99px; overflow:hidden; }
-    .rate-fill { height:100%; border-radius:99px; }
-    .rate-pct { font-size:11px; font-weight:800; min-width:30px; text-align:right; }
-    .arch-pills { display:flex; flex-wrap:wrap; gap:8px; }
-    .arch-pill { display:flex; align-items:center; gap:6px; background:#fdf2f2; border:1px solid #f5d0d0; border-radius:99px; padding:6px 14px 6px 10px; }
-    .arch-pill-n { font-size:14px; font-weight:900; color:var(--cr); }
-    .arch-pill-l { display:none; }
-    .refresh-tag { font-size:11px; color:var(--muted); font-weight:500; }
-    @media(max-width:640px){
-      .stat-page .card { padding:16px; }
-      .stat-page .sec-hd { flex-wrap:wrap; }
-      .stat-page { padding-bottom:40px; }
-      .stat-page .g2 { grid-template-columns:1fr !important; }
-      .stat-page .g3 { grid-template-columns:1fr !important; }
-      .f-row { flex-wrap:wrap; }
-      .f-lbl { width:auto !important; }
-      .dl-row { flex-wrap:wrap; }
-      .arch-pills { gap:6px; }
-      .arch-pill { padding:5px 10px 5px 8px; }
-    }
-
     /* ── Feedback ── */
     .fb-item{background:white;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05);position:relative}
     .fb-item.unread{border-left:4px solid var(--crimson)}
@@ -271,7 +199,6 @@
         <span>Manage Reasons</span>
       </button>
       <span class="text-muted" id="actionCount" style="font-size:13px;display:none"></span>
-      <span class="refresh-tag" id="refreshedAt" style="display:none"></span>
     </div>
   </div>
   <div class="page-content">
@@ -279,7 +206,6 @@
       <button class="ctl-tab" id="mtabStaff" onclick="switchMainTab('staff')">Staff</button>
       <button class="ctl-tab" id="mtabArchived" onclick="switchMainTab('archived')">Archived</button>
       <button class="ctl-tab" id="mtabActions" onclick="switchMainTab('actions')">Actions</button>
-      <button class="ctl-tab" id="mtabStatistics" onclick="switchMainTab('statistics')">Statistics</button>
       <button class="ctl-tab" id="mtabFeedback" onclick="switchMainTab('feedback')">Feedback</button>
     </div>
 
@@ -354,16 +280,6 @@
       <div class="card">
         <div class="card-body" style="padding:0 24px">
           <div id="actionsFeed" class="actions-feed"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════ STATISTICS ══════════════════ -->
-    <div id="panelStatistics" style="display:none" class="stat-page">
-      <div id="statContent">
-        <div style="text-align:center;padding:80px 0;color:var(--muted)">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="opacity:.35;display:block;margin:0 auto 12px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          Loading…
         </div>
       </div>
     </div>
@@ -480,17 +396,16 @@
 <script src="shared.js"></script>
 <script>
   /* ── Entry gating ─────────────────────────────────────────────────────────────────
-     Control covers Staff + Archived + Actions + Statistics + Feedback (previously five
-     separate nav rows/pages) — getting in requires any one of those permissions. */
+     Control covers Staff + Archived + Actions + Feedback (Statistics now lives on its
+     own page/nav row, statistics.html) — getting in requires any one of those permissions. */
   requireAuth();
   const CTL_MY_SESSION = getSession();
   const CTL_MY_ROLES = (CTL_MY_SESSION?.roles || [CTL_MY_SESSION?.title || '']).filter(Boolean);
   const SHOW_STAFF      = can('staff');
   const SHOW_ARCHIVED   = can('archived');
   const SHOW_ACTIONS    = can('actions');
-  const SHOW_STATISTICS = can('statistics');
   const SHOW_FEEDBACK   = can('feedback');
-  if (!SHOW_STAFF && !SHOW_ARCHIVED && !SHOW_ACTIONS && !SHOW_STATISTICS && !SHOW_FEEDBACK) {
+  if (!SHOW_STAFF && !SHOW_ARCHIVED && !SHOW_ACTIONS && !SHOW_FEEDBACK) {
     const fallback = ['dashboard','students','groups','leads','finance'].find(f => can(f));
     const pageFor = { dashboard:'index.html', students:'students.html', groups:'groups.html', leads:'leads.html', finance:'finance.html' };
     if (fallback) window.location.replace(pageFor[fallback]);
@@ -500,26 +415,22 @@
   document.getElementById('mtabStaff').style.display      = SHOW_STAFF      ? '' : 'none';
   document.getElementById('mtabArchived').style.display   = SHOW_ARCHIVED   ? '' : 'none';
   document.getElementById('mtabActions').style.display    = SHOW_ACTIONS    ? '' : 'none';
-  document.getElementById('mtabStatistics').style.display = SHOW_STATISTICS ? '' : 'none';
   document.getElementById('mtabFeedback').style.display   = SHOW_FEEDBACK   ? '' : 'none';
 
   function switchMainTab(tab) {
     document.getElementById('panelStaff').style.display      = tab==='staff'      ? '' : 'none';
     document.getElementById('panelArchived').style.display   = tab==='archived'   ? '' : 'none';
     document.getElementById('panelActions').style.display    = tab==='actions'    ? '' : 'none';
-    document.getElementById('panelStatistics').style.display = tab==='statistics' ? '' : 'none';
     document.getElementById('panelFeedback').style.display   = tab==='feedback'   ? '' : 'none';
     document.getElementById('mtabStaff').classList.toggle('on', tab==='staff');
     document.getElementById('mtabArchived').classList.toggle('on', tab==='archived');
     document.getElementById('mtabActions').classList.toggle('on', tab==='actions');
-    document.getElementById('mtabStatistics').classList.toggle('on', tab==='statistics');
     document.getElementById('mtabFeedback').classList.toggle('on', tab==='feedback');
     // Per-tab topbar-right controls
     document.getElementById('backupBtn').style.display        = (tab==='staff' && SHOW_STAFF && CTL_MY_ROLES.includes('CEO')) ? '' : 'none';
     document.getElementById('addStaffBtn').style.display       = (tab==='staff' && stfCanManage) ? '' : 'none';
     document.getElementById('manageReasonsBtn').style.display  = (tab==='archived') ? '' : 'none';
     document.getElementById('actionCount').style.display       = (tab==='actions') ? '' : 'none';
-    document.getElementById('refreshedAt').style.display       = (tab==='statistics') ? '' : 'none';
     const qp = new URLSearchParams(location.search);
     qp.set('tab', tab);
     history.replaceState(null, '', location.pathname + '?' + qp.toString());
@@ -1070,360 +981,6 @@
     }).join('');
   }
 
-  /* ══════════════════════════════════════════ STATISTICS (sta-prefixed) ══════════════════════════════════════════ */
-  const staFmt  = n => Number(n||0).toLocaleString('ru-RU');
-  const staFmtM = n => { const v=Number(n||0); if(v>=1e6) return (v/1e6).toFixed(1)+'M'; if(v>=1e3) return (v/1e3).toFixed(0)+'K'; return staFmt(v); };
-  const staPct  = (a,b) => b>0 ? Math.round(a/b*100) : 0;
-  const STA_PAL = ['#c0392b','#2563eb','#7c3aed','#d97706','#16a34a','#0891b2','#be185d'];
-
-  function staBgColor(name) {
-    let h=0; for(let i=0;i<(name||'').length;i++) h=(h*31+name.charCodeAt(i))>>>0;
-    return STA_PAL[h%STA_PAL.length];
-  }
-  function staIni(n) { const p=(n||'').trim().split(/\s+/); return (p[0]?.[0]||'')+(p[1]?.[0]||''); }
-
-  function staLineChartSVG(series, months, containerId) {
-    const W=800, H=220, PL=52, PR=16, PT=16, PB=28;
-    const cW=W-PL-PR, cH=H-PT-PB;
-    const n = months.length;
-    if (n < 2) return `<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0">Not enough data — need at least 2 months</div>`;
-
-    const allVals = series.flatMap(s=>s.values);
-    const maxV = Math.max(...allVals, 1);
-    const step = cW / (n-1);
-
-    function xOf(i) { return PL + i*step; }
-    function yOf(v) { return PT + cH - (v/maxV)*cH; }
-
-    const ticks = 4;
-    let grid='', yLabels='';
-    for(let i=0;i<=ticks;i++){
-      const v = maxV*(i/ticks);
-      const y = yOf(v);
-      grid += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#f0dede" stroke-width="1"/>`;
-      yLabels += `<text x="${PL-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#bbb" font-family="Inter,sans-serif">${staFmtM(v)}</text>`;
-    }
-
-    let xLabels='';
-    months.forEach((m,i)=>{
-      xLabels += `<text x="${xOf(i)}" y="${H-4}" text-anchor="middle" font-size="9" fill="#bbb" font-family="Inter,sans-serif">${m.slice(5)}</text>`;
-    });
-
-    const SCOLS = ['#c0392b','#2563eb','#16a34a'];
-    let paths='';
-    series.forEach((s,si)=>{
-      const col = SCOLS[si%SCOLS.length];
-      const areaD = `M${xOf(0)},${yOf(s.values[0])} ` +
-        s.values.map((v,i)=>`L${xOf(i)},${yOf(v)}`).join(' ') +
-        ` L${xOf(n-1)},${PT+cH} L${xOf(0)},${PT+cH} Z`;
-      paths += `<path d="${areaD}" fill="${col}" fill-opacity="0.07"/>`;
-      const lineD = `M${xOf(0)},${yOf(s.values[0])} ` + s.values.map((v,i)=>`L${xOf(i)},${yOf(v)}`).join(' ');
-      paths += `<path d="${lineD}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-      s.values.forEach((v,i)=>{
-        paths += `<circle cx="${xOf(i)}" cy="${yOf(v)}" r="3.5" fill="${col}" stroke="white" stroke-width="1.5" class="lc-dot-pt" data-series="${s.label}" data-val="${v}" data-month="${months[i]}" data-x="${xOf(i)}" data-y="${yOf(v)}"/>`;
-      });
-    });
-
-    let hovers='';
-    months.forEach((m,i)=>{
-      const vals = series.map(s=>`${s.label}:${s.values[i]}`).join('|');
-      hovers += `<rect x="${xOf(i)-step/2}" y="${PT}" width="${step}" height="${cH}" fill="transparent" class="lc-hover" data-month="${m}" data-vals="${vals}" data-x="${xOf(i)}"/>`;
-    });
-
-    return `<svg class="linechart-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" id="${containerId}">
-      ${grid}${yLabels}${xLabels}${paths}${hovers}
-      <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+cH}" stroke="#f0dede" stroke-width="1"/>
-    </svg>`;
-  }
-
-  function staDonutSVG(slices) {
-    const r=46,cx=54,cy=54,sw=13,circ=2*Math.PI*r;
-    const total=slices.reduce((s,x)=>s+x.v,0);
-    if(!total) return `<svg width="108" height="108"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f5e0e0" stroke-width="${sw}"/></svg>`;
-    let off=0;
-    const arcs=slices.map(s=>{
-      const len=circ*(s.v/total)-1.2;
-      const a=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.c}" stroke-width="${sw}" stroke-dasharray="${Math.max(0,len)} ${circ-Math.max(0,len)}" stroke-dashoffset="${-(off*circ/total-circ/4)}" stroke-linecap="butt"/>`;
-      off+=s.v; return a;
-    }).join('');
-    return `<svg width="108" height="108" viewBox="0 0 108 108" style="flex-shrink:0">${arcs}</svg>`;
-  }
-
-  function staGaugeSVG(val) {
-    const r=50,cx=70,cy=68,sw=11,circ=Math.PI*r;
-    const filled=circ*(Math.min(val,100)/100);
-    return `<svg width="140" height="78" viewBox="0 0 140 78">
-      <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="#f5e0e0" stroke-width="${sw}" stroke-linecap="round"/>
-      <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="url(#staGg)" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${filled} ${circ}"/>
-      <defs><linearGradient id="staGg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f9a8a8"/><stop offset="100%" stop-color="#c0392b"/></linearGradient></defs>
-    </svg>`;
-  }
-
-  let STAFF_MONTH = null; // null = let the server default to the current month
-  async function staLoad() {
-    const d = await apiGet('/api/statistics' + (STAFF_MONTH ? `?month=${STAFF_MONTH}` : ''));
-    STAFF_MONTH = d.staff.month; // reflect the server's resolved default back into the picker
-    document.getElementById('refreshedAt').textContent =
-      'Updated ' + new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-    staRender(d);
-  }
-  function staChangeMonth(month) {
-    STAFF_MONTH = month;
-    staLoad();
-  }
-  function staMonthOptions(selected) {
-    const opts = [];
-    const d = new Date();
-    for (let i = 0; i < 12; i++) {
-      const y = d.getFullYear(), m = d.getMonth() - i;
-      const dt = new Date(y, m, 1);
-      const val = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
-      const label = dt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      opts.push(`<option value="${val}" ${val===selected?'selected':''}>${label}</option>`);
-    }
-    return opts.join('');
-  }
-
-  function staRender(d) {
-    const {students:S, leads:L, finance:F, staff:ST, archive:AR, portal:P} = d;
-
-    const allMonths = new Set([
-      ...Object.keys(F.revenueByMonth||{}),
-      ...Object.keys(F.pendingByMonth||{}),
-      ...Object.keys(F.spendingByMonth||{}),
-    ]);
-    const months = [...allMonths].sort().slice(-12);
-
-    const revSeries     = months.map(m => F.revenueByMonth?.[m]||0);
-    const pendingSeries = months.map(m => F.pendingByMonth?.[m]||0);
-    const spendSeries   = months.map(m => F.spendingByMonth?.[m]||0);
-
-    const series = [
-      { label:'Net Revenue', values:revSeries },
-      { label:'Pending',     values:pendingSeries },
-      { label:'Spendings',   values:spendSeries },
-    ];
-
-    const chartSVG = months.length >= 2
-      ? staLineChartSVG(series, months, 'finSvg')
-      : `<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px 0">Not enough data yet</div>`;
-
-    const ptE = Object.entries(F.revenueByType||{});
-    const ptT = ptE.reduce((s,[,v])=>s+v,0);
-    const ptS = ptE.map(([k,v],i)=>({c:STA_PAL[i%STA_PAL.length],k,v}));
-    const legend = ptS.map(s=>`<div class="dl-row">
-      <div class="dl-sw" style="background:${s.c}"></div>
-      <div class="dl-lbl">${s.k}</div>
-      <div class="dl-pct">${staPct(s.v,ptT)}%</div>
-      <div class="dl-amt">${staFmtM(s.v)}</div>
-    </div>`).join('');
-
-    const FORD = (L.funnelOrder||[]).concat(
-      Object.keys(L.byStatus||{}).filter(k=>!(L.funnelOrder||[]).includes(k))
-    );
-    const fMax = Math.max(...FORD.map(k=>L.byStatus[k]||0),1);
-    const FCOLS = ['#c0392b','#d97706','#2563eb','#7c3aed','#16a34a'];
-    const funnel = FORD.filter(k=>L.byStatus[k]>0).map((k,i)=>{
-      const n=L.byStatus[k]||0, w=staPct(n,fMax);
-      return `<div class="f-row">
-        <div class="f-lbl">${k}</div>
-        <div class="f-track"><div class="f-fill" style="width:${w}%;background:${FCOLS[i%FCOLS.length]}"><span>${n}</span></div></div>
-        <div class="f-n">${n}</div>
-      </div>`;
-    }).join('') || `<p style="color:var(--muted);font-size:13px;margin:0">No leads yet</p>`;
-
-    function staStaffRow(name, col2, rate) {
-      const rc = rate===null?'#bbb':rate>=80?'#16a34a':rate>=60?'#d97706':'#dc2626';
-      return `<tr>
-        <td><div class="sname"><div class="savatar" style="background:${staBgColor(name)}">${staIni(name)}</div>${name}</div></td>
-        <td>${col2}</td>
-        <td>${rate!==null
-          ? `<div class="rate-cell"><div class="rate-track"><div class="rate-fill" style="width:${rate}%;background:${rc}"></div></div><span class="rate-pct" style="color:${rc}">${rate}%</span></div>`
-          : `<span style="color:var(--muted);font-size:11px">—</span>`}
-        </td>
-      </tr>`;
-    }
-    const tRows = (ST.teachers||[]).length
-      ? ST.teachers.map(t=>staStaffRow(reverseName(t.name),`${t.groups}g · ${t.students}s`,t.attendanceRate)).join('')
-      : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px 0;font-size:13px">No teacher data</td></tr>`;
-    const sRows = (ST.support||[]).length
-      ? ST.support.map(t=>staStaffRow(reverseName(t.name),`${t.total} sessions`,t.rate)).join('')
-      : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px 0;font-size:13px">No session data</td></tr>`;
-
-    const archHTML = Object.entries(AR.byReason||{}).sort((a,b)=>b[1]-a[1])
-      .map(([k,v])=>`<div class="arch-pill"><span class="arch-pill-n">${v}</span><span class="arch-pill-l">${k}</span></div>`)
-      .join('') || `<span style="color:var(--muted);font-size:13px">No archived records</span>`;
-
-    const iFinance = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
-    const iLeads   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`;
-    const iStaff   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
-    const iArchive = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
-    const iPortal  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`;
-
-    document.getElementById('statContent').innerHTML = `
-
-      <!-- FINANCE LINE CHART -->
-      <div class="sec">
-        <div class="sec-hd">
-          <div class="sec-icon" style="background:#fde8e8">${iFinance.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
-          <h2>Finance</h2>
-          <span class="sec-meta">${staFmtM(F.totalRevenue)} total revenue · ${staFmtM(F.totalSpendings||0)} total spendings</span>
-        </div>
-        <div class="card" style="margin-bottom:14px">
-          <div class="card-title">Monthly Overview</div>
-          <div class="linechart-legend">
-            <span><span class="lc-dot" style="background:#c0392b"></span><span class="lc-label">Net Revenue</span></span>
-            <span><span class="lc-dot" style="background:#2563eb"></span><span class="lc-label">Pending</span></span>
-            <span><span class="lc-dot" style="background:#16a34a"></span><span class="lc-label">Spendings</span></span>
-          </div>
-          <div class="linechart-wrap" id="finChartWrap">
-            ${chartSVG}
-            <div class="linechart-tooltip" id="finTip"></div>
-          </div>
-        </div>
-        <div class="g2">
-          <div class="card">
-            <div class="card-title">Payment Methods</div>
-            <div class="donut-wrap">
-              ${staDonutSVG(ptS)}
-              <div class="donut-legend">${legend||`<p style="color:var(--muted);font-size:13px;margin:0">No payments yet</p>`}</div>
-            </div>
-          </div>
-          <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
-            <div class="card-title" style="margin-bottom:4px">Summary</div>
-            ${[
-              ['Total Revenue',   staFmtM(F.totalRevenue),     '#16a34a'],
-              ['This Month',      staFmtM(F.thisMonthRevenue), '#c0392b'],
-              ['Pending',         staFmtM(F.pendingRevenue),   '#d97706'],
-              ['Total Spendings', staFmtM(F.totalSpendings||0),'#dc2626'],
-            ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
-              <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
-              <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
-            </div>`).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- LEADS PIPELINE -->
-      <div class="sec">
-        <div class="sec-hd">
-          <div class="sec-icon" style="background:#eff6ff">${iLeads.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
-          <h2>Leads Pipeline</h2>
-          <span class="sec-meta">${L.total} active · ${L.leadsThisMonth} new this month</span>
-        </div>
-        <div class="g3">
-          <div class="card">
-            <div class="card-title">Pipeline Funnel</div>
-            <div class="funnel">${funnel}</div>
-          </div>
-          <div class="card">
-            <div class="card-title">Conversion Rate</div>
-            <div class="gauge-card">
-              ${staGaugeSVG(L.conversionRate||0)}
-              <div class="gauge-num">${L.conversionRate||0}%</div>
-              <div class="gauge-lbl">Leads → Students</div>
-              <div class="gauge-sub">${S.active} active students · ${S.total} total</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- STUDENT PORTAL -->
-      <div class="sec">
-        <div class="sec-hd">
-          <div class="sec-icon" style="background:#eff6ff">${iPortal.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
-          <h2>Student Portal</h2>
-          <span class="sec-meta">${P.accountsCreated} accounts · ${P.adoptionRate}% adoption</span>
-        </div>
-        <div class="g3">
-          <div class="card">
-            <div class="card-title">Adoption</div>
-            <div class="gauge-card">
-              ${staGaugeSVG(P.adoptionRate||0)}
-              <div class="gauge-num">${P.adoptionRate||0}%</div>
-              <div class="gauge-lbl">Students with an account</div>
-              <div class="gauge-sub">${P.accountsCreated} of ${S.total} · +${P.accountsThisMonth} this month</div>
-            </div>
-          </div>
-          <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
-            <div class="card-title" style="margin-bottom:4px">Vocabulary Practice</div>
-            ${[
-              ['Attempts (all time)', P.practiceAttempts, '#2563eb'],
-              ['Attempts this month', P.practiceThisMonth, '#c0392b'],
-              ['Pass rate', P.practicePassRate+'%', '#16a34a'],
-            ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
-              <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
-              <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
-            </div>`).join('')}
-          </div>
-          <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
-            <div class="card-title" style="margin-bottom:4px">Registration Codes &amp; Support</div>
-            ${[
-              ['Codes issued', P.codesIssued, '#2563eb'],
-              ['Codes used', P.codesUsed, '#16a34a'],
-              ['Codes pending', P.codesPending, '#d97706'],
-              ['Support sessions this month', P.supportSessionsThisMonth, '#c0392b'],
-            ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
-              <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
-              <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
-            </div>`).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- STAFF EFFICIENCY -->
-      <div class="sec">
-        <div class="sec-hd">
-          <div class="sec-icon" style="background:#fde8e8">${iStaff.replace('stroke="currentColor"','stroke="#c0392b"')}</div>
-          <h2>Staff Efficiency</h2>
-          <span class="sec-meta">${ST.total} staff</span>
-          <select class="input" style="margin-left:auto;width:auto;padding:6px 10px;font-size:13px" onchange="staChangeMonth(this.value)">
-            ${staMonthOptions(ST.month)}
-          </select>
-        </div>
-        <div class="g2">
-          <div class="card">
-            <div class="card-title">Teachers · Attendance Rate</div>
-            <div class="tscroll"><table class="stbl">
-              <thead><tr><th>Teacher</th><th>Load</th><th>Attendance</th></tr></thead>
-              <tbody>${tRows}</tbody>
-            </table></div>
-          </div>
-          <div class="card">
-            <div class="card-title">Support Teachers · Completion Rate</div>
-            <div class="tscroll"><table class="stbl">
-              <thead><tr><th>Teacher</th><th>Sessions</th><th>Completion</th></tr></thead>
-              <tbody>${sRows}</tbody>
-            </table></div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const wrap = document.getElementById('finChartWrap');
-    if (wrap) {
-      const tip = document.getElementById('finTip');
-      wrap.querySelectorAll('.lc-hover').forEach(el => {
-        el.addEventListener('mouseenter', () => {
-          const vals = el.dataset.vals.split('|').map(v => {
-            const [lbl,num] = v.split(':');
-            return `<div style="display:flex;gap:16px;justify-content:space-between"><span style="opacity:.8">${lbl}</span><strong>${staFmtM(Number(num))}</strong></div>`;
-          }).join('');
-          tip.innerHTML = `<div style="font-weight:700;margin-bottom:5px;opacity:.7;font-size:11px">${el.dataset.month}</div>${vals}`;
-          tip.classList.add('show');
-        });
-        el.addEventListener('mousemove', e => {
-          const rect = wrap.getBoundingClientRect();
-          let left = e.clientX - rect.left + 14;
-          if (left + 200 > wrap.offsetWidth) left = e.clientX - rect.left - 210;
-          tip.style.left = left+'px';
-          tip.style.top  = (e.clientY - rect.top - 16)+'px';
-        });
-        el.addEventListener('mouseleave', () => tip.classList.remove('show'));
-      });
-    }
-  }
-
   /* ══════════════════════════════════════════ FEEDBACK (fbk-prefixed) ══════════════════════════════════════════ */
   let fbkItems = [];
   let fbkFilter = 'all';
@@ -1486,7 +1043,6 @@
   if (SHOW_STAFF) { stfLoad(); setupLive(['users'], () => stfLoad()); }
   if (SHOW_ARCHIVED) { arcLoad(); setupLive(['students','leads'], () => arcLoad()); }
   if (SHOW_ACTIONS) { actLoad(); setupLive(['activity','students','leads','groups','finance'], () => actLoad()); }
-  if (SHOW_STATISTICS) { staLoad(); setupLive(['students','leads','groups','finance','attendance'], () => staLoad()); }
   if (SHOW_FEEDBACK) { fbkLoad(); setupLive(['feedback'], fbkLoad); }
 
   (function initMainTab() {
@@ -1494,7 +1050,7 @@
     const want = qp.get('tab');
     const order = [
       ['staff', SHOW_STAFF], ['archived', SHOW_ARCHIVED], ['actions', SHOW_ACTIONS],
-      ['statistics', SHOW_STATISTICS], ['feedback', SHOW_FEEDBACK],
+      ['feedback', SHOW_FEEDBACK],
     ];
     let tab = (order.find(([,ok]) => ok) || [null])[0];
     const wantOk = order.find(([name]) => name === want);
