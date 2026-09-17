@@ -290,6 +290,7 @@
           <div class="profile-tabs" style="padding:0 20px">
             <button class="profile-tab active" onclick="switchTab('groups',this)">Groups</button>
             <button class="profile-tab" onclick="switchTab('attendance',this)">Attendance</button>
+            <button class="profile-tab" onclick="switchTab('vocab',this)">Vocab</button>
             <button class="profile-tab" onclick="switchTab('comments',this)">Comments</button>
             <button class="profile-tab" onclick="switchTab('calls',this)">Calls</button>
             <button class="profile-tab" onclick="switchTab('history',this)">History</button>
@@ -323,6 +324,11 @@
             <!-- ATTENDANCE -->
             <div class="tab-panel" id="tab-attendance">
               <div id="attendanceList"><div class="empty-feed">Loading…</div></div>
+            </div>
+
+            <!-- VOCAB -->
+            <div class="tab-panel" id="tab-vocab">
+              <div id="vocabList"><div class="empty-feed">Loading…</div></div>
             </div>
 
             <!-- CALLS -->
@@ -547,13 +553,14 @@
 
   async function loadProfile() {
     try {
-      const [s, grps, cmts, invs, calls, att] = await Promise.all([
+      const [s, grps, cmts, invs, calls, att, vocab] = await Promise.all([
         apiGet('/api/students/'+STUDENT_ID),
         apiGet('/api/students/'+STUDENT_ID+'/groups'),
         apiGet('/api/students/'+STUDENT_ID+'/comments'),
         apiGet('/api/students/'+STUDENT_ID+'/invoices'),
         apiGet('/api/students/'+STUDENT_ID+'/calls'),
         apiGet('/api/students/'+STUDENT_ID+'/attendance'),
+        apiGet('/api/students/'+STUDENT_ID+'/vocab'),
       ]);
       student = s;
       studentGroups = grps;
@@ -604,6 +611,7 @@
       _invoices = invs;
       renderGroups(grps);
       renderAttendance(att);
+      renderVocab(vocab);
       renderComments(cmts);
       renderCalls(calls);
       renderInvoices(invs);
@@ -661,6 +669,44 @@
             <span style="font-weight:600;font-size:13px;color:${isPresent?'var(--green)':'var(--crimson)'}">${isPresent?'Present':'Absent'}</span>
             <span style="font-size:12px;color:var(--muted);margin-left:auto">${dateStr}</span>
             ${r.groupName?`<span style="font-size:11px;font-weight:700;background:white;border:1px solid var(--border);padding:2px 8px;border-radius:20px">${r.groupName}</span>`:''}
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function renderVocab(vocab) {
+    const el = document.getElementById('vocabList');
+    if (!vocab.length) { el.innerHTML = '<div class="empty-feed">No vocab test results yet.</div>'; return; }
+    const passed = vocab.filter(v => v.passed && !v.terminatedReason).length;
+    const pct = vocab.length ? Math.round(passed/vocab.length*100) : 0;
+    const barColor = pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--crimson)';
+    el.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:16px">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Pass Rate</div>
+          <div style="background:var(--border);border-radius:20px;height:8px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${barColor};border-radius:20px;transition:width .4s"></div>
+          </div>
+        </div>
+        <div style="font-size:28px;font-weight:900;color:${barColor};white-space:nowrap">${pct}%</div>
+        <div style="font-size:12px;color:var(--muted);text-align:right;white-space:nowrap">
+          <div style="color:var(--green);font-weight:700">${passed} passed</div>
+          <div style="color:var(--crimson);font-weight:700">${vocab.length-passed} not passed</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${vocab.map(v => {
+          const status = v.terminatedReason
+            ? { icon:'⚠️', label:'Left test', color:'var(--crimson)', bg:'#fef2f2' }
+            : v.passed
+              ? { icon:'✅', label:'Passed', color:'var(--green)', bg:'#f0fdf4' }
+              : { icon:'❌', label:'Not passed', color:'var(--crimson)', bg:'#fef2f2' };
+          return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:${status.bg}">
+            <span style="font-size:14px">${status.icon}</span>
+            <span style="font-weight:600;font-size:13px;color:${status.color}">${status.label}</span>
+            <span style="font-size:12px;color:var(--muted)">${v.score} / ${v.total}</span>
+            <span style="font-size:12px;color:var(--muted);margin-left:auto">${fmtDate(v.completedAt)}</span>
+            <span style="font-size:11px;font-weight:700;background:white;border:1px solid var(--border);padding:2px 8px;border-radius:20px">${v.unitNames.join(', ')}</span>
           </div>`;
         }).join('')}
       </div>`;

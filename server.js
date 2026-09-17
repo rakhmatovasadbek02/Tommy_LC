@@ -2578,6 +2578,27 @@ app.get('/api/vocab/attempts', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// One student's graded vocab test history, for the Vocab tab on their profile —
+// same shape as GET /api/vocab/attempts above, just pre-filtered server-side instead of
+// making the profile page fetch every student's attempts and filter client-side.
+app.get('/api/students/:id/vocab', async (req, res) => {
+  try {
+    const [attemptsR, unitsR] = await Promise.all([
+      pool.query(`SELECT * FROM vocab_attempts WHERE student_id=$1 ORDER BY completed_at DESC LIMIT 200`, [req.params.id]),
+      pool.query('SELECT id, name FROM vocab_units'),
+    ]);
+    const unitNames = new Map(unitsR.rows.map(u => [u.id, u.name]));
+    res.json(attemptsR.rows.map(t => ({
+      id: t.id,
+      unitIds: t.unit_ids || [],
+      unitNames: (t.unit_ids || []).map(id => unitNames.get(id) || '(deleted unit)'),
+      score: t.score, total: t.total, passed: t.passed !== null ? t.passed : vocabPassed(t.score, t.total),
+      terminatedReason: t.terminated_reason || null,
+      completedAt: t.completed_at
+    })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 /* ══════════════════════════════════════
    STUDENT PORTAL — registration codes (admin side)
    Same one-time-code pattern as vocab_access: an admin picks an existing student and
