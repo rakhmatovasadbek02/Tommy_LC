@@ -4004,7 +4004,7 @@ app.get('/api/statistics', async (req, res) => {
     const staffMonthStart = new Date(staffYear, staffMonthNum - 1, 1).toISOString().split('T')[0];
     const staffMonthEnd = new Date(staffYear, staffMonthNum, 1).toISOString().split('T')[0];
 
-    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadConvR, spendR, loginR, codeR, practiceR, supThisMonthR] = await Promise.all([
+    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, allLeadsEverR, leadConvCountR, spendR, loginR, codeR, practiceR, supThisMonthR] = await Promise.all([
       pool.query("SELECT id, status, balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
       pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
@@ -4016,7 +4016,15 @@ app.get('/api/statistics', async (req, res) => {
                   FROM attendance a JOIN groups g ON g.id=a.group_id
                   WHERE a.date >= $1 AND a.date < $2`, [staffMonthStart, staffMonthEnd]),
       pool.query(`SELECT teacher, attended, date FROM support_sessions WHERE date >= $1 AND date < $2`, [staffMonthStart, staffMonthEnd]),
-      pool.query(`SELECT created_at FROM leads WHERE status='Registration' OR (archived IS TRUE AND pre_archive_status='Registration')`),
+      // The conversion-rate inputs below: leads.status='Registration' is actually the
+      // *entry* stage of the funnel (new leads default to it — see POST /api/leads), not
+      // a converted one, so counting it as "registered" both mislabels the metric and
+      // double-counts leads already included in totalLeads. lead_conversions is the
+      // authoritative one-row-per-real-conversion record (written once by /convert),
+      // and the denominator is every lead ever created, not just the currently-visible
+      // (non-archived) pipeline, so lost/rejected leads count against the rate too.
+      pool.query('SELECT COUNT(*)::int AS n FROM leads'),
+      pool.query('SELECT COUNT(*)::int AS n FROM lead_conversions'),
       pool.query(`SELECT amount, month, created_at FROM spendings ORDER BY created_at ASC`),
       pool.query(`SELECT student_id, created_at FROM student_logins`),
       pool.query(`SELECT used, created_at FROM student_portal_codes`),
@@ -4040,8 +4048,12 @@ app.get('/api/statistics', async (req, res) => {
     const leadsByStatus = {};
     leads.forEach(l => { leadsByStatus[l.status] = (leadsByStatus[l.status] || 0) + 1; });
     const totalLeads = leads.length;
-    const registeredLeads = leadConvR.rows.length;
-    const conversionRate = totalLeads > 0 ? Math.round(registeredLeads / (totalLeads + registeredLeads) * 100) : 0;
+    // Conversion rate: of every lead ever created (including lost/archived ones — they
+    // count against the rate too), what fraction actually became a paying student per
+    // lead_conversions, the one-row-per-real-conversion record written by /convert.
+    const totalLeadsEver = Number(allLeadsEverR.rows[0]?.n || 0);
+    const convertedLeadsCount = Number(leadConvCountR.rows[0]?.n || 0);
+    const conversionRate = totalLeadsEver > 0 ? Math.round(convertedLeadsCount / totalLeadsEver * 100) : 0;
     const leadsThisMonth = leads.filter(l => l.created_at && l.created_at.toISOString().slice(0,7) === now.toISOString().slice(0,7)).length;
 
     // ── Finance ──
