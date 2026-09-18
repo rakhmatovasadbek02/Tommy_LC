@@ -516,6 +516,7 @@ function renderFillLetters() {
     </div>
   `;
   if (!LEARN_FILL_RESULT) setTimeout(() => document.getElementById('fillAnswer')?.focus(), 30);
+  if (LEARN_FILL_RESULT === 'correct') setTimeout(nextFill, 900);
 }
 function checkFill() {
   const input = document.getElementById('fillAnswer');
@@ -527,6 +528,7 @@ function checkFill() {
   renderFillLetters();
 }
 function nextFill() {
+  if (LEARN_METHOD !== 'fill') return;
   LEARN_FILL_RESULT = null;
   LEARN_CURRENT_BLANK = '';
   if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderFillLetters(); }
