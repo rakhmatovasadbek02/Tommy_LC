@@ -3614,13 +3614,16 @@ app.get('/api/dashboard', async (req, res) => {
     const me = req.user;
     const teacher = isTeacherTitle(me.title);
     const myName = (me.first_name + ' ' + me.last_name);
-    const today = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }))
-      .toISOString().split('T')[0];
+    const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Tashkent' }));
+    const today = nowTz.toISOString().split('T')[0];
+    const thisMonth = nowTz.toISOString().slice(0, 7);
 
     const [grpR, stuR, invR, leadR, attR] = await Promise.all([
       pool.query('SELECT id,name,teacher,room,level,lang,time,duration,sched_type,custom_days,current_unit,student_ids FROM groups ORDER BY created_at DESC'),
       pool.query("SELECT id,status,balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
-      pool.query("SELECT COUNT(*)::int n FROM invoices WHERE status='Paid'"),
+      // Same "which month does this invoice belong to" rule as the Statistics page's
+      // revenueByMonth: prefer the invoice's own month field, fall back to created_at.
+      pool.query("SELECT COUNT(*)::int n FROM invoices WHERE status='Paid' AND COALESCE(month, TO_CHAR(created_at, 'YYYY-MM')) = $1", [thisMonth]),
       pool.query('SELECT status, COUNT(*)::int n FROM leads GROUP BY status'),
       pool.query("SELECT group_id, student_id FROM attendance WHERE date=$1 AND status='absent'", [today]),
     ]);
