@@ -529,7 +529,7 @@ function renderFillLetters() {
     </div>
   `;
   if (!LEARN_FILL_RESULT) setTimeout(() => document.getElementById('fillAnswer')?.focus(), 30);
-  if (LEARN_FILL_RESULT === 'correct') setTimeout(nextFill, 900);
+  if (LEARN_FILL_RESULT) setTimeout(nextFill, 2000);
 }
 function checkFill() {
   const input = document.getElementById('fillAnswer');
