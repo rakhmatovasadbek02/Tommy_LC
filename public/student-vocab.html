@@ -49,6 +49,19 @@
 .sp-quiz-option.wrong-option { border-color: var(--red); background: var(--red-light); color: var(--red); font-weight: 700; }
 .sp-method-btn { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
 .sp-method-btn-sub { margin-left: auto; color: var(--text-tertiary); font-weight: 400; font-size: 12px; }
+
+@keyframes spFadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spPopIn { 0% { opacity: 0; transform: scale(.7); } 60% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes spShakeX { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); } 30%, 50%, 70% { transform: translateX(-5px); } 40%, 60% { transform: translateX(5px); } }
+.sp-learn-card { animation: spFadeInUp .3s ease both; }
+.sp-learn-card.sp-shake { animation: spShakeX .4s ease; }
+.sp-blank-word { transition: letter-spacing .2s; }
+.sp-quiz-input { transition: border-color .2s, box-shadow .2s; }
+.sp-quiz-input.sp-input-correct { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-light); }
+.sp-quiz-input.sp-input-wrong { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-light); animation: spShakeX .4s ease; }
+.sp-fill-feedback { animation: spPopIn .35s cubic-bezier(.4,.2,.2,1.4) both; font-size: 15px; }
+.sp-quiz-option { transition: transform .15s, border-color .15s, background .15s; }
+.sp-quiz-option.correct-option, .sp-quiz-option.wrong-option { animation: spPopIn .3s ease both; }
 </style>
 </head>
 <body>
@@ -435,7 +448,7 @@ function renderLearnSession() {
 function renderLearnDone() {
   const el = document.getElementById('content');
   el.innerHTML = `
-    <div class="sp-card" style="text-align:center">
+    <div class="sp-card sp-learn-card" style="text-align:center">
       <div style="font-size:40px;margin-bottom:10px">🎉</div>
       <div class="sp-card-title" style="justify-content:center">Session Complete</div>
       <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:18px">You went through ${LEARN_WORDS.length} word${LEARN_WORDS.length===1?'':'s'}.</div>
@@ -501,10 +514,10 @@ function renderFillLetters() {
   if (!LEARN_CURRENT_BLANK) LEARN_CURRENT_BLANK = blankWord(w.en);
   el.innerHTML = `
     <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total} · ${LEARN_FILL_DIFFICULTY[0].toUpperCase()+LEARN_FILL_DIFFICULTY.slice(1)}</div>
-    <div class="sp-card">
+    <div class="sp-card sp-learn-card${LEARN_FILL_RESULT==='wrong'?' sp-shake':''}">
       <div class="sp-quiz-prompt" style="margin-bottom:6px">${spEscapeHtml(w.back)}</div>
       <div class="sp-blank-word">${spEscapeHtml(LEARN_CURRENT_BLANK.toUpperCase())}</div>
-      <input type="text" class="sp-quiz-input" id="fillAnswer" placeholder="Type the full word…" autocomplete="off" autofocus
+      <input type="text" class="sp-quiz-input${LEARN_FILL_RESULT==='correct'?' sp-input-correct':LEARN_FILL_RESULT==='wrong'?' sp-input-wrong':''}" id="fillAnswer" placeholder="Type the full word…" autocomplete="off" autofocus
         onkeydown="if(event.key==='Enter')checkFill()" ${LEARN_FILL_RESULT?'disabled':''}>
       ${LEARN_FILL_RESULT ? `
         <div class="sp-fill-feedback ${LEARN_FILL_RESULT}">${LEARN_FILL_RESULT==='correct' ? '✓ Correct!' : '✗ Answer: ' + spEscapeHtml(w.en)}</div>
@@ -546,16 +559,18 @@ function renderMCQ() {
   }
   el.innerHTML = `
     <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total}</div>
-    <div class="sp-quiz-prompt">${spEscapeHtml(w.back)}</div>
-    <div class="sp-quiz-options">
-      ${w._options.map(o => {
-        let cls = 'sp-quiz-option';
-        if (LEARN_MCQ_PICKED) {
-          if (o === w.en) cls += ' correct-option';
-          else if (o === LEARN_MCQ_PICKED) cls += ' wrong-option';
-        }
-        return `<button type="button" class="${cls}" ${LEARN_MCQ_PICKED?'disabled':''} onclick="pickMCQ('${spJsStrAttr(o)}')">${spEscapeHtml(o)}</button>`;
-      }).join('')}
+    <div class="sp-learn-card${LEARN_MCQ_PICKED && LEARN_MCQ_PICKED!==w.en?' sp-shake':''}">
+      <div class="sp-quiz-prompt">${spEscapeHtml(w.back)}</div>
+      <div class="sp-quiz-options">
+        ${w._options.map(o => {
+          let cls = 'sp-quiz-option';
+          if (LEARN_MCQ_PICKED) {
+            if (o === w.en) cls += ' correct-option';
+            else if (o === LEARN_MCQ_PICKED) cls += ' wrong-option';
+          }
+          return `<button type="button" class="${cls}" ${LEARN_MCQ_PICKED?'disabled':''} onclick="pickMCQ('${spJsStrAttr(o)}')">${spEscapeHtml(o)}</button>`;
+        }).join('')}
+      </div>
     </div>
     <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px">
       <button class="sp-btn sp-btn-outline" onclick="exitLearnSession()">Back to Units</button>
