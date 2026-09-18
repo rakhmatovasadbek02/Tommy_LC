@@ -2010,14 +2010,30 @@ async function createSupportSession({ id, date, time, duration, teacher, student
   const fineCheck = await pool.query('SELECT 1 FROM support_fines WHERE student_id=$1 AND blocked_until > NOW() LIMIT 1', [studentId]);
   if (fineCheck.rows.length) throw { status: 409, message: 'This student is currently fined and cannot book support sessions.' };
 
-  const { rows } = await pool.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
-  const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });
-  if (overlap.length >= 2) throw { status: 409, message: 'Both support slots are already taken at this time.' };
-  if (overlap.some(s => s.teacher === teacher)) throw { status: 409, message: 'This teacher already has a session at this time.' };
-  await pool.query(
-    'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme,booked_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
-    [id, date, time, dur, teacher, studentId, theme.trim(), bookedBy === 'student' ? 'student' : 'admin']
-  );
+  // The availability check-then-insert below has to be atomic, or two students booking the
+  // same slot within milliseconds of each other can both pass the check before either INSERT
+  // lands, double-booking the teacher. pg_advisory_xact_lock serializes bookings per date —
+  // a second request blocks here until the first's transaction commits (or rolls back), so
+  // it always sees that INSERT before running its own check.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [date]);
+    const { rows } = await client.query('SELECT * FROM support_sessions WHERE date=$1', [date]);
+    const overlap = rows.filter(s => { const st=toMin(s.time), en=st+Number(s.duration||30); return start < en && st < end; });
+    if (overlap.length >= 2) throw { status: 409, message: 'Both support slots are already taken at this time.' };
+    if (overlap.some(s => s.teacher === teacher)) throw { status: 409, message: 'This teacher already has a session at this time.' };
+    await client.query(
+      'INSERT INTO support_sessions(id,date,time,duration,teacher,student_id,theme,booked_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+      [id, date, time, dur, teacher, studentId, theme.trim(), bookedBy === 'student' ? 'student' : 'admin']
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
   broadcast('support');
 }
 
