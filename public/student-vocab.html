@@ -78,6 +78,7 @@ let LEARN_IDX = 0;
 let LEARN_FLIPPED = false;
 let LEARN_CURRENT_BLANK = '';
 let LEARN_FILL_RESULT = null; // null | 'correct' | 'wrong'
+let LEARN_FILL_DIFFICULTY = 'medium'; // 'easy' | 'medium' | 'hard'
 let LEARN_MCQ_PICKED = null;
 
 // ── Per-word timer (student can turn this off; unlike the graded test, it's optional here) ──
@@ -221,7 +222,7 @@ function renderLearnPicker() {
       <div class="sp-card-title">Choose a Method</div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('flashcards')">📇 Flashcards<span class="sp-method-btn-sub">Flip to reveal</span></button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill')">✍️ Fill in the Letters<span class="sp-method-btn-sub">Type the word</span></button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="showFillDifficultyPicker()">✍️ Fill in the Letters<span class="sp-method-btn-sub">Type the word</span></button>
         <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('mcq')">🔘 Multiple Choice<span class="sp-method-btn-sub">Pick the answer</span></button>
       </div>
     </div>
@@ -229,6 +230,24 @@ function renderLearnPicker() {
   document.getElementById('learnUnitList').innerHTML = unitPickListHtml(LEARN_SELECTED, 'toggleLearnUnit');
 }
 function toggleLearnUnit(id, checked) { if (checked) LEARN_SELECTED.add(id); else LEARN_SELECTED.delete(id); }
+
+function showFillDifficultyPicker() {
+  if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="sp-card">
+      <div class="sp-card-title">Choose Difficulty</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','easy')">🟢 Easy<span class="sp-method-btn-sub">Fewer letters blanked</span></button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','medium')">🟡 Medium<span class="sp-method-btn-sub">About half the letters blanked</span></button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','hard')">🔴 Hard<span class="sp-method-btn-sub">Most letters blanked</span></button>
+      </div>
+      <div style="margin-top:14px">
+        <button class="sp-btn sp-btn-outline" onclick="renderLearnPicker()">← Back</button>
+      </div>
+    </div>
+  `;
+}
 
 async function loadGradedHistory() {
   const box = document.getElementById('gradedBox');
@@ -387,12 +406,13 @@ function shuffleArray(arr) {
   return a;
 }
 
-async function startLearn(method) {
+async function startLearn(method, fillDifficulty) {
   if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
   try {
     const r = await spGet('/api/student/vocab/learn?unitIds=' + [...LEARN_SELECTED].map(encodeURIComponent).join(','));
     LEARN_WORDS = shuffleArray(r.words);
     LEARN_METHOD = method;
+    if (fillDifficulty) LEARN_FILL_DIFFICULTY = fillDifficulty;
     LEARN_IDX = 0;
     LEARN_FLIPPED = false;
     LEARN_CURRENT_BLANK = '';
@@ -465,11 +485,13 @@ function handleFlashcardTap() {
 // Keeps the first/last letter of the word visible and blanks out roughly half of the
 // rest — a stable pattern computed once per word (not on every re-render), so it
 // doesn't reshuffle while the student is looking at it.
+const FILL_BLANK_RATIO = { easy: 0.3, medium: 0.55, hard: 0.8 };
 function blankWord(word) {
+  const ratio = FILL_BLANK_RATIO[LEARN_FILL_DIFFICULTY] ?? FILL_BLANK_RATIO.medium;
   return word.split('').map((ch, i, arr) => {
     if (!/[a-zA-Z]/.test(ch)) return ch;
     if (i === 0 || i === arr.length - 1) return ch;
-    return Math.random() < 0.55 ? '_' : ch;
+    return Math.random() < ratio ? '_' : ch;
   }).join('');
 }
 function renderFillLetters() {
@@ -478,7 +500,7 @@ function renderFillLetters() {
   const w = LEARN_WORDS[LEARN_IDX];
   if (!LEARN_CURRENT_BLANK) LEARN_CURRENT_BLANK = blankWord(w.en);
   el.innerHTML = `
-    <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total}</div>
+    <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total} · ${LEARN_FILL_DIFFICULTY[0].toUpperCase()+LEARN_FILL_DIFFICULTY.slice(1)}</div>
     <div class="sp-card">
       <div class="sp-quiz-prompt" style="margin-bottom:6px">${spEscapeHtml(w.back)}</div>
       <div class="sp-blank-word">${spEscapeHtml(LEARN_CURRENT_BLANK.toUpperCase())}</div>
