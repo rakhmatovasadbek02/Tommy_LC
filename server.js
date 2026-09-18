@@ -2961,6 +2961,31 @@ app.get('/api/student/vocab/units', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Learning Mode: flashcards / fill-in-the-letters / multiple choice, for self-study.
+// Unlike the graded practice endpoint below, nothing here is scored or persisted, so the
+// English word is sent to the client directly instead of being held back as an answer key.
+app.get('/api/student/vocab/learn', async (req, res) => {
+  try {
+    const unitIds = String(req.query.unitIds || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!unitIds.length) return res.status(400).json({ error: 'Pick at least one unit.' });
+    const [units, groupR] = await Promise.all([
+      pool.query('SELECT id, level, words FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
+      pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]),
+    ]);
+    if (units.rows.length !== unitIds.length) return res.status(404).json({ error: 'One or more units were not found.' });
+    const studentLevel = groupR.rows[0]?.level || null;
+    if (studentLevel && units.rows.some(u => u.level !== studentLevel)) {
+      return res.status(400).json({ error: `Pick units at your level (${studentLevel}).` });
+    }
+    const allWords = units.rows.flatMap(u => u.words || []);
+    if (!allWords.length) return res.status(404).json({ error: 'These units have no words yet.' });
+    const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
+    const backKey = languagePair === 'ENG-UZ' ? 'uz' : 'ru';
+    const words = allWords.map(w => ({ en: w.en, enAlt: w.enAlt || [], back: w[backKey] }));
+    res.json({ words, languagePair });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/student/vocab/practice/start', async (req, res) => {
   try {
     const unitIds = Array.isArray(req.body.unitIds) ? [...new Set(req.body.unitIds.filter(Boolean))] : [];

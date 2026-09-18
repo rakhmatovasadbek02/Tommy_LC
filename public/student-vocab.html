@@ -20,6 +20,20 @@
 .sp-quiz-timer.low { color: var(--red); }
 .sp-timer-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .sp-timer-toggle input { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
+.sp-mode-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.sp-mode-row .sp-btn { flex: 1; }
+.sp-flashcard { min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; user-select: none; }
+.sp-flashcard-label { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 14px; }
+.sp-flashcard-word { font-size: 26px; font-weight: 700; }
+.sp-flashcard-hint { margin-top: 16px; font-size: 12px; color: var(--text-tertiary); }
+.sp-blank-word { text-align: center; font-size: 26px; font-weight: 800; letter-spacing: 4px; margin: 16px 0; font-family: 'Courier New', monospace; word-break: break-all; }
+.sp-fill-feedback { margin-top: 10px; text-align: center; font-weight: 700; }
+.sp-fill-feedback.correct { color: var(--green); }
+.sp-fill-feedback.wrong { color: var(--red); }
+.sp-quiz-option.correct-option { border-color: var(--green); background: var(--green-light); color: var(--green); font-weight: 700; }
+.sp-quiz-option.wrong-option { border-color: var(--red); background: var(--red-light); color: var(--red); font-weight: 700; }
+.sp-method-btn { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+.sp-method-btn-sub { margin-left: auto; color: var(--text-tertiary); font-weight: 400; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -37,6 +51,19 @@ let UNITS = [], SELECTED = new Set();
 let SESSION = null; // { sessionId, questions, languagePair }
 let ANSWERS = {};
 let CUR = 0;
+
+// ── Learning Mode — flashcards / fill-in-the-letters / multiple choice. Purely for
+// self-study: nothing here is scored, timed, or saved to any history (see the graded
+// Practice Mode above/below for that). ──
+let MODE = 'practice'; // 'practice' | 'learn'
+let LEARN_SELECTED = new Set();
+let LEARN_METHOD = null; // 'flashcards' | 'fill' | 'mcq'
+let LEARN_WORDS = [];
+let LEARN_IDX = 0;
+let LEARN_FLIPPED = false;
+let LEARN_CURRENT_BLANK = '';
+let LEARN_FILL_RESULT = null; // null | 'correct' | 'wrong'
+let LEARN_MCQ_PICKED = null;
 
 // ── Per-word timer (student can turn this off; unlike the graded test, it's optional here) ──
 // Each word gets 15s, but time isn't reset per word — whatever's left when the student
@@ -87,17 +114,59 @@ async function showPicker() {
   } catch (e) { el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`; return; }
   // Arriving from a Home-screen recommendation (?unit=ID) — pre-check that unit.
   const preselect = new URLSearchParams(location.search).get('unit');
-  if (preselect && UNITS.some(u => u.id === preselect)) SELECTED.add(preselect);
-  renderPicker();
-  loadGradedHistory();
-  loadHistory();
+  if (preselect && UNITS.some(u => u.id === preselect)) { SELECTED.add(preselect); LEARN_SELECTED.add(preselect); }
+  renderModeShell();
 }
 
-function renderPicker() {
+function renderModeShell() {
+  if (MODE === 'learn') renderLearnPicker();
+  else renderPracticePicker();
+}
+
+function switchMode(m) {
+  MODE = m;
+  renderModeShell();
+}
+
+function modeToggleHtml() {
+  return `
+    <div class="sp-title">Vocabulary</div>
+    <div class="sp-subtitle">${MODE === 'practice'
+      ? 'Timed practice with scoring — results save to your history.'
+      : 'Study at your own pace — nothing here is scored or saved.'}</div>
+    <div class="sp-mode-row">
+      <button class="sp-btn ${MODE==='practice'?'sp-btn-primary':'sp-btn-outline'}" onclick="switchMode('practice')">📝 Practice Mode</button>
+      <button class="sp-btn ${MODE==='learn'?'sp-btn-primary':'sp-btn-outline'}" onclick="switchMode('learn')">🧠 Learning Mode</button>
+    </div>
+  `;
+}
+
+function unitPickListHtml(selectedSet, toggleFn) {
+  if (!UNITS.length) return `<div class="sp-empty">No units available for your level yet — ask your admin.</div>`;
+  // UNITS already comes back sorted level-then-unit-number; only add level headers
+  // when more than one level is present (e.g. no group assigned yet) so it's clear
+  // why the numbering restarts, instead of it just looking out of order.
+  const levels = [...new Set(UNITS.map(u => u.level))];
+  const itemHtml = u => `
+    <label class="sp-pick-item">
+      <input type="checkbox" ${selectedSet.has(u.id)?'checked':''} onchange="${toggleFn}('${u.id}', this.checked)">
+      <div>
+        <div style="font-size:13.5px;font-weight:600">${spEscapeHtml(u.name)}</div>
+        <div style="font-size:11.5px;color:var(--text-tertiary)">${u.wordCount} word${u.wordCount===1?'':'s'}${levels.length>1?'':' · '+spEscapeHtml(u.level)}</div>
+      </div>
+    </label>`;
+  return levels.length > 1
+    ? levels.map(lvl => `
+        <div style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-tertiary);background:var(--accent-light);border-bottom:1px solid var(--border)">${spEscapeHtml(lvl)}</div>
+        ${UNITS.filter(u => u.level === lvl).map(itemHtml).join('')}
+      `).join('')
+    : UNITS.map(itemHtml).join('');
+}
+
+function renderPracticePicker() {
   const el = document.getElementById('content');
   el.innerHTML = `
-    <div class="sp-title">Vocabulary Practice</div>
-    <div class="sp-subtitle">Pick one or more units and practice — results only save to your own history.</div>
+    ${modeToggleHtml()}
     <div class="sp-card">
       <div class="sp-card-title">Choose Unit(s)</div>
       <div class="sp-pick-list" id="unitList"></div>
@@ -119,31 +188,32 @@ function renderPicker() {
       <div id="historyBox"><div class="sp-empty">Loading…</div></div>
     </div>
   `;
-  const list = document.getElementById('unitList');
-  if (!UNITS.length) {
-    list.innerHTML = `<div class="sp-empty">No units available for your level yet — ask your admin.</div>`;
-    return;
-  }
-  // UNITS already comes back sorted level-then-unit-number; only add level headers
-  // when more than one level is present (e.g. no group assigned yet) so it's clear
-  // why the numbering restarts, instead of it just looking out of order.
-  const levels = [...new Set(UNITS.map(u => u.level))];
-  const itemHtml = u => `
-    <label class="sp-pick-item">
-      <input type="checkbox" ${SELECTED.has(u.id)?'checked':''} onchange="toggleUnit('${u.id}', this.checked)">
-      <div>
-        <div style="font-size:13.5px;font-weight:600">${spEscapeHtml(u.name)}</div>
-        <div style="font-size:11.5px;color:var(--text-tertiary)">${u.wordCount} word${u.wordCount===1?'':'s'}${levels.length>1?'':' · '+spEscapeHtml(u.level)}</div>
-      </div>
-    </label>`;
-  list.innerHTML = levels.length > 1
-    ? levels.map(lvl => `
-        <div style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-tertiary);background:var(--accent-light);border-bottom:1px solid var(--border)">${spEscapeHtml(lvl)}</div>
-        ${UNITS.filter(u => u.level === lvl).map(itemHtml).join('')}
-      `).join('')
-    : UNITS.map(itemHtml).join('');
+  document.getElementById('unitList').innerHTML = unitPickListHtml(SELECTED, 'toggleUnit');
+  loadGradedHistory();
+  loadHistory();
 }
 function toggleUnit(id, checked) { if (checked) SELECTED.add(id); else SELECTED.delete(id); }
+
+function renderLearnPicker() {
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    ${modeToggleHtml()}
+    <div class="sp-card">
+      <div class="sp-card-title">Choose Unit(s)</div>
+      <div class="sp-pick-list" id="learnUnitList"></div>
+    </div>
+    <div class="sp-card">
+      <div class="sp-card-title">Choose a Method</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('flashcards')">📇 Flashcards<span class="sp-method-btn-sub">Flip to reveal</span></button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill')">✍️ Fill in the Letters<span class="sp-method-btn-sub">Type the word</span></button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('mcq')">🔘 Multiple Choice<span class="sp-method-btn-sub">Pick the answer</span></button>
+      </div>
+    </div>
+  `;
+  document.getElementById('learnUnitList').innerHTML = unitPickListHtml(LEARN_SELECTED, 'toggleLearnUnit');
+}
+function toggleLearnUnit(id, checked) { if (checked) LEARN_SELECTED.add(id); else LEARN_SELECTED.delete(id); }
 
 async function loadGradedHistory() {
   const box = document.getElementById('gradedBox');
@@ -293,6 +363,168 @@ function renderResult(r) {
       </div>
     </div>
   `;
+}
+
+/* ══════════════════════════════════════════ LEARNING MODE ══════════════════════════════════════════ */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+async function startLearn(method) {
+  if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
+  try {
+    const r = await spGet('/api/student/vocab/learn?unitIds=' + [...LEARN_SELECTED].map(encodeURIComponent).join(','));
+    LEARN_WORDS = shuffleArray(r.words);
+    LEARN_METHOD = method;
+    LEARN_IDX = 0;
+    LEARN_FLIPPED = false;
+    LEARN_CURRENT_BLANK = '';
+    LEARN_FILL_RESULT = null;
+    LEARN_MCQ_PICKED = null;
+    renderLearnSession();
+  } catch (e) { spToast(e.message, 'error'); }
+}
+
+function exitLearnSession() { renderLearnPicker(); }
+
+function restartLearn() { startLearn(LEARN_METHOD); }
+
+function renderLearnSession() {
+  if (LEARN_METHOD === 'fill') renderFillLetters();
+  else if (LEARN_METHOD === 'mcq') renderMCQ();
+  else renderFlashcard();
+}
+
+function renderLearnDone() {
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="sp-card" style="text-align:center">
+      <div style="font-size:40px;margin-bottom:10px">🎉</div>
+      <div class="sp-card-title" style="justify-content:center">Session Complete</div>
+      <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:18px">You went through ${LEARN_WORDS.length} word${LEARN_WORDS.length===1?'':'s'}.</div>
+      <div style="display:flex;gap:10px">
+        <button class="sp-btn sp-btn-outline" style="flex:1" onclick="exitLearnSession()">Back to Units</button>
+        <button class="sp-btn sp-btn-primary" style="flex:1" onclick="restartLearn()">Study Again</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Flashcards ──
+function renderFlashcard() {
+  const el = document.getElementById('content');
+  const total = LEARN_WORDS.length;
+  const w = LEARN_WORDS[LEARN_IDX];
+  el.innerHTML = `
+    <div class="sp-quiz-progress">Card ${LEARN_IDX+1} of ${total}</div>
+    <div class="sp-card sp-flashcard" onclick="flipFlashcard()">
+      <div class="sp-flashcard-label">${LEARN_FLIPPED ? 'English' : 'Translation'}</div>
+      <div class="sp-flashcard-word">${spEscapeHtml(LEARN_FLIPPED ? w.en : w.back)}</div>
+      <div class="sp-flashcard-hint">${LEARN_FLIPPED ? 'Tap to see translation' : 'Tap to reveal English'}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
+      <button class="sp-btn sp-btn-outline" onclick="exitLearnSession()">Back to Units</button>
+      <button class="sp-btn sp-btn-primary" onclick="nextFlashcard()">${LEARN_IDX===total-1?'Finish':'Next →'}</button>
+    </div>
+  `;
+}
+function flipFlashcard() { LEARN_FLIPPED = !LEARN_FLIPPED; renderFlashcard(); }
+function nextFlashcard() {
+  LEARN_FLIPPED = false;
+  if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderFlashcard(); }
+  else renderLearnDone();
+}
+
+// ── Fill in the Letters ──
+// Keeps the first/last letter of the word visible and blanks out roughly half of the
+// rest — a stable pattern computed once per word (not on every re-render), so it
+// doesn't reshuffle while the student is looking at it.
+function blankWord(word) {
+  return word.split('').map((ch, i, arr) => {
+    if (!/[a-zA-Z]/.test(ch)) return ch;
+    if (i === 0 || i === arr.length - 1) return ch;
+    return Math.random() < 0.55 ? '_' : ch;
+  }).join('');
+}
+function renderFillLetters() {
+  const el = document.getElementById('content');
+  const total = LEARN_WORDS.length;
+  const w = LEARN_WORDS[LEARN_IDX];
+  if (!LEARN_CURRENT_BLANK) LEARN_CURRENT_BLANK = blankWord(w.en);
+  el.innerHTML = `
+    <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total}</div>
+    <div class="sp-card">
+      <div class="sp-quiz-prompt" style="margin-bottom:6px">${spEscapeHtml(w.back)}</div>
+      <div class="sp-blank-word">${spEscapeHtml(LEARN_CURRENT_BLANK.toUpperCase())}</div>
+      <input type="text" class="sp-quiz-input" id="fillAnswer" placeholder="Type the full word…" autocomplete="off" autofocus
+        onkeydown="if(event.key==='Enter')checkFill()" ${LEARN_FILL_RESULT?'disabled':''}>
+      ${LEARN_FILL_RESULT ? `
+        <div class="sp-fill-feedback ${LEARN_FILL_RESULT}">${LEARN_FILL_RESULT==='correct' ? '✓ Correct!' : '✗ Answer: ' + spEscapeHtml(w.en)}</div>
+      ` : ''}
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
+      <button class="sp-btn sp-btn-outline" onclick="exitLearnSession()">Back to Units</button>
+      <button class="sp-btn sp-btn-primary" onclick="${LEARN_FILL_RESULT?'nextFill()':'checkFill()'}">${LEARN_FILL_RESULT ? (LEARN_IDX===total-1?'Finish':'Next →') : 'Check'}</button>
+    </div>
+  `;
+  if (!LEARN_FILL_RESULT) setTimeout(() => document.getElementById('fillAnswer')?.focus(), 30);
+}
+function checkFill() {
+  const input = document.getElementById('fillAnswer');
+  const v = input.value.trim().toLowerCase();
+  if (!v) return;
+  const w = LEARN_WORDS[LEARN_IDX];
+  const accepted = [w.en, ...(w.enAlt||[])].map(s => s.trim().toLowerCase());
+  LEARN_FILL_RESULT = accepted.includes(v) ? 'correct' : 'wrong';
+  renderFillLetters();
+}
+function nextFill() {
+  LEARN_FILL_RESULT = null;
+  LEARN_CURRENT_BLANK = '';
+  if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderFillLetters(); }
+  else renderLearnDone();
+}
+
+// ── Multiple Choice ──
+function renderMCQ() {
+  const el = document.getElementById('content');
+  const total = LEARN_WORDS.length;
+  const w = LEARN_WORDS[LEARN_IDX];
+  if (!w._options) {
+    const distractors = shuffleArray(LEARN_WORDS.filter((x,i) => i !== LEARN_IDX).map(x => x.en)).slice(0, 3);
+    w._options = shuffleArray([w.en, ...distractors]);
+  }
+  el.innerHTML = `
+    <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total}</div>
+    <div class="sp-quiz-prompt">${spEscapeHtml(w.back)}</div>
+    <div class="sp-quiz-options">
+      ${w._options.map(o => {
+        let cls = 'sp-quiz-option';
+        if (LEARN_MCQ_PICKED) {
+          if (o === w.en) cls += ' correct-option';
+          else if (o === LEARN_MCQ_PICKED) cls += ' wrong-option';
+        }
+        return `<button type="button" class="${cls}" ${LEARN_MCQ_PICKED?'disabled':''} onclick="pickMCQ('${spJsStrAttr(o)}')">${spEscapeHtml(o)}</button>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px">
+      <button class="sp-btn sp-btn-outline" onclick="exitLearnSession()">Back to Units</button>
+      <button class="sp-btn sp-btn-primary" ${LEARN_MCQ_PICKED?'':'disabled'} onclick="nextMCQ()">${LEARN_IDX===total-1?'Finish':'Next →'}</button>
+    </div>
+  `;
+}
+function pickMCQ(val) {
+  if (LEARN_MCQ_PICKED) return;
+  LEARN_MCQ_PICKED = val;
+  renderMCQ();
+}
+function nextMCQ() {
+  if (!LEARN_MCQ_PICKED) return;
+  LEARN_MCQ_PICKED = null;
+  if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderMCQ(); }
+  else renderLearnDone();
 }
 
 showPicker();
