@@ -2634,6 +2634,11 @@ app.post('/api/student-codes', async (req, res) => {
     if (!studentId) return res.status(400).json({ error: 'studentId is required.' });
     const stu = await pool.query('SELECT id FROM students WHERE id=$1', [studentId]);
     if (!stu.rows[0]) return res.status(404).json({ error: 'Student not found.' });
+    // Retire this student's older, never-redeemed codes. Otherwise both stay valid, and
+    // redeeming the older one later — an old code found lying around, a re-issue nobody
+    // revoked — would silently overwrite whatever login the student is using now (see
+    // ON CONFLICT (student_id) DO UPDATE in /api/public/student/redeem below).
+    await pool.query('DELETE FROM student_portal_codes WHERE student_id=$1 AND used IS NOT TRUE', [studentId]);
     const id = genVocabId('spc');
     let code;
     for (let i = 0; i < 10; i++) {
