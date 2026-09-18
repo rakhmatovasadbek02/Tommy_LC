@@ -294,18 +294,29 @@ const firstName = session ? session.name.split(' ')[0] : 'there';
 const hour = now.getHours();
 const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 document.getElementById('welcomeMsg').textContent = `${t(greeting)}, ${firstName} `;
+const _myRoles = (session?.roles || [session?.title || '']).filter(Boolean);
+// Admin/Head Admin can't (and shouldn't need to) open the full Finance page — send them
+// to the Students roster pre-filtered to debtors instead, which they already have access
+// to and answers the same "who owes money" question directly.
+const _debtorsLink = _myRoles.some(r => ['Admin','Head Admin'].includes(r))
+  ? 'students.html?tab=roster&balance=neg' : 'finance.html';
 const STAT_DEFS = [
 { id:'statActive', label:'Active Students', icon:'', color:'', perm:'students', excludeRoles:['Admin','Head Admin'], calc:()=>S().activeStudents, sub:'currently enrolled', link:'students.html' },
-{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', perm:'finance', calc:()=>S().debtors, sub:'negative balance', link:'finance.html' },
+// Admin's role doesn't carry the 'finance' permission (it can't open Finance), but it
+// should still see who owes money — includeRoles below shows this box to Admin too,
+// on top of whoever already passes the perm check (Head Admin, Manager, CEO).
+{ id:'statDebtors', label:'Debtors', icon:'️', color:'red', perm:'finance', includeRoles:['Admin'], calc:()=>S().debtors, sub:'negative balance', link:_debtorsLink },
 { id:'statPaid', label:'Paid This Month', icon:'', color:'green', perm:'finance', excludeRoles:['Admin','Head Admin'], calc:()=>S().paidCount, sub:'invoices settled this month', link:'finance.html' },
 { id:'statLead', label:'Leads', icon:'', color:'purple', always:true, calc:()=>S().leads, sub:'in pipeline', link:'leads.html' },
 { id:'statTrial', label:'Trial', icon:'', color:'amber', always:true, calc:()=>S().trial, sub:'on trial period', link:'leads.html' },
 { id:'statAbsent', label:'Absent Today', icon:'', color:'red', always:true, calc:()=>S().absentToday, sub:'not in class today', link:null, onclick:'showAbsentModal()' },
 ];
 function S(){ return window._stats || {activeStudents:0,debtors:0,paidCount:0,leads:0,trial:0,absentToday:0}; }
-const _myRoles = (session?.roles || [session?.title || '']).filter(Boolean);
 function visibleStats() {
-  return STAT_DEFS.filter(s => (s.always || can(s.perm)) && !(s.excludeRoles && _myRoles.some(r => s.excludeRoles.includes(r))));
+  return STAT_DEFS.filter(s =>
+    (s.always || can(s.perm) || (s.includeRoles && _myRoles.some(r => s.includeRoles.includes(r)))) &&
+    !(s.excludeRoles && _myRoles.some(r => s.excludeRoles.includes(r)))
+  );
 }
 function renderStats() {
 const row = document.getElementById('statRow');

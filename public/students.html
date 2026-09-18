@@ -1013,6 +1013,15 @@
   }
 
   /* ══════════════════════════════════════════ INIT ══════════════════════════════════════════ */
+  // Deep link from the Dashboard's Debtors stat box (?balance=neg) — set the filter before
+  // load()'s first renderStudents() call so the list opens already filtered, not just the
+  // dropdown label.
+  (function applyBalanceFilterFromQuery() {
+    if (new URLSearchParams(location.search).get('balance') === 'neg') {
+      const el = document.getElementById('filterBalance');
+      if (el) el.value = 'neg';
+    }
+  })();
   if (SHOW_ROSTER) { load(); setupLive(['students'], () => load()); }
   if (SHOW_VOCAB) vocLoadAll();
   if (SHOW_CODES) pcLoadAll();
