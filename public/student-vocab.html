@@ -62,6 +62,10 @@
 .sp-fill-feedback { animation: spPopIn .35s cubic-bezier(.4,.2,.2,1.4) both; font-size: 15px; }
 .sp-quiz-option { transition: transform .15s, border-color .15s, background .15s; }
 .sp-quiz-option.correct-option, .sp-quiz-option.wrong-option { animation: spPopIn .3s ease both; }
+.sp-learn-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sp-learn-topbar .sp-quiz-progress { margin-bottom: 0; }
+.sp-learn-back-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; font-size: 13px; transition: background .15s, color .15s, border-color .15s; }
+.sp-learn-back-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -469,7 +473,10 @@ function renderFlashcard() {
   const total = LEARN_WORDS.length;
   const w = LEARN_WORDS[LEARN_IDX];
   el.innerHTML = `
-    <div class="sp-quiz-progress">Card ${LEARN_IDX+1} of ${total}</div>
+    <div class="sp-learn-topbar">
+      <button type="button" class="sp-learn-back-btn" onclick="exitLearnSession()" aria-label="Back to units"><i class="fas fa-arrow-left"></i></button>
+      <div class="sp-quiz-progress">Card ${LEARN_IDX+1} of ${total}</div>
+    </div>
     <div class="sp-flashcard-scene">
       <div class="sp-flashcard${LEARN_FLIPPED?' flipped':''}" id="flashcardEl" onclick="handleFlashcardTap()">
         <div class="sp-flashcard-inner">
@@ -477,9 +484,6 @@ function renderFlashcard() {
           <div class="sp-flashcard-face back"><div class="sp-flashcard-word">${spEscapeHtml(w.en)}</div></div>
         </div>
       </div>
-    </div>
-    <div style="margin-top:16px">
-      <button class="sp-btn sp-btn-outline" onclick="exitLearnSession()">Back to Units</button>
     </div>
   `;
 }
@@ -513,7 +517,10 @@ function renderFillLetters() {
   const w = LEARN_WORDS[LEARN_IDX];
   if (!LEARN_CURRENT_BLANK) LEARN_CURRENT_BLANK = blankWord(w.en);
   el.innerHTML = `
-    <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total} · ${LEARN_FILL_DIFFICULTY[0].toUpperCase()+LEARN_FILL_DIFFICULTY.slice(1)}</div>
+    <div class="sp-learn-topbar">
+      <button type="button" class="sp-learn-back-btn" onclick="exitLearnSession()" aria-label="Back to units"><i class="fas fa-arrow-left"></i></button>
+      <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total} · ${LEARN_FILL_DIFFICULTY[0].toUpperCase()+LEARN_FILL_DIFFICULTY.slice(1)}</div>
+    </div>
     <div class="sp-card sp-learn-card${LEARN_FILL_RESULT==='wrong'?' sp-shake':''}">
       <div class="sp-quiz-prompt" style="margin-bottom:6px">${spEscapeHtml(w.back)}</div>
       <div class="sp-blank-word">${spEscapeHtml(LEARN_CURRENT_BLANK.toUpperCase())}</div>
@@ -523,9 +530,8 @@ function renderFillLetters() {
         <div class="sp-fill-feedback ${LEARN_FILL_RESULT}">${LEARN_FILL_RESULT==='correct' ? '✓ Correct!' : '✗ Answer: ' + spEscapeHtml(w.en)}</div>
       ` : ''}
     </div>
-    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
-      <button class="sp-btn sp-btn-outline" onclick="exitLearnSession()">Back to Units</button>
-      <button class="sp-btn sp-btn-primary" onclick="${LEARN_FILL_RESULT?'nextFill()':'checkFill()'}">${LEARN_FILL_RESULT ? (LEARN_IDX===total-1?'Finish':'Next →') : 'Check'}</button>
+    <div style="margin-top:16px">
+      <button class="sp-btn sp-btn-primary" style="width:100%" onclick="${LEARN_FILL_RESULT?'nextFill()':'checkFill()'}">${LEARN_FILL_RESULT ? (LEARN_IDX===total-1?'Finish':'Next →') : 'Check'}</button>
     </div>
   `;
   if (!LEARN_FILL_RESULT) setTimeout(() => document.getElementById('fillAnswer')?.focus(), 30);
@@ -558,7 +564,10 @@ function renderMCQ() {
     w._options = shuffleArray([w.en, ...distractors]);
   }
   el.innerHTML = `
-    <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total}</div>
+    <div class="sp-learn-topbar">
+      <button type="button" class="sp-learn-back-btn" onclick="exitLearnSession()" aria-label="Back to units"><i class="fas fa-arrow-left"></i></button>
+      <div class="sp-quiz-progress">Word ${LEARN_IDX+1} of ${total}</div>
+    </div>
     <div class="sp-learn-card${LEARN_MCQ_PICKED && LEARN_MCQ_PICKED!==w.en?' sp-shake':''}">
       <div class="sp-quiz-prompt">${spEscapeHtml(w.back)}</div>
       <div class="sp-quiz-options">
@@ -572,9 +581,8 @@ function renderMCQ() {
         }).join('')}
       </div>
     </div>
-    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px">
-      <button class="sp-btn sp-btn-outline" onclick="exitLearnSession()">Back to Units</button>
-      <button class="sp-btn sp-btn-primary" ${LEARN_MCQ_PICKED?'':'disabled'} onclick="nextMCQ()">${LEARN_IDX===total-1?'Finish':'Next →'}</button>
+    <div style="margin-top:18px">
+      <button class="sp-btn sp-btn-primary" style="width:100%" ${LEARN_MCQ_PICKED?'':'disabled'} onclick="nextMCQ()">${LEARN_IDX===total-1?'Finish':'Next →'}</button>
     </div>
   `;
 }
