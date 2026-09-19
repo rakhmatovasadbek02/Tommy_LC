@@ -61,7 +61,11 @@ a { color: inherit; text-decoration: none; }
   padding: 12px max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left));
 }
 .sp-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.sp-brand-mark { width: 30px; height: 30px; border-radius: 8px; display: block; object-fit: contain; }
+/* The logo art itself is a fixed red PNG — hue-rotate is the only way to re-tint a raster
+   asset per theme without redrawing it, and it works well here because the mark is just
+   red-on-white: white/gray pixels have no saturation, so a hue rotation leaves them alone
+   and only shifts the red. --logo-hue is computed per theme in student-shared.js. */
+.sp-brand-mark { width: 30px; height: 30px; border-radius: 8px; display: block; object-fit: contain; filter: hue-rotate(var(--logo-hue, 0deg)); transition: filter .2s; }
 .sp-brand-text { font-size: 14px; font-weight: 700; color: var(--accent); line-height: 1.1; }
 .sp-brand-text span { display: none; }
 .sp-header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -260,7 +264,7 @@ body.sp-auth-body { padding-bottom: 0; }
 .sp-auth-card { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-md); padding: 38px 34px; position: relative; z-index: 1; }
 .sp-auth-card.center { text-align: center; }
 .sp-logo-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 22px; }
-.sp-logo-mark { width: 44px; height: 44px; border-radius: 10px; display: block; flex-shrink: 0; object-fit: contain; }
+.sp-logo-mark { width: 44px; height: 44px; border-radius: 10px; display: block; flex-shrink: 0; object-fit: contain; filter: hue-rotate(var(--logo-hue, 0deg)); transition: filter .2s; }
 .sp-logo-name { font-size: 21px; font-weight: 700; color: var(--accent); text-align: left; line-height: 1.1; }
 .sp-logo-name span { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: 1.5px; color: var(--text-tertiary); margin-top: 2px; text-transform: uppercase; }
 .sp-auth-h1 { font-size: 21px; font-weight: 700; letter-spacing: -.3px; margin-bottom: 8px; text-align: center; }

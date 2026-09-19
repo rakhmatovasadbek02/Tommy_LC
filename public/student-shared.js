@@ -26,6 +26,26 @@ const SP_THEMES = {
   autumn:  { name: 'Autumn 🍂',      accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4' },
 };
 function spGetTheme() { try { return localStorage.getItem('lc_student_theme') || 'default'; } catch { return 'default'; } }
+
+// The logo art (logo.png) is a fixed red-on-white raster image — the only way to re-tint
+// it per theme without redrawing it is a CSS hue-rotate filter, which works well here
+// specifically because white/gray pixels have no saturation and are untouched by a hue
+// shift, so only the red re-tints. Computed from each theme's own accent color (relative
+// to the default red the logo was drawn in) instead of a hand-maintained degree table, so
+// a new theme added to SP_THEMES later needs no extra logo-specific work.
+function spHexHue(hex) {
+  const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+  if (d === 0) return 0;
+  let h;
+  if (max === r) h = ((g-b)/d) % 6;
+  else if (max === g) h = (b-r)/d + 2;
+  else h = (r-g)/d + 4;
+  h *= 60;
+  return h < 0 ? h + 360 : h;
+}
+const SP_LOGO_BASE_HUE = spHexHue(SP_THEMES.default.accent);
+
 function spApplyTheme(key) {
   const t = SP_THEMES[key] || SP_THEMES.default;
   const root = document.documentElement.style;
@@ -34,6 +54,7 @@ function spApplyTheme(key) {
   root.setProperty('--accent-light', t.accentLight);
   root.setProperty('--bg', t.bg || SP_BG_DEFAULT);
   root.setProperty('--border', t.border || SP_BORDER_DEFAULT);
+  root.setProperty('--logo-hue', (spHexHue(t.accent) - SP_LOGO_BASE_HUE) + 'deg');
   spSetAutumnLeaves(key === 'autumn');
 }
 function spSetTheme(key) { try { localStorage.setItem('lc_student_theme', key); } catch {} spApplyTheme(key); }
