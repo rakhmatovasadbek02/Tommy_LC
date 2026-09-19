@@ -23,7 +23,13 @@ const SP_THEMES = {
   green:   { name: 'Forest Green',  accent: '#15803d', accentDark: '#14532d', accentLight: '#f0fdf4' },
   purple:  { name: 'Royal Purple',  accent: '#7e22ce', accentDark: '#581c87', accentLight: '#faf5ff' },
   orange:  { name: 'Sunset Orange', accent: '#c2410c', accentDark: '#9a3412', accentLight: '#fff7ed' },
-  autumn:  { name: 'Autumn 🍂',      accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4' },
+  // The four seasons: each warms/cools the page background and border too (not just the
+  // accent) and gets its own pair of drifting particle emoji — a season is meant to feel
+  // like a whole atmosphere, not just a different button color.
+  autumn:  { name: 'Autumn 🍂',      accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4', particles: ['🍂','🍁'] },
+  winter:  { name: 'Winter ❄️',      accent: '#0284c7', accentDark: '#075985', accentLight: '#f0f9ff', bg: '#f4f9fd', border: '#dceaf5', particles: ['❄️','☃️'] },
+  spring:  { name: 'Spring 🌸',      accent: '#d6488a', accentDark: '#a52f66', accentLight: '#fdf1f6', bg: '#fbf5f8', border: '#f3dce7', particles: ['🌸','🌷'] },
+  summer:  { name: 'Summer ☀️',      accent: '#0d9488', accentDark: '#115e59', accentLight: '#f0fdfa', bg: '#f2fcfb', border: '#d7f0ec', particles: ['☀️','🌻'] },
 };
 // 'autumn' as the fallback — not 'default' — is what actually makes it the portal-wide
 // default: any student who's never opened Settings and picked a theme gets Autumn, while
@@ -58,21 +64,22 @@ function spApplyTheme(key) {
   root.setProperty('--bg', t.bg || SP_BG_DEFAULT);
   root.setProperty('--border', t.border || SP_BORDER_DEFAULT);
   root.setProperty('--logo-hue', (spHexHue(t.accent) - SP_LOGO_BASE_HUE) + 'deg');
-  spSetAutumnLeaves(key === 'autumn');
+  spSetSeasonalParticles(t.particles);
 }
 function spSetTheme(key) { try { localStorage.setItem('lc_student_theme', key); } catch {} spApplyTheme(key); }
 
-// A handful of drifting leaf/acorn emoji, fixed to the viewport and non-interactive —
-// the "detail" that makes Autumn feel like a season rather than just a different accent
-// color. Only ever present while the Autumn theme is active; removed the instant it isn't.
-const SP_AUTUMN_EMOJI = ['🍂', '🍁'];
-function spSetAutumnLeaves(active) {
-  let box = document.getElementById('spAutumnLeaves');
-  if (!active) { if (box) box.remove(); return; }
-  if (box || !document.body) return; // already running, or body not parsed yet
-  box = document.createElement('div');
-  box.id = 'spAutumnLeaves';
-  box.className = 'sp-autumn-leaves';
+// A handful of drifting emoji, fixed to the viewport and non-interactive — the "detail"
+// that makes a season feel like an atmosphere rather than just a different accent color.
+// Rebuilt (or removed) every call rather than left alone when already present, since
+// switching between two seasonal themes needs to swap which emoji are falling, not just
+// leave whichever ran first.
+function spSetSeasonalParticles(particles) {
+  const old = document.getElementById('spSeasonParticles');
+  if (old) old.remove();
+  if (!particles || !particles.length || !document.body) return;
+  const box = document.createElement('div');
+  box.id = 'spSeasonParticles';
+  box.className = 'sp-season-particles';
   box.setAttribute('aria-hidden', 'true');
   let html = '';
   for (let i = 0; i < 14; i++) {
@@ -81,8 +88,8 @@ function spSetAutumnLeaves(active) {
     const delay = (Math.random() * duration).toFixed(1);
     const drift = Math.round(Math.random() * 70 - 35);
     const size = 14 + Math.round(Math.random() * 12);
-    const emoji = SP_AUTUMN_EMOJI[i % SP_AUTUMN_EMOJI.length];
-    html += `<span class="sp-leaf" style="left:${left}%;font-size:${size}px;animation-duration:${duration}s;animation-delay:-${delay}s;--drift:${drift}px">${emoji}</span>`;
+    const emoji = particles[i % particles.length];
+    html += `<span class="sp-particle" style="left:${left}%;font-size:${size}px;animation-duration:${duration}s;animation-delay:-${delay}s;--drift:${drift}px">${emoji}</span>`;
   }
   box.innerHTML = html;
   document.body.appendChild(box);

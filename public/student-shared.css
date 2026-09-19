@@ -30,16 +30,17 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 
-/* ── Autumn theme's falling leaves (see spSetAutumnLeaves in student-shared.js) — fixed
-   to the viewport, behind real content (z-index below the header/tabbar's 30 so it never
-   sits on top of anything tappable), and non-interactive. ── */
-.sp-autumn-leaves { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
-.sp-leaf {
+/* ── Seasonal themes' drifting particles (see spSetSeasonalParticles in
+   student-shared.js) — leaves for Autumn, snow for Winter, etc. Fixed to the viewport,
+   behind real content (z-index below the header/tabbar's 30 so it never sits on top of
+   anything tappable), and non-interactive. ── */
+.sp-season-particles { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+.sp-particle {
   position: absolute; top: -12%; opacity: 0;
-  animation-name: spLeafFall; animation-timing-function: linear; animation-iteration-count: infinite;
+  animation-name: spParticleFall; animation-timing-function: linear; animation-iteration-count: infinite;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.1));
 }
-@keyframes spLeafFall {
+@keyframes spParticleFall {
   0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
   8%   { opacity: .8; }
   50%  { transform: translateY(60vh) translateX(var(--drift, 20px)) rotate(180deg); }
