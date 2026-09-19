@@ -26,10 +26,14 @@ const SP_THEMES = {
   // The four seasons: each warms/cools the page background and border too (not just the
   // accent) and gets its own pair of drifting particle emoji — a season is meant to feel
   // like a whole atmosphere, not just a different button color.
-  autumn:  { name: 'Autumn 🍂',      accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4', particles: ['🍂','🍁'] },
-  winter:  { name: 'Winter ❄️',      accent: '#0284c7', accentDark: '#075985', accentLight: '#f0f9ff', bg: '#f4f9fd', border: '#dceaf5', particles: ['❄️','☃️'] },
-  spring:  { name: 'Spring 🌸',      accent: '#d6488a', accentDark: '#a52f66', accentLight: '#fdf1f6', bg: '#fbf5f8', border: '#f3dce7', particles: ['🌸','🌷'] },
-  summer:  { name: 'Summer ☀️',      accent: '#0d9488', accentDark: '#115e59', accentLight: '#f0fdfa', bg: '#f2fcfb', border: '#d7f0ec', particles: ['☀️','🌻'] },
+  autumn:   { name: 'Autumn 🍂',    accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4', particles: ['🍂','🍁'] },
+  winter:   { name: 'Winter ❄️',    accent: '#0284c7', accentDark: '#075985', accentLight: '#f0f9ff', bg: '#f4f9fd', border: '#dceaf5', particles: ['❄️','☃️'] },
+  spring:   { name: 'Spring 🌸',    accent: '#d6488a', accentDark: '#a52f66', accentLight: '#fdf1f6', bg: '#fbf5f8', border: '#f3dce7', particles: ['🌸','🌷'] },
+  summer:   { name: 'Summer ☀️',    accent: '#0d9488', accentDark: '#115e59', accentLight: '#f0fdfa', bg: '#f2fcfb', border: '#d7f0ec', particles: ['☀️','🌻'] },
+  // Holidays/occasions, same treatment as the seasons above.
+  halloween:{ name: 'Halloween 🎃',  accent: '#e8600a', accentDark: '#9a3f12', accentLight: '#fff1e2', bg: '#fdf0e4', border: '#f2d9bc', particles: ['🎃','👻'] },
+  newyear:  { name: 'New Year 🎉',  accent: '#c9971f', accentDark: '#8a6816', accentLight: '#fdf6e3', bg: '#fefaf0', border: '#f0e2b8', particles: ['🎉','🎆'] },
+  ramadan:  { name: 'Ramadan 🌙',   accent: '#0f7a5c', accentDark: '#0b5943', accentLight: '#e8f7f1', bg: '#f4faf8', border: '#d8ece4', particles: ['🌙','🏮'] },
 };
 // 'autumn' as the fallback — not 'default' — is what actually makes it the portal-wide
 // default: any student who's never opened Settings and picked a theme gets Autumn, while
