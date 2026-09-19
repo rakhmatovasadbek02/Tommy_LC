@@ -3081,6 +3081,29 @@ app.get('/api/student/leaderboard', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// A CEFR student's own points ledger, newest first, with a human-readable reason per row
+// so they can see exactly why and when each point change happened.
+const POINTS_REASON = {
+  lesson_attend: 'Attended a lesson',
+  lesson_miss: 'Missed a lesson',
+  login: 'Logged in',
+  practice_attempt: 'Vocab practice attempt',
+  vocab_pass: 'Passed a graded vocab test',
+};
+app.get('/api/student/points-history', async (req, res) => {
+  try {
+    const studentId = req.student.id;
+    const [totalR, historyR] = await Promise.all([
+      pool.query(`SELECT COALESCE(SUM(points),0)::int total FROM student_points WHERE student_id=$1`, [studentId]),
+      pool.query(`SELECT type, points, created_at FROM student_points WHERE student_id=$1 ORDER BY created_at DESC LIMIT 200`, [studentId]),
+    ]);
+    res.json({
+      total: totalR.rows[0].total,
+      history: historyR.rows.map(r => ({ reason: POINTS_REASON[r.type] || r.type, points: r.points, at: r.created_at })),
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Which units this student may practice: only units matching their group's level (same
 // restriction admins already get when granting a graded test — see POST /api/vocab/access).
 // Natural sort for unit names like "1A Welcome to the class", "2A ...", "10A ...":
