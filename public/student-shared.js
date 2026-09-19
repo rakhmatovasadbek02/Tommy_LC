@@ -12,12 +12,18 @@ const SP_API = '';
 // just overriding those three at the root — no per-component styling needed. "default" is
 // the portal's current/original red look, and is always what a student who never opens
 // Settings sees — every value below is opt-in, applied only from a saved preference.
+// Themes may also warm/cool the page background and border tone (bg/border) — optional,
+// falling back to the portal's original neutral values so a plain accent swap (blue,
+// green, etc.) doesn't unintentionally tint the whole page. Autumn is the one theme that
+// uses this, since "an autumn look" means more than a different button color.
+const SP_BG_DEFAULT = '#fafbfc', SP_BORDER_DEFAULT = '#e5e7eb';
 const SP_THEMES = {
   default: { name: 'Tommy Red',     accent: '#b81c1c', accentDark: '#8f1515', accentLight: '#fff5f5' },
   blue:    { name: 'Ocean Blue',    accent: '#1d4ed8', accentDark: '#1e3a8a', accentLight: '#eff6ff' },
   green:   { name: 'Forest Green',  accent: '#15803d', accentDark: '#14532d', accentLight: '#f0fdf4' },
   purple:  { name: 'Royal Purple',  accent: '#7e22ce', accentDark: '#581c87', accentLight: '#faf5ff' },
   orange:  { name: 'Sunset Orange', accent: '#c2410c', accentDark: '#9a3412', accentLight: '#fff7ed' },
+  autumn:  { name: 'Autumn 🍂',      accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4' },
 };
 function spGetTheme() { try { return localStorage.getItem('lc_student_theme') || 'default'; } catch { return 'default'; } }
 function spApplyTheme(key) {
@@ -26,6 +32,8 @@ function spApplyTheme(key) {
   root.setProperty('--accent', t.accent);
   root.setProperty('--accent-dark', t.accentDark);
   root.setProperty('--accent-light', t.accentLight);
+  root.setProperty('--bg', t.bg || SP_BG_DEFAULT);
+  root.setProperty('--border', t.border || SP_BORDER_DEFAULT);
 }
 function spSetTheme(key) { try { localStorage.setItem('lc_student_theme', key); } catch {} spApplyTheme(key); }
 // Applied immediately (before the page's own header/content render) so there's no flash
