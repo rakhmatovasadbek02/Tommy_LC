@@ -140,7 +140,7 @@ async function load() {
       </div>
 
       ${(att || vs) ? `
-      <div class="sp-card">
+      <div class="sp-card" id="statsCard">
         <div class="sp-card-title">Stats</div>
 
         <div class="sp-vstat">
@@ -172,7 +172,7 @@ async function load() {
         const rows = leaderboard.rows;
         const selfIdx = rows.findIndex(r => r.isSelf);
         return `
-      <div class="sp-card sp-lb-card">
+      <div class="sp-card sp-lb-card" id="leaderboardCard">
         <div class="sp-card-title"><i class="fas fa-trophy" style="color:#F0A93A;margin-right:6px"></i>${spEscapeHtml(leaderboard.group.name)} Leaderboard</div>
 
         ${selfIdx >= 0 ? `

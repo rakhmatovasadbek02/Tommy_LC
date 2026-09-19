@@ -195,14 +195,18 @@ function spJsStrAttr(s) {
 // page and pick the tour back up there. Shown once automatically on first Home load
 // (lc_student_tutorial_seen), replayable anytime via the "?" button next to Sign Out.
 const SP_TOUR_STEPS = [
-  { page: 'student-portal.html', title: 'Welcome to Tommy LC!', body: "Quick tour — let's practice vocabulary and book a support session together." },
+  { page: 'student-portal.html', title: 'Welcome to Tommy LC!', body: "Quick tour — your stats, the leaderboard, vocabulary, support sessions, and customizing your portal." },
+  { page: 'student-portal.html', selector: '#statsCard', fallbackSelector: '.sp-title', title: 'Your Stats', body: 'Attendance and vocab pass rate at a glance, updated automatically.' },
+  { page: 'student-portal.html', selector: '#leaderboardCard', fallbackSelector: '.sp-title', title: 'Group Leaderboard', body: "See how you rank against your group. Passing graded vocab tests earns points that move you up." },
   { page: 'student-portal.html', selector: '#spTabbar a.sp-tab[href="student-vocab.html"]', title: 'Practice Vocabulary', body: 'Tap Vocab any time you want to practice — no teacher needed to start.' },
+  { page: 'student-vocab.html', selector: '.sp-mode-row', title: 'Two ways to study', body: 'Practice Mode is a timed, scored quiz. Learning Mode is untimed self-study — flashcards, fill-in-the-letters, or multiple choice, and you can revise just a handful of words at a time.' },
   { page: 'student-vocab.html', selector: '#unitList', title: 'Pick your units', body: 'Check one or more units you want to practice.' },
   { page: 'student-vocab.html', selector: '#startPracticeBtn', title: 'Start the quiz', body: 'Then tap Start Practice to begin. Results only save to your own history — no pressure.' },
   { page: 'student-vocab.html', selector: '#spTabbar a.sp-tab[href="student-support.html"]', title: 'Book a Support Session', body: 'Tap Support to book one-on-one time with a teacher.' },
   { page: 'student-support.html', selector: '.sp-day-tabs', fallbackSelector: '#bookCard', title: 'Choose a day', body: 'Pick Today, Tomorrow, or another day to see the open times.' },
   { page: 'student-support.html', selector: '.sp-slot-row', fallbackSelector: '#slotDays', title: 'Book a time', body: 'Tap any open time slot — you\'ll add a topic and confirm on the next two screens.' },
-  { page: 'student-support.html', selector: '#spTabbar a.sp-tab[href="student-account.html"]', title: 'Your Profile', body: "That's it! Check the Profile tab anytime for your group, schedule, and details." },
+  { page: 'student-support.html', selector: '#spTabbar a.sp-tab[href="student-account.html"]', title: 'Your Profile', body: "Check your group, schedule, and points history here anytime." },
+  { page: 'student-account.html', selector: '.sp-settings-btn', title: 'Make it yours', body: "That's it! Tap the gear icon here to upload a profile picture, pick a portal theme, or change your password." },
 ];
 function spTourSeen() { try { return !!localStorage.getItem('lc_student_tutorial_seen'); } catch { return true; } }
 function spTourMarkSeen() { try { localStorage.setItem('lc_student_tutorial_seen', '1'); } catch {} }
