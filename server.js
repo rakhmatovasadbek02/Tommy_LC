@@ -586,6 +586,15 @@ async function initDB() {
     // whenever it happened to be (re-)recorded. Idempotent — matches nothing once correct.
     `UPDATE student_points sp SET created_at = v.completed_at
      FROM vocab_attempts v WHERE sp.type='vocab_pass' AND sp.ref_id = v.id AND sp.created_at <> v.completed_at`,
+    // Learning Mode's per-word "revised" tracking (self-study only — separate from the
+    // scored Practice Mode / graded tests). word_key is 'unitId::en' since individual
+    // words have no id of their own; see wordKey() below.
+    `CREATE TABLE IF NOT EXISTS vocab_learn_progress (
+      student_id  TEXT NOT NULL,
+      word_key    TEXT NOT NULL,
+      revised_at  TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (student_id, word_key)
+    )`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -3205,27 +3214,92 @@ app.get('/api/student/vocab/units', async (req, res) => {
 });
 
 // Learning Mode: flashcards / fill-in-the-letters / multiple choice, for self-study.
-// Unlike the graded practice endpoint below, nothing here is scored or persisted, so the
-// English word is sent to the client directly instead of being held back as an answer key.
+// Unlike the graded practice endpoint below, nothing here is scored, but which words a
+// student has already been shown IS remembered (vocab_learn_progress) — so a student can
+// revise e.g. 20 of a 150-word CEFR unit at a time without ever repeating a word they've
+// already gone through, across sessions, until the whole unit cycles.
+// No individual word has its own id (words live in vocab_units.words, a plain JSONB
+// array) — 'unitId::en' is used as a stable-enough key instead.
+function wordKey(unitId, en) { return `${unitId}::${en}`; }
+
+async function loadUnitsForLearn(req, unitIds) {
+  const [units, groupR] = await Promise.all([
+    pool.query('SELECT id, level, words FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
+    pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]),
+  ]);
+  if (units.rows.length !== unitIds.length) throw { status: 404, message: 'One or more units were not found.' };
+  const studentLevel = groupR.rows[0]?.level || null;
+  if (studentLevel && units.rows.some(u => u.level !== studentLevel)) {
+    throw { status: 400, message: `Pick units at your level (${studentLevel}).` };
+  }
+  const allWords = units.rows.flatMap(u => (u.words || []).map(w => ({ ...w, unitId: u.id })));
+  if (!allWords.length) throw { status: 404, message: 'These units have no words yet.' };
+  const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
+  return { allWords, languagePair };
+}
+
+// Total vs. not-yet-revised word counts for the unit-picker screen, before committing to
+// an actual session — lets the student see "142 of 150 left" while choosing how many.
+app.get('/api/student/vocab/learn/counts', async (req, res) => {
+  try {
+    const unitIds = String(req.query.unitIds || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!unitIds.length) return res.status(400).json({ error: 'Pick at least one unit.' });
+    const { allWords } = await loadUnitsForLearn(req, unitIds);
+    const keys = allWords.map(w => wordKey(w.unitId, w.en));
+    const revisedR = await pool.query(`SELECT word_key FROM vocab_learn_progress WHERE student_id=$1 AND word_key = ANY($2::text[])`, [req.student.id, keys]);
+    res.json({ total: allWords.length, unrevised: allWords.length - revisedR.rows.length });
+  } catch(e) {
+    if (e && e.status) return res.status(e.status).json({ error: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/student/vocab/learn', async (req, res) => {
   try {
     const unitIds = String(req.query.unitIds || '').split(',').map(s => s.trim()).filter(Boolean);
     if (!unitIds.length) return res.status(400).json({ error: 'Pick at least one unit.' });
-    const [units, groupR] = await Promise.all([
-      pool.query('SELECT id, level, words FROM vocab_units WHERE id = ANY($1::text[])', [unitIds]),
-      pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]),
-    ]);
-    if (units.rows.length !== unitIds.length) return res.status(404).json({ error: 'One or more units were not found.' });
-    const studentLevel = groupR.rows[0]?.level || null;
-    if (studentLevel && units.rows.some(u => u.level !== studentLevel)) {
-      return res.status(400).json({ error: `Pick units at your level (${studentLevel}).` });
-    }
-    const allWords = units.rows.flatMap(u => u.words || []);
-    if (!allWords.length) return res.status(404).json({ error: 'These units have no words yet.' });
-    const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
+    const { allWords, languagePair } = await loadUnitsForLearn(req, unitIds);
     const backKey = languagePair === 'ENG-UZ' ? 'uz' : 'ru';
-    const words = allWords.map(w => ({ en: w.en, enAlt: w.enAlt || [], back: w[backKey] }));
-    res.json({ words, languagePair });
+    const keys = allWords.map(w => wordKey(w.unitId, w.en));
+    const revisedR = await pool.query(`SELECT word_key FROM vocab_learn_progress WHERE student_id=$1 AND word_key = ANY($2::text[])`, [req.student.id, keys]);
+    const revisedSet = new Set(revisedR.rows.map(r => r.word_key));
+    let pool_ = allWords.filter(w => !revisedSet.has(wordKey(w.unitId, w.en)));
+    let cycled = false;
+    // Every word in these units has already been revised — rather than a permanent dead
+    // end, start a fresh cycle over the same units.
+    if (!pool_.length) {
+      await pool.query(`DELETE FROM vocab_learn_progress WHERE student_id=$1 AND word_key = ANY($2::text[])`, [req.student.id, keys]);
+      pool_ = allWords;
+      cycled = true;
+    }
+    pool_ = shuffleServer(pool_);
+    const count = req.query.count ? Math.max(1, parseInt(req.query.count, 10)) : pool_.length;
+    const picked = pool_.slice(0, count);
+    const words = picked.map(w => ({ key: wordKey(w.unitId, w.en), en: w.en, enAlt: w.enAlt || [], back: w[backKey] }));
+    res.json({ words, languagePair, totalWords: allWords.length, unrevisedCount: pool_.length, cycled });
+  } catch(e) {
+    if (e && e.status) return res.status(e.status).json({ error: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+function shuffleServer(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+// Marks one Learning Mode word as revised — called as the student advances past it
+// (flip-and-tap-again on a flashcard, "Next" after Fill/MCQ). A word only counts once
+// they've actually moved past it, never for one just shown when they quit mid-session.
+app.post('/api/student/vocab/learn/progress', async (req, res) => {
+  try {
+    const key = String(req.body.key || '');
+    if (!key) return res.status(400).json({ error: 'key is required.' });
+    await pool.query(
+      `INSERT INTO vocab_learn_progress(student_id, word_key) VALUES($1,$2) ON CONFLICT DO NOTHING`,
+      [req.student.id, key]
+    );
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

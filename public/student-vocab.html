@@ -48,6 +48,9 @@
 .sp-quiz-option.correct-option { border-color: var(--green); background: var(--green-light); color: var(--green); font-weight: 700; }
 .sp-quiz-option.wrong-option { border-color: var(--red); background: var(--red-light); color: var(--red); font-weight: 700; }
 .sp-method-btn { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+.sp-count-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-count-chip { padding: 9px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sp-count-chip.on { border-color: var(--accent); background: var(--accent); color: #fff; }
 
 @keyframes spFadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spPopIn { 0% { opacity: 0; transform: scale(.7); } 60% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
@@ -235,6 +238,11 @@ function renderLearnPicker() {
       <div class="sp-pick-list" id="learnUnitList"></div>
     </div>
     <div class="sp-card">
+      <div class="sp-card-title">How Many Words?</div>
+      <div class="sp-empty" id="learnCountInfo" style="padding:0 0 12px">Pick a unit first.</div>
+      <div class="sp-count-chips" id="learnCountChips"></div>
+    </div>
+    <div class="sp-card">
       <div class="sp-card-title">Choose a Method</div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('flashcards')">📇 Flashcards</button>
@@ -244,8 +252,47 @@ function renderLearnPicker() {
     </div>
   `;
   document.getElementById('learnUnitList').innerHTML = unitPickListHtml(LEARN_SELECTED, 'toggleLearnUnit');
+  refreshLearnCounts();
 }
-function toggleLearnUnit(id, checked) { if (checked) LEARN_SELECTED.add(id); else LEARN_SELECTED.delete(id); }
+function toggleLearnUnit(id, checked) {
+  if (checked) LEARN_SELECTED.add(id); else LEARN_SELECTED.delete(id);
+  refreshLearnCounts();
+}
+
+// "How many words?" — lets a student revise e.g. 20 of a 150-word unit at a time instead
+// of the whole thing. LEARN_COUNT null means "all remaining unrevised words".
+let LEARN_COUNT = null;
+let LEARN_AVAILABLE = 0; // words the current LEARN_SELECTED/count choice can draw from
+let _learnCountsToken = 0;
+async function refreshLearnCounts() {
+  const info = document.getElementById('learnCountInfo');
+  const chips = document.getElementById('learnCountChips');
+  if (!info || !chips) return;
+  if (!LEARN_SELECTED.size) { info.textContent = 'Pick a unit first.'; chips.innerHTML = ''; return; }
+  const token = ++_learnCountsToken;
+  info.textContent = 'Checking your progress…';
+  chips.innerHTML = '';
+  let counts;
+  try {
+    counts = await spGet('/api/student/vocab/learn/counts?unitIds=' + [...LEARN_SELECTED].map(encodeURIComponent).join(','));
+  } catch (e) { if (token === _learnCountsToken) info.textContent = e.message; return; }
+  if (token !== _learnCountsToken) return; // a newer unit selection has since started loading
+  const { total, unrevised } = counts;
+  LEARN_AVAILABLE = unrevised || total; // 0 unrevised = fully revised, next session starts a fresh cycle over all of them
+  if (LEARN_COUNT === null || LEARN_COUNT > LEARN_AVAILABLE) LEARN_COUNT = Math.min(20, LEARN_AVAILABLE);
+  info.textContent = unrevised
+    ? `${unrevised} of ${total} word${total===1?'':'s'} not yet revised`
+    : `All ${total} word${total===1?'':'s'} revised — starting a fresh round`;
+  renderLearnCountChips();
+}
+function renderLearnCountChips() {
+  const chips = document.getElementById('learnCountChips');
+  if (!chips) return;
+  const presets = [10, 20, 30, 50].filter(n => n < LEARN_AVAILABLE);
+  chips.innerHTML = presets.map(n => `<button type="button" class="sp-count-chip${LEARN_COUNT===n?' on':''}" onclick="pickLearnCount(${n})">${n}</button>`).join('')
+    + `<button type="button" class="sp-count-chip${LEARN_COUNT===LEARN_AVAILABLE?' on':''}" onclick="pickLearnCount(${LEARN_AVAILABLE})">All ${LEARN_AVAILABLE}</button>`;
+}
+function pickLearnCount(n) { LEARN_COUNT = n; renderLearnCountChips(); }
 
 function showFillDifficultyPicker() {
   if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
@@ -425,7 +472,10 @@ function shuffleArray(arr) {
 async function startLearn(method, fillDifficulty) {
   if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
   try {
-    const r = await spGet('/api/student/vocab/learn?unitIds=' + [...LEARN_SELECTED].map(encodeURIComponent).join(','));
+    const unitIds = [...LEARN_SELECTED].map(encodeURIComponent).join(',');
+    const count = LEARN_COUNT ? `&count=${LEARN_COUNT}` : '';
+    const r = await spGet(`/api/student/vocab/learn?unitIds=${unitIds}${count}`);
+    if (r.cycled) spToast("You've revised every word here — starting a fresh round.");
     LEARN_WORDS = shuffleArray(r.words);
     LEARN_METHOD = method;
     if (fillDifficulty) LEARN_FILL_DIFFICULTY = fillDifficulty;
@@ -486,6 +536,13 @@ function renderFlashcard() {
     </div>
   `;
 }
+// Fire-and-forget: only counts once the student has actually moved past a word, never
+// for the one on screen when they quit — so an interrupted session leaves exactly the
+// words not yet reached still unrevised, ready to come up again next time.
+function markLearnWordRevised(w) {
+  if (w?.key) spPost('/api/student/vocab/learn/progress', { key: w.key }).catch(() => {});
+}
+
 function handleFlashcardTap() {
   if (!LEARN_FLIPPED) {
     LEARN_FLIPPED = true;
@@ -493,6 +550,7 @@ function handleFlashcardTap() {
     return;
   }
   LEARN_FLIPPED = false;
+  markLearnWordRevised(LEARN_WORDS[LEARN_IDX]);
   if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderFlashcard(); }
   else renderLearnDone();
 }
@@ -547,6 +605,7 @@ function checkFill() {
 }
 function nextFill() {
   if (LEARN_METHOD !== 'fill') return;
+  markLearnWordRevised(LEARN_WORDS[LEARN_IDX]);
   LEARN_FILL_RESULT = null;
   LEARN_CURRENT_BLANK = '';
   if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderFillLetters(); }
@@ -596,6 +655,7 @@ function pickMCQ(val) {
 }
 function nextMCQ() {
   if (!LEARN_MCQ_PICKED) return;
+  markLearnWordRevised(LEARN_WORDS[LEARN_IDX]);
   LEARN_MCQ_PICKED = null;
   if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderMCQ(); }
   else renderLearnDone();
