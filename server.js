@@ -541,14 +541,8 @@ async function initDB() {
       UNIQUE(student_id, type, ref_id)
     )`,
     `CREATE INDEX IF NOT EXISTS idx_student_points_student ON student_points(student_id)`,
-    // Fix-up: the first points backfill stamped every historical attendance/vocab event
-    // with the moment it ran, not when the event actually happened — a student's whole
-    // history showed up as having occurred "today". Re-date each ledger row back to its
-    // source record's real date. Idempotent — matches nothing once already corrected.
-    `UPDATE student_points sp SET created_at = a.date::timestamptz
-     FROM attendance a WHERE sp.type IN ('lesson_attend','lesson_miss') AND sp.ref_id = a.id::text AND sp.created_at::date <> a.date`,
-    `UPDATE student_points sp SET created_at = v.completed_at
-     FROM vocab_practice_attempts v WHERE sp.type='practice_attempt' AND sp.ref_id = v.id AND sp.created_at <> v.completed_at`,
+    // Keeps a vocab_pass ledger row dated to when the test was actually passed, not
+    // whenever it happened to be (re-)recorded. Idempotent — matches nothing once correct.
     `UPDATE student_points sp SET created_at = v.completed_at
      FROM vocab_attempts v WHERE sp.type='vocab_pass' AND sp.ref_id = v.id AND sp.created_at <> v.completed_at`,
   ];
@@ -757,36 +751,24 @@ async function initDB() {
   console.log('Database ready');
 }
 
-// One-time backfill: scores CEFR students' existing history (attendance, vocab practice,
-// graded passes) into the points ledger, so the leaderboard isn't empty for students who
-// were already active before the points system existed. Guarded by app_config so it only
-// scans the whole history once — everything after that is scored live by the route hooks.
-// (Daily-login points aren't backfilled: no login history was ever recorded to score.)
+// One-time reset: wipes the entire points ledger (fresh start at 0 for everyone — the
+// old attendance/login/practice sources no longer count at all) and re-awards +200 for
+// every graded vocab test a CEFR student has already passed, dated to when it was
+// actually passed. Guarded by app_config so this only runs once.
 async function backfillStudentPoints() {
-  const done = await pool.query(`SELECT 1 FROM app_config WHERE key='student_points_backfilled'`);
+  const done = await pool.query(`SELECT 1 FROM app_config WHERE key='student_points_reset_vocab_only'`);
   if (done.rows.length) return;
   try {
+    await pool.query('DELETE FROM student_points');
     const cefrGroupsR = await pool.query(`SELECT student_ids FROM groups WHERE level='CEFR'`);
     const studentIds = [...new Set(cefrGroupsR.rows.flatMap(g => g.student_ids || []))];
     for (const studentId of studentIds) {
-      const attR = await pool.query('SELECT id, status, date FROM attendance WHERE student_id=$1', [studentId]);
-      for (const a of attR.rows) {
-        if (a.status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, String(a.id), a.date);
-        else if (a.status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, String(a.id), a.date);
-      }
-
-      const practiceR = await pool.query(
-        'SELECT id, completed_at FROM vocab_practice_attempts WHERE student_id=$1 ORDER BY completed_at ASC LIMIT $2',
-        [studentId, PRACTICE_POINT_ATTEMPT_CAP]
-      );
-      for (const p of practiceR.rows) await awardPoints(studentId, 'practice_attempt', POINTS.PRACTICE_ATTEMPT, p.id, p.completed_at);
-
       const passedR = await pool.query('SELECT id, completed_at FROM vocab_attempts WHERE student_id=$1 AND passed IS TRUE', [studentId]);
       for (const v of passedR.rows) await awardPoints(studentId, 'vocab_pass', POINTS.VOCAB_PASS, v.id, v.completed_at);
     }
-    await pool.query(`INSERT INTO app_config(key,value) VALUES('student_points_backfilled','done') ON CONFLICT(key) DO NOTHING`);
-    console.log(`Backfilled points for ${studentIds.length} CEFR student(s)`);
-  } catch(e) { console.warn('Points backfill skipped:', e.message); }
+    await pool.query(`INSERT INTO app_config(key,value) VALUES('student_points_reset_vocab_only','done') ON CONFLICT(key) DO NOTHING`);
+    console.log(`Points reset: re-scored graded-pass history for ${studentIds.length} CEFR student(s)`);
+  } catch(e) { console.warn('Points reset skipped:', e.message); }
 }
 
 // Notification helpers
@@ -2402,12 +2384,9 @@ function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + Ma
 function genVocabCode() { return String(Math.floor(100000 + Math.random() * 900000)); } // 6 digits
 
 /* ═══════════════════════ POINTS / LEADERBOARD (CEFR groups only) ═══════════════════════
-   Point values: lesson attended +100, lesson missed -100, daily login +50 (once/day,
-   Tashkent time), each of a student's first 3 vocab practice attempts +5, passing a
-   graded (admin-code) vocab test +200. Only students in a 'CEFR' level group earn/lose
-   points — other levels aren't part of this system at all. */
-const POINTS = { LESSON_ATTEND: 100, LESSON_MISS: -100, LOGIN: 50, PRACTICE_ATTEMPT: 5, VOCAB_PASS: 200 };
-const PRACTICE_POINT_ATTEMPT_CAP = 3;
+   Only one thing earns points: passing a graded (admin-code) vocab test, +200. Only
+   students in a 'CEFR' level group earn points — other levels aren't part of this system. */
+const POINTS = { VOCAB_PASS: 200 };
 
 async function studentIsCefr(studentId) {
   const { rows } = await pool.query(
@@ -2418,33 +2397,16 @@ async function studentIsCefr(studentId) {
 }
 
 // Idempotent award: (student_id, type, ref_id) is unique, so re-running the same event
-// (e.g. an attendance edit re-processed) never double-awards. `at` dates the ledger entry
-// to when the event actually happened (e.g. the lesson's date) rather than when it was
-// recorded — matters for the backfill, which processes months of history in one pass and
-// must not stamp it all with "now".
+// never double-awards. `at` dates the ledger entry to when the event actually happened
+// (e.g. the test's completed_at) rather than when it was recorded — matters for the
+// backfill, which processes months of history in one pass and must not stamp it all
+// with "now".
 async function awardPoints(studentId, type, points, refId, at) {
   await pool.query(
     `INSERT INTO student_points(student_id, type, points, ref_id, created_at) VALUES($1,$2,$3,$4,COALESCE($5,NOW()))
      ON CONFLICT(student_id, type, ref_id) DO NOTHING`,
     [studentId, type, points, refId, at || null]
   );
-}
-
-async function revokePoints(studentId, type, refId) {
-  await pool.query(`DELETE FROM student_points WHERE student_id=$1 AND type=$2 AND ref_id=$3`, [studentId, type, refId]);
-}
-
-// Attendance can be corrected (present → absent → present…) on the same row — clear
-// whichever side was previously awarded before applying the new status, so a status flip
-// never leaves stale points behind or double-counts. Dates the award to the lesson's own
-// date, not whenever a teacher happened to mark it.
-async function applyAttendancePoints(studentId, attendanceId, status, date) {
-  if (!(await studentIsCefr(studentId))) return;
-  const refId = String(attendanceId);
-  await revokePoints(studentId, 'lesson_attend', refId);
-  await revokePoints(studentId, 'lesson_miss', refId);
-  if (status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, refId, date);
-  else if (status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, refId, date);
 }
 
 // Pass rule: a max number of wrong answers, scaled to how many questions were actually
@@ -2843,10 +2805,6 @@ app.post('/api/public/student/login', async (req, res) => {
     );
     if (!rows.length) return res.status(401).json({ error: 'Invalid username or password.' });
     const r = rows[0];
-    if (await studentIsCefr(r.student_id)) {
-      const todayISO = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' })).toISOString().split('T')[0];
-      await awardPoints(r.student_id, 'login', POINTS.LOGIN, todayISO);
-    }
     res.json({ ok: true, token: signStudentToken(r.student_id), name: `${r.first_name} ${r.last_name}` });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3098,10 +3056,6 @@ app.get('/api/student/leaderboard', async (req, res) => {
 // A CEFR student's own points ledger, newest first, with a human-readable reason per row
 // so they can see exactly why and when each point change happened.
 const POINTS_REASON = {
-  lesson_attend: 'Attended a lesson',
-  lesson_miss: 'Missed a lesson',
-  login: 'Logged in',
-  practice_attempt: 'Vocab practice attempt',
   vocab_pass: 'Passed a graded vocab test',
 };
 app.get('/api/student/points-history', async (req, res) => {
@@ -3223,12 +3177,6 @@ app.post('/api/student/vocab/practice/:sessionId/submit', async (req, res) => {
       [attemptId, req.student.id, JSON.stringify(row.unit_ids), row.language_pair, score, total, passed]
     );
     await pool.query('DELETE FROM vocab_practice_sessions WHERE id=$1', [row.id]);
-    if (await studentIsCefr(req.student.id)) {
-      const countR = await pool.query(`SELECT COUNT(*)::int c FROM student_points WHERE student_id=$1 AND type='practice_attempt'`, [req.student.id]);
-      if (countR.rows[0].c < PRACTICE_POINT_ATTEMPT_CAP) {
-        await awardPoints(req.student.id, 'practice_attempt', POINTS.PRACTICE_ATTEMPT, attemptId);
-      }
-    }
     res.json({ ok: true, score, total, passed, details });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3518,18 +3466,16 @@ app.post('/api/attendance/:groupId/:date', async (req, res) => {
     // teacher/admin session, or a live-reload landing mid-edit).
     for (const r of records) {
       if (!r.status) {
-        const del = await pool.query(
-          'DELETE FROM attendance WHERE group_id=$1 AND date=$2 AND student_id=$3 RETURNING id',
+        await pool.query(
+          'DELETE FROM attendance WHERE group_id=$1 AND date=$2 AND student_id=$3',
           [req.params.groupId, req.params.date, r.studentId]
         );
-        if (del.rows[0]) await applyAttendancePoints(r.studentId, del.rows[0].id, null, req.params.date);
       } else {
-        const up = await pool.query(
+        await pool.query(
           `INSERT INTO attendance(group_id,date,student_id,status) VALUES($1,$2,$3,$4)
-           ON CONFLICT(group_id,date,student_id) DO UPDATE SET status=$4 RETURNING id`,
+           ON CONFLICT(group_id,date,student_id) DO UPDATE SET status=$4`,
           [req.params.groupId, req.params.date, r.studentId, r.status]
         );
-        await applyAttendancePoints(r.studentId, up.rows[0].id, r.status, req.params.date);
       }
     }
     broadcast('attendance');
