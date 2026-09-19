@@ -25,6 +25,9 @@ const SP_THEMES = {
   halloween:{ name: 'Halloween 🎃',  accent: '#e8600a', accentDark: '#9a3f12', accentLight: '#fff1e2', bg: '#fdf0e4', border: '#f2d9bc', particles: ['🎃','👻'] },
   newyear:  { name: 'New Year 🎉',  accent: '#c9971f', accentDark: '#8a6816', accentLight: '#fdf6e3', bg: '#fefaf0', border: '#f0e2b8', particles: ['🎉','🎆'] },
   ramadan:  { name: 'Ramadan 🌙',   accent: '#0f7a5c', accentDark: '#0b5943', accentLight: '#e8f7f1', bg: '#f4faf8', border: '#d8ece4', particles: ['🌙','🏮'] },
+  // Shop-only: hidden from the Settings picker (see renderSettings in
+  // student-account.html) until the matching item ("vipgold") is bought with points.
+  vipgold:  { name: 'VIP Gold ✨',   accent: '#c9a227', accentDark: '#8a6d13', accentLight: '#fdf8e8', bg: '#fffdf5', border: '#f0e4bb', particles: ['✨','💎'], premium: true },
 };
 
 // ── Auto-default theme: the meteorological (Northern-hemisphere) season for today, unless

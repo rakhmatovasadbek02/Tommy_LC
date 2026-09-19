@@ -603,6 +603,16 @@ async function initDB() {
       revised_at  TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (student_id, word_key)
     )`,
+    // The points shop — one-time-unlock items (currently just the VIP theme) a CEFR
+    // student can buy with their points. Ownership is permanent once bought, tracked
+    // separately from the points ledger itself (whose balance can move independently
+    // afterward as they earn more).
+    `CREATE TABLE IF NOT EXISTS student_shop_purchases (
+      student_id   TEXT NOT NULL,
+      item_key     TEXT NOT NULL,
+      purchased_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (student_id, item_key)
+    )`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -3192,7 +3202,44 @@ app.get('/api/student/leaderboard', async (req, res) => {
 // so they can see exactly why and when each point change happened.
 const POINTS_REASON = {
   vocab_pass: 'Passed a graded vocab test',
+  shop_purchase: 'Redeemed in the shop',
 };
+
+// ── Points shop: one-time-unlock items a CEFR student can spend points on. Points are
+// only deducted, never gated behind staff approval or fulfillment — buying an item is
+// instant and final (see student-account.html for how "vipgold" then unlocks a theme).
+// A future "booster" item (TBD) can just be added here with type: 'booster'.
+const SHOP_ITEMS = {
+  vipgold: { name: 'VIP Gold Theme', description: 'An exclusive gold portal look, unlocked for good once bought.', cost: 500, type: 'theme' },
+};
+app.get('/api/student/shop', async (req, res) => {
+  try {
+    const [balR, ownedR] = await Promise.all([
+      pool.query(`SELECT COALESCE(SUM(points),0)::int total FROM student_points WHERE student_id=$1`, [req.student.id]),
+      pool.query('SELECT item_key FROM student_shop_purchases WHERE student_id=$1', [req.student.id]),
+    ]);
+    const owned = new Set(ownedR.rows.map(r => r.item_key));
+    res.json({
+      balance: balR.rows[0].total,
+      items: Object.entries(SHOP_ITEMS).map(([key, it]) => ({ key, name: it.name, description: it.description, cost: it.cost, owned: owned.has(key) })),
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/student/shop/purchase', async (req, res) => {
+  try {
+    const key = String(req.body.itemKey || '');
+    const item = SHOP_ITEMS[key];
+    if (!item) return res.status(404).json({ error: 'Item not found.' });
+    const already = await pool.query('SELECT 1 FROM student_shop_purchases WHERE student_id=$1 AND item_key=$2', [req.student.id, key]);
+    if (already.rows.length) return res.status(409).json({ error: 'You already own this.' });
+    const balR = await pool.query(`SELECT COALESCE(SUM(points),0)::int total FROM student_points WHERE student_id=$1`, [req.student.id]);
+    if (balR.rows[0].total < item.cost) return res.status(400).json({ error: 'Not enough points.' });
+    await pool.query('INSERT INTO student_shop_purchases(student_id, item_key) VALUES($1,$2) ON CONFLICT DO NOTHING', [req.student.id, key]);
+    await awardPoints(req.student.id, 'shop_purchase', -item.cost, genVocabId('shop'));
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/student/points-history', async (req, res) => {
   try {
     const studentId = req.student.id;

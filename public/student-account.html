@@ -44,6 +44,18 @@
 .sp-accordion-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .25s ease, opacity .2s ease; }
 .sp-accordion-body.open { grid-template-rows: 1fr; opacity: 1; }
 .sp-accordion-body > div { overflow: hidden; min-height: 0; }
+.sp-profile-actions { display: flex; align-items: center; gap: 8px; }
+.sp-basket-btn { position: relative; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; flex-shrink: 0; }
+.sp-basket-btn:hover { color: var(--accent); border-color: var(--accent); }
+.sp-basket-balance { font-size: 9px; font-weight: 800; color: #fff; background: var(--accent); border-radius: 8px; padding: 1px 4px; position: absolute; top: -6px; right: -6px; line-height: 1.3; white-space: nowrap; }
+.sp-shop-balance { display: flex; justify-content: space-between; align-items: baseline; background: var(--accent-light); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.sp-shop-balance-val { font-size: 22px; font-weight: 800; color: var(--accent); }
+.sp-shop-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.sp-shop-item:last-child { border-bottom: none; }
+.sp-shop-item-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+.sp-shop-item-desc { font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
+.sp-shop-item-cost { font-size: 12px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+.sp-shop-buy-btn { flex-shrink: 0; padding: 8px 14px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -58,6 +70,9 @@ spRequireAuth();
 spRenderHeader('profile');
 let ME = null;
 let POINTS_CACHE = null;
+let SHOP_CACHE = null; // { balance, items: [{key,name,description,cost,owned}] } — fetched lazily
+function isCefrStudent() { return ME.groups.some(g => g.level === 'CEFR'); }
+async function loadShop() { if (!SHOP_CACHE) SHOP_CACHE = await spGet('/api/student/shop'); return SHOP_CACHE; }
 
 function scheduleLabel(g) {
   const days = g.schedType === 'odd' ? 'Mon / Wed / Fri' : g.schedType === 'even' ? 'Tue / Thu / Sat' : spEscapeHtml(g.schedType || '—');
@@ -98,7 +113,15 @@ function renderProfile() {
   el.innerHTML = `
     <div class="sp-profile-top">
       <div class="sp-title" style="margin-bottom:0">Profile</div>
-      <button type="button" class="sp-settings-btn" onclick="renderSettings()" title="Settings"><i class="fas fa-gear"></i></button>
+      <div class="sp-profile-actions">
+        ${isCefrStudent() ? `
+          <button type="button" class="sp-basket-btn" onclick="renderShop()" title="Points Shop">
+            <i class="fas fa-basket-shopping"></i>
+            ${points.total ? `<span class="sp-basket-balance">${points.total}</span>` : ''}
+          </button>
+        ` : ''}
+        <button type="button" class="sp-settings-btn" onclick="renderSettings()" title="Settings"><i class="fas fa-gear"></i></button>
+      </div>
     </div>
     <div class="sp-subtitle">Manage your details and account</div>
 
@@ -200,11 +223,64 @@ async function removePhoto() {
   } catch (e) { spToast(e.message, 'error'); }
 }
 
+// ── Points Shop: one-time-unlock items bought with points (currently just the VIP Gold
+// theme — see SHOP_ITEMS on the server). Purchases just deduct points on the spot; no
+// staff approval/fulfillment step, since everything sold here is self-service/digital.
+async function renderShop() {
+  const el = document.getElementById('content');
+  el.innerHTML = `<div class="sp-loading">Loading shop…</div>`;
+  let shop;
+  try { shop = await loadShop(); } catch (e) { el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`; return; }
+  el.innerHTML = `
+    <div class="sp-back-row">
+      <button class="sp-btn sp-btn-outline" onclick="renderProfile()">← Back to Profile</button>
+    </div>
+    <div class="sp-title">Points Shop</div>
+    <div class="sp-subtitle">Spend the points you've earned from passing graded vocab tests</div>
+
+    <div class="sp-shop-balance">
+      <span>Your balance</span>
+      <span class="sp-shop-balance-val">${shop.balance} pts</span>
+    </div>
+
+    <div class="sp-card">
+      ${shop.items.map(it => `
+        <div class="sp-shop-item">
+          <div style="flex:1">
+            <div class="sp-shop-item-name">${spEscapeHtml(it.name)}</div>
+            <div class="sp-shop-item-desc">${spEscapeHtml(it.description)}</div>
+            ${!it.owned ? `<div class="sp-shop-item-cost">${it.cost} pts</div>` : ''}
+          </div>
+          ${it.owned
+            ? `<span class="sp-badge green">Owned</span>`
+            : `<button type="button" class="sp-btn sp-btn-primary sp-shop-buy-btn" ${shop.balance < it.cost ? 'disabled' : ''} onclick="buyItem('${it.key}')">Buy</button>`}
+        </div>
+      `).join('') || `<div class="sp-empty">Nothing in the shop yet — check back soon!</div>`}
+    </div>
+  `;
+}
+async function buyItem(key) {
+  try {
+    await spPost('/api/student/shop/purchase', { itemKey: key });
+    SHOP_CACHE = null; // force a fresh balance/ownership fetch
+    POINTS_CACHE = await spGet('/api/student/points-history').catch(() => POINTS_CACHE);
+    spToast('Purchased!');
+    renderShop();
+  } catch (e) { spToast(e.message, 'error'); }
+}
+
 // ── Settings: portal customization (accent color) + change password. A sub-view within
 // this same page rather than a separate route — nothing here needs its own URL/tab.
-function renderSettings() {
+// Premium themes (e.g. "vipgold") stay hidden here until the matching shop item is
+// owned — bought once in the Shop, they then appear alongside the free ones for good.
+async function renderSettings() {
   const el = document.getElementById('content');
   const current = spGetTheme();
+  let ownedKeys = new Set();
+  if (isCefrStudent()) {
+    try { ownedKeys = new Set((await loadShop()).items.filter(it => it.owned).map(it => it.key)); } catch {}
+  }
+  const visibleThemes = Object.entries(SP_THEMES).filter(([key, t]) => !t.premium || ownedKeys.has(key));
   el.innerHTML = `
     <div class="sp-back-row">
       <button class="sp-btn sp-btn-outline" onclick="renderProfile()">← Back to Profile</button>
@@ -215,7 +291,7 @@ function renderSettings() {
     <div class="sp-card">
       <div class="sp-card-title">Portal Color</div>
       <div class="sp-theme-grid">
-        ${Object.entries(SP_THEMES).map(([key, t]) => `
+        ${visibleThemes.map(([key, t]) => `
           <button type="button" class="sp-theme-swatch${current===key?' on':''}" onclick="chooseTheme('${key}')">
             <div class="sp-theme-dot" style="background:${t.accent}"><i class="fas fa-check"></i></div>
             <div class="sp-theme-label">${spEscapeHtml(t.name)}</div>
