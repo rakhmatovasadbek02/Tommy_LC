@@ -9,36 +9,75 @@ const SP_API = '';
 // ── Portal customization: an accent-color theme, swappable from the Settings screen
 // (student-account.html). Everything in student-shared.css is already built on the
 // --accent/--accent-dark/--accent-light custom properties, so re-theming the whole app is
-// just overriding those three at the root — no per-component styling needed. "default" is
-// the portal's original red look, kept as its own selectable theme — but 'autumn' is what
-// a student who's never opened Settings actually sees (see spGetTheme's fallback below).
-// Themes may also warm/cool the page background and border tone (bg/border) — optional,
-// falling back to the portal's original neutral values so a plain accent swap (blue,
-// green, etc.) doesn't unintentionally tint the whole page. Autumn is the one theme that
-// uses this, since "an autumn look" means more than a different button color.
+// just overriding those three at the root — no per-component styling needed.
+// 'default' ("Standard") is the portal's original red look and always listed first, but
+// the actual default a student who's never opened Settings sees is computed automatically
+// from today's date — see spAutoTheme() below. Themes may also warm/cool the page
+// background and border tone (bg/border) — optional, falling back to the portal's
+// original neutral values — and carry a pair of drifting particle emoji.
 const SP_BG_DEFAULT = '#fafbfc', SP_BORDER_DEFAULT = '#e5e7eb';
 const SP_THEMES = {
-  default: { name: 'Tommy Red',     accent: '#b81c1c', accentDark: '#8f1515', accentLight: '#fff5f5' },
-  blue:    { name: 'Ocean Blue',    accent: '#1d4ed8', accentDark: '#1e3a8a', accentLight: '#eff6ff' },
-  green:   { name: 'Forest Green',  accent: '#15803d', accentDark: '#14532d', accentLight: '#f0fdf4' },
-  purple:  { name: 'Royal Purple',  accent: '#7e22ce', accentDark: '#581c87', accentLight: '#faf5ff' },
-  orange:  { name: 'Sunset Orange', accent: '#c2410c', accentDark: '#9a3412', accentLight: '#fff7ed' },
-  // The four seasons: each warms/cools the page background and border too (not just the
-  // accent) and gets its own pair of drifting particle emoji — a season is meant to feel
-  // like a whole atmosphere, not just a different button color.
+  default:  { name: 'Standard',     accent: '#b81c1c', accentDark: '#8f1515', accentLight: '#fff5f5' },
   autumn:   { name: 'Autumn 🍂',    accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4', particles: ['🍂','🍁'] },
   winter:   { name: 'Winter ❄️',    accent: '#0284c7', accentDark: '#075985', accentLight: '#f0f9ff', bg: '#f4f9fd', border: '#dceaf5', particles: ['❄️','☃️'] },
   spring:   { name: 'Spring 🌸',    accent: '#d6488a', accentDark: '#a52f66', accentLight: '#fdf1f6', bg: '#fbf5f8', border: '#f3dce7', particles: ['🌸','🌷'] },
   summer:   { name: 'Summer ☀️',    accent: '#0d9488', accentDark: '#115e59', accentLight: '#f0fdfa', bg: '#f2fcfb', border: '#d7f0ec', particles: ['☀️','🌻'] },
-  // Holidays/occasions, same treatment as the seasons above.
   halloween:{ name: 'Halloween 🎃',  accent: '#e8600a', accentDark: '#9a3f12', accentLight: '#fff1e2', bg: '#fdf0e4', border: '#f2d9bc', particles: ['🎃','👻'] },
   newyear:  { name: 'New Year 🎉',  accent: '#c9971f', accentDark: '#8a6816', accentLight: '#fdf6e3', bg: '#fefaf0', border: '#f0e2b8', particles: ['🎉','🎆'] },
   ramadan:  { name: 'Ramadan 🌙',   accent: '#0f7a5c', accentDark: '#0b5943', accentLight: '#e8f7f1', bg: '#f4faf8', border: '#d8ece4', particles: ['🌙','🏮'] },
 };
-// 'autumn' as the fallback — not 'default' — is what actually makes it the portal-wide
-// default: any student who's never opened Settings and picked a theme gets Autumn, while
-// anyone who explicitly chose a different one (including "Tommy Red") keeps their pick.
-function spGetTheme() { try { return localStorage.getItem('lc_student_theme') || 'autumn'; } catch { return 'autumn'; } }
+
+// ── Auto-default theme: the meteorological (Northern-hemisphere) season for today, unless
+// a holiday window is active, in which case the holiday wins. "5 days before/after the
+// holiday" is a ±5-day window around a single date (Halloween, New Year) or around the
+// whole span for a multi-day holiday (Ramadan — its window is 5 days before it starts
+// through 5 days after it ends, not just around one day of it).
+const SP_MS_DAY = 86400000;
+function spSeasonForDate(d) {
+  const m = d.getMonth(); // 0 = Jan
+  if (m === 11 || m <= 1) return 'winter';       // Dec, Jan, Feb
+  if (m >= 2 && m <= 4) return 'spring';         // Mar, Apr, May
+  if (m >= 5 && m <= 7) return 'summer';         // Jun, Jul, Aug
+  return 'autumn';                                // Sep, Oct, Nov
+}
+// True if `now` falls within `windowDays` of month/day (1-based month) in any of last
+// year/this year/next year — handles a holiday near the year boundary (New Year) without
+// special-casing the wraparound.
+function spNearAnnualDate(now, month, day, windowDays) {
+  const y = now.getFullYear();
+  for (const yr of [y - 1, y, y + 1]) {
+    const diffDays = Math.round((now - new Date(yr, month - 1, day)) / SP_MS_DAY);
+    if (Math.abs(diffDays) <= windowDays) return true;
+  }
+  return false;
+}
+// First-day-of-Ramadan (Gregorian) by year — shifts ~11 days earlier every year since it
+// follows the lunar Hijri calendar, so this needs a new row added every so often (source:
+// widely-published moon-sighting estimates; exact day can vary ±1 by region/sighting).
+const SP_RAMADAN_START = {
+  2024: '2024-03-11', 2025: '2025-03-01', 2026: '2026-02-18', 2027: '2027-02-08',
+  2028: '2028-01-28', 2029: '2029-01-17', 2030: '2030-01-06',
+};
+function spInRamadanWindow(now) {
+  for (const key in SP_RAMADAN_START) {
+    const start = new Date(SP_RAMADAN_START[key] + 'T00:00:00');
+    const end = new Date(start.getTime() + 29 * SP_MS_DAY); // Ramadan is 29 or 30 days
+    if (now >= new Date(start.getTime() - 5 * SP_MS_DAY) && now <= new Date(end.getTime() + 5 * SP_MS_DAY)) return true;
+  }
+  return false;
+}
+function spAutoTheme() {
+  const now = new Date();
+  if (spInRamadanWindow(now)) return 'ramadan';
+  if (spNearAnnualDate(now, 10, 31, 5)) return 'halloween'; // Oct 31
+  if (spNearAnnualDate(now, 1, 1, 5)) return 'newyear';     // Jan 1
+  return spSeasonForDate(now);
+}
+// Only a student's own explicit pick is ever stored — spAutoTheme() is recomputed fresh
+// on every load for anyone who hasn't opened Settings, so their portal actually changes
+// look as the real-world season/holiday changes instead of freezing at whatever it was
+// the first time they logged in.
+function spGetTheme() { try { return localStorage.getItem('lc_student_theme') || spAutoTheme(); } catch { return spAutoTheme(); } }
 
 // The logo art (logo.png) is a fixed red-on-white raster image — the only way to re-tint
 // it per theme without redrawing it is a CSS hue-rotate filter, which works well here
