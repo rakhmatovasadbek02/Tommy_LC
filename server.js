@@ -35,7 +35,9 @@ async function logStudentHistory(studentId, actor, actorRole, action, details = 
 
 app.use(compression());
 app.use(cors());
-app.use(express.json());
+// Default 100kb is too small for a base64-encoded profile photo upload (see
+// POST /api/student/account/photo) — everything else on the app sends far less than this.
+app.use(express.json({ limit: '2mb' }));
 
 /* ══════════════════════════════════════
    PERMISSIONS
@@ -506,6 +508,12 @@ async function initDB() {
     // real rosters/stats — see is_test filters on the admin student-list/dashboard/
     // statistics queries below.
     `ALTER TABLE students ADD COLUMN IF NOT EXISTS is_test BOOLEAN DEFAULT FALSE`,
+    // Student-uploaded profile picture, self-service from the portal. Stored as a data
+    // URL (base64) directly in Postgres — there's no object-storage service configured
+    // for this app and Railway's disk isn't guaranteed to survive a redeploy, so this is
+    // the only storage that's actually safe without adding new infra/credentials. Photos
+    // are resized/compressed client-side first (see student-account.html) to keep rows small.
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_data TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
     `ALTER TABLE leads ADD COLUMN IF NOT EXISTS archive_comment TEXT`,
@@ -2955,7 +2963,7 @@ app.get('/api/student/me', async (req, res) => {
       phone: s.phone, phoneParent: s.phone_parent, phoneMother: s.phone_mother, phoneOther: s.phone_other,
       level: s.level, status: enr.rows.length ? (s.status === 'Frozen' ? 'Frozen' : 'Active') : 'Inactive',
       balance: Number(s.balance || 0), exam: s.exam, examDate: s.exam_date,
-      school: s.school, grade: s.grade, address: s.address,
+      school: s.school, grade: s.grade, address: s.address, photoData: s.photo_data || null,
       groups: groupsR.rows.map(g => ({
         id: g.id, name: g.name, teacher: g.teacher, room: g.room, level: g.level,
         schedType: g.sched_type, time: g.time, duration: g.duration, startDate: g.start_date,
@@ -2980,6 +2988,30 @@ app.post('/api/student/account/change-password', async (req, res) => {
     // Invalidates every token issued before now, on every device — a real password change
     // (as opposed to just this browser's "Sign Out") ends every other session too.
     await pool.query('UPDATE student_logins SET password=$1, token_valid_from=NOW() WHERE student_id=$2', [passwordHash, req.student.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Self-service profile picture — stored as a data URL (see the photo_data column comment
+// for why). The client resizes/compresses to a small square JPEG before sending, but the
+// size cap here is the real guard: ~700KB of base64 text is a generous ceiling for a
+// photo that's already been through canvas compression, and keeps one abusive request
+// from bloating the students table or the (now 2mb) JSON body limit meant for this route.
+app.post('/api/student/account/photo', async (req, res) => {
+  try {
+    const photoData = String(req.body.photoData || '');
+    if (!/^data:image\/(jpeg|jpg|png|webp);base64,/.test(photoData)) {
+      return res.status(400).json({ error: 'Invalid image data.' });
+    }
+    if (photoData.length > 700_000) return res.status(413).json({ error: 'Image is too large.' });
+    await pool.query('UPDATE students SET photo_data=$1 WHERE id=$2', [photoData, req.student.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/student/account/photo', async (req, res) => {
+  try {
+    await pool.query('UPDATE students SET photo_data=NULL WHERE id=$1', [req.student.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

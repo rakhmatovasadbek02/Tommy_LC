@@ -19,6 +19,25 @@
 .sp-pts-delta { font-size: 14px; font-weight: 700; flex-shrink: 0; }
 .sp-pts-delta.pos { color: var(--green, #2e9e5b); }
 .sp-pts-delta.neg { color: #d0392b; }
+.sp-profile-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.sp-settings-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; flex-shrink: 0; }
+.sp-settings-btn:hover { color: var(--accent); border-color: var(--accent); }
+.sp-avatar-row { display: flex; align-items: center; gap: 16px; }
+.sp-avatar-pic, .sp-avatar-initials { width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; }
+.sp-avatar-pic { object-fit: cover; background: var(--accent-light); }
+.sp-avatar-initials { display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #fff; background: linear-gradient(155deg, var(--accent), var(--accent-dark)); }
+.sp-avatar-name { font-size: 15.5px; font-weight: 700; margin-bottom: 4px; }
+.sp-avatar-actions { display: flex; gap: 14px; }
+.sp-avatar-actions button { background: none; border: none; padding: 0; font-size: 12.5px; font-weight: 600; color: var(--accent); cursor: pointer; }
+.sp-avatar-actions button.danger { color: var(--red); }
+.sp-theme-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.sp-theme-swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font-family: 'Poppins', sans-serif; }
+.sp-theme-dot { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; box-shadow: var(--shadow-sm); position: relative; }
+.sp-theme-swatch.on .sp-theme-dot { border-color: var(--text-primary); }
+.sp-theme-dot i { color: #fff; font-size: 15px; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; }
+.sp-theme-swatch.on .sp-theme-dot i { opacity: 1; }
+.sp-theme-label { font-size: 10.5px; font-weight: 600; color: var(--text-secondary); }
+.sp-back-row { margin-bottom: 14px; }
 </style>
 </head>
 <body>
@@ -32,6 +51,7 @@
 spRequireAuth();
 spRenderHeader('profile');
 let ME = null;
+let POINTS_CACHE = null;
 
 function scheduleLabel(g) {
   const days = g.schedType === 'odd' ? 'Mon / Wed / Fri' : g.schedType === 'even' ? 'Tue / Thu / Sat' : spEscapeHtml(g.schedType || '—');
@@ -50,19 +70,47 @@ async function load() {
       spGet('/api/student/points-history').catch(() => ({ total: 0, history: [] })),
     ]);
     ME = me;
-    render(points);
+    POINTS_CACHE = points;
+    renderProfile();
   } catch (e) {
     el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`;
   }
 }
 
-function render(points) {
+function avatarHtml(size) {
+  return ME.photoData
+    ? `<img class="sp-avatar-pic" src="${ME.photoData}" alt="Profile picture" style="width:${size}px;height:${size}px">`
+    : `<div class="sp-avatar-initials" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.34)}px">${spEscapeHtml(spInitials(ME.firstName + ' ' + (ME.lastName||'')))}</div>`;
+}
+
+function renderProfile() {
   const me = ME;
+  const points = POINTS_CACHE;
   const g = me.groups[0];
   const el = document.getElementById('content');
 
   el.innerHTML = `
+    <div class="sp-profile-top">
+      <div class="sp-title" style="margin-bottom:0">Profile</div>
+      <button type="button" class="sp-settings-btn" onclick="renderSettings()" title="Settings"><i class="fas fa-gear"></i></button>
+    </div>
+    <div class="sp-subtitle">Manage your details and account</div>
+
     <div class="sp-cols">
+      <div class="sp-card">
+        <div class="sp-avatar-row">
+          <div id="avatarBox">${avatarHtml(64)}</div>
+          <div>
+            <div class="sp-avatar-name">${spEscapeHtml(me.firstName)} ${spEscapeHtml(me.lastName||'')}</div>
+            <div class="sp-avatar-actions">
+              <button type="button" onclick="document.getElementById('photoInput').click()">Change Photo</button>
+              ${me.photoData ? `<button type="button" class="danger" onclick="removePhoto()">Remove</button>` : ''}
+            </div>
+          </div>
+        </div>
+        <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoSelected(event)">
+      </div>
+
       <div class="sp-card">
         <div class="sp-card-title">Personal Details</div>
         <div class="sp-detail-row"><span class="sp-detail-label">Phone</span><span class="sp-detail-value">${spEscapeHtml(me.phone||'—')}</span></div>
@@ -95,27 +143,104 @@ function render(points) {
           </div>
         `).join('')}
       </div>` : ''}
-
-      <div class="sp-card">
-        <div class="sp-card-title">Change Password</div>
-        <form id="pwForm" onsubmit="return submitPasswordChange(event)">
-          <div class="sp-form-group">
-            <label>Current Password</label>
-            <input type="password" class="sp-input" id="pwCurrent" required autocomplete="current-password">
-          </div>
-          <div class="sp-form-group">
-            <label>New Password</label>
-            <input type="password" class="sp-input" id="pwNew" required minlength="4" placeholder="At least 4 characters" autocomplete="new-password">
-          </div>
-          <div class="sp-form-group">
-            <label>Confirm New Password</label>
-            <input type="password" class="sp-input" id="pwConfirm" required minlength="4" autocomplete="new-password">
-          </div>
-          <button type="submit" class="sp-btn sp-btn-primary sp-btn-block" id="pwSubmitBtn">Update Password</button>
-        </form>
-      </div>
     </div>
   `;
+}
+
+// ── Profile picture: resized/compressed client-side (max 300px, JPEG ~82%) before
+// upload, so a phone's multi-MB photo becomes a small data URL — keeps the request fast
+// and comfortably under the server's size cap without needing any upload infra.
+function resizeImageFile(file, maxSize, quality) {
+  maxSize = maxSize || 300; quality = quality || 0.82;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That file is not a readable image.'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height) { if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; } }
+        else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function onPhotoSelected(ev) {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { spToast('Please choose an image file.', 'error'); return; }
+  try {
+    const dataUrl = await resizeImageFile(file);
+    await spPost('/api/student/account/photo', { photoData: dataUrl });
+    ME.photoData = dataUrl;
+    renderProfile();
+    spToast('Profile picture updated!');
+  } catch (e) { spToast(e.message, 'error'); }
+}
+async function removePhoto() {
+  try {
+    await spDelete('/api/student/account/photo');
+    ME.photoData = null;
+    renderProfile();
+    spToast('Profile picture removed.');
+  } catch (e) { spToast(e.message, 'error'); }
+}
+
+// ── Settings: portal customization (accent color) + change password. A sub-view within
+// this same page rather than a separate route — nothing here needs its own URL/tab.
+function renderSettings() {
+  const el = document.getElementById('content');
+  const current = spGetTheme();
+  el.innerHTML = `
+    <div class="sp-back-row">
+      <button class="sp-btn sp-btn-outline" onclick="renderProfile()">← Back to Profile</button>
+    </div>
+    <div class="sp-title">Settings</div>
+    <div class="sp-subtitle">Customize your portal and manage your account</div>
+
+    <div class="sp-card">
+      <div class="sp-card-title">Portal Color</div>
+      <div class="sp-theme-grid">
+        ${Object.entries(SP_THEMES).map(([key, t]) => `
+          <button type="button" class="sp-theme-swatch${current===key?' on':''}" onclick="chooseTheme('${key}')">
+            <div class="sp-theme-dot" style="background:${t.accent}"><i class="fas fa-check"></i></div>
+            <div class="sp-theme-label">${spEscapeHtml(t.name)}</div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="sp-card">
+      <div class="sp-card-title">Change Password</div>
+      <form id="pwForm" onsubmit="return submitPasswordChange(event)">
+        <div class="sp-form-group">
+          <label>Current Password</label>
+          <input type="password" class="sp-input" id="pwCurrent" required autocomplete="current-password">
+        </div>
+        <div class="sp-form-group">
+          <label>New Password</label>
+          <input type="password" class="sp-input" id="pwNew" required minlength="4" placeholder="At least 4 characters" autocomplete="new-password">
+        </div>
+        <div class="sp-form-group">
+          <label>Confirm New Password</label>
+          <input type="password" class="sp-input" id="pwConfirm" required minlength="4" autocomplete="new-password">
+        </div>
+        <button type="submit" class="sp-btn sp-btn-primary sp-btn-block" id="pwSubmitBtn">Update Password</button>
+      </form>
+    </div>
+  `;
+}
+function chooseTheme(key) {
+  spSetTheme(key);
+  renderSettings();
 }
 
 async function submitPasswordChange(ev) {

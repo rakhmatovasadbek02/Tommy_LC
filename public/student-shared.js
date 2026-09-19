@@ -6,6 +6,32 @@
 // ══════════════════════════════════════════
 const SP_API = '';
 
+// ── Portal customization: an accent-color theme, swappable from the Settings screen
+// (student-account.html). Everything in student-shared.css is already built on the
+// --accent/--accent-dark/--accent-light custom properties, so re-theming the whole app is
+// just overriding those three at the root — no per-component styling needed. "default" is
+// the portal's current/original red look, and is always what a student who never opens
+// Settings sees — every value below is opt-in, applied only from a saved preference.
+const SP_THEMES = {
+  default: { name: 'Tommy Red',     accent: '#b81c1c', accentDark: '#8f1515', accentLight: '#fff5f5' },
+  blue:    { name: 'Ocean Blue',    accent: '#1d4ed8', accentDark: '#1e3a8a', accentLight: '#eff6ff' },
+  green:   { name: 'Forest Green',  accent: '#15803d', accentDark: '#14532d', accentLight: '#f0fdf4' },
+  purple:  { name: 'Royal Purple',  accent: '#7e22ce', accentDark: '#581c87', accentLight: '#faf5ff' },
+  orange:  { name: 'Sunset Orange', accent: '#c2410c', accentDark: '#9a3412', accentLight: '#fff7ed' },
+};
+function spGetTheme() { try { return localStorage.getItem('lc_student_theme') || 'default'; } catch { return 'default'; } }
+function spApplyTheme(key) {
+  const t = SP_THEMES[key] || SP_THEMES.default;
+  const root = document.documentElement.style;
+  root.setProperty('--accent', t.accent);
+  root.setProperty('--accent-dark', t.accentDark);
+  root.setProperty('--accent-light', t.accentLight);
+}
+function spSetTheme(key) { try { localStorage.setItem('lc_student_theme', key); } catch {} spApplyTheme(key); }
+// Applied immediately (before the page's own header/content render) so there's no flash
+// of the default red before a saved theme kicks in.
+spApplyTheme(spGetTheme());
+
 function spGetSession() {
   try { return JSON.parse(localStorage.getItem('lc_student_session') || 'null'); } catch { return null; }
 }
@@ -35,6 +61,9 @@ async function spGet(path) {
 }
 async function spPost(path, data) {
   return spHandleRes(await fetch(SP_API + path, { method:'POST', headers: spAuthHeaders({'Content-Type':'application/json'}), body: JSON.stringify(data||{}) }));
+}
+async function spDelete(path) {
+  return spHandleRes(await fetch(SP_API + path, { method:'DELETE', headers: spAuthHeaders() }));
 }
 
 function spEscapeHtml(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
