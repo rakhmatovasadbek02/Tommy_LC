@@ -130,7 +130,13 @@ async function load() {
       ${leaderboard.group && leaderboard.rows.length ? `
       <div class="sp-card">
         <div class="sp-card-title">${spEscapeHtml(leaderboard.group.name)} Leaderboard</div>
-        ${leaderboard.rows.map((r, i) => `
+        ${leaderboard.rows.map((r, i) => leaderboard.mode === 'points' ? `
+          <div class="sp-lb-row${r.isSelf ? ' self' : ''}">
+            <div class="sp-lb-rank">${i+1}</div>
+            <div class="sp-lb-name">${spEscapeHtml(r.name)}${r.isSelf ? ' (you)' : ''}</div>
+            <div class="sp-lb-pct">${r.points} pts</div>
+          </div>
+        ` : `
           <div class="sp-lb-row${r.isSelf ? ' self' : ''}">
             <div class="sp-lb-rank">${i+1}</div>
             <div class="sp-lb-name">${spEscapeHtml(r.name)}${r.isSelf ? ' (you)' : ''}</div>

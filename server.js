@@ -527,6 +527,20 @@ async function initDB() {
     // any database that already created the table under the old shape.
     `ALTER TABLE student_logins RENAME COLUMN phone TO username`,
     `ALTER TABLE student_logins ADD CONSTRAINT student_logins_username_key UNIQUE (username)`,
+    // Points ledger — CEFR-only gamification. One row per point-earning/losing event.
+    // `ref_id` identifies the source record (attendance row id, vocab attempt id, or a
+    // plain date string for daily login) so every award path can be idempotent via the
+    // unique constraint below instead of tracking "already awarded" state elsewhere.
+    `CREATE TABLE IF NOT EXISTS student_points (
+      id          SERIAL PRIMARY KEY,
+      student_id  TEXT NOT NULL,
+      type        TEXT NOT NULL,
+      points      INT NOT NULL,
+      ref_id      TEXT NOT NULL,
+      created_at  TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(student_id, type, ref_id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_student_points_student ON student_points(student_id)`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -2333,6 +2347,48 @@ app.get('/api/students/:id/attendance', async (req, res) => {
 function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function genVocabCode() { return String(Math.floor(100000 + Math.random() * 900000)); } // 6 digits
 
+/* ═══════════════════════ POINTS / LEADERBOARD (CEFR groups only) ═══════════════════════
+   Point values: lesson attended +100, lesson missed -100, daily login +50 (once/day,
+   Tashkent time), each of a student's first 3 vocab practice attempts +5, passing a
+   graded (admin-code) vocab test +200. Only students in a 'CEFR' level group earn/lose
+   points — other levels aren't part of this system at all. */
+const POINTS = { LESSON_ATTEND: 100, LESSON_MISS: -100, LOGIN: 50, PRACTICE_ATTEMPT: 5, VOCAB_PASS: 200 };
+const PRACTICE_POINT_ATTEMPT_CAP = 3;
+
+async function studentIsCefr(studentId) {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM groups WHERE student_ids @> to_jsonb($1::text) AND level='CEFR' LIMIT 1`,
+    [studentId]
+  );
+  return rows.length > 0;
+}
+
+// Idempotent award: (student_id, type, ref_id) is unique, so re-running the same event
+// (e.g. an attendance edit re-processed) never double-awards.
+async function awardPoints(studentId, type, points, refId) {
+  await pool.query(
+    `INSERT INTO student_points(student_id, type, points, ref_id) VALUES($1,$2,$3,$4)
+     ON CONFLICT(student_id, type, ref_id) DO NOTHING`,
+    [studentId, type, points, refId]
+  );
+}
+
+async function revokePoints(studentId, type, refId) {
+  await pool.query(`DELETE FROM student_points WHERE student_id=$1 AND type=$2 AND ref_id=$3`, [studentId, type, refId]);
+}
+
+// Attendance can be corrected (present → absent → present…) on the same row — clear
+// whichever side was previously awarded before applying the new status, so a status flip
+// never leaves stale points behind or double-counts.
+async function applyAttendancePoints(studentId, attendanceId, status) {
+  if (!(await studentIsCefr(studentId))) return;
+  const refId = String(attendanceId);
+  await revokePoints(studentId, 'lesson_attend', refId);
+  await revokePoints(studentId, 'lesson_miss', refId);
+  if (status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, refId);
+  else if (status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, refId);
+}
+
 // Pass rule: a max number of wrong answers, scaled to how many questions were actually
 // asked (post-sampling), not the unit's raw word count. Single source of truth — the
 // group page's Vocabulary tab reads the stored `passed` value rather than recomputing.
@@ -2729,6 +2785,10 @@ app.post('/api/public/student/login', async (req, res) => {
     );
     if (!rows.length) return res.status(401).json({ error: 'Invalid username or password.' });
     const r = rows[0];
+    if (await studentIsCefr(r.student_id)) {
+      const todayISO = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' })).toISOString().split('T')[0];
+      await awardPoints(r.student_id, 'login', POINTS.LOGIN, todayISO);
+    }
     res.json({ ok: true, token: signStudentToken(r.student_id), name: `${r.first_name} ${r.last_name}` });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2923,26 +2983,41 @@ app.get('/api/student/home', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Group vocab-passing leaderboard: ranks the student's own group by combined pass rate
-// across both practice attempts and formal unit-test exams.
+// Group leaderboard: CEFR groups rank by the points system (see POINTS above);
+// every other group keeps the original combined vocab pass-rate ranking.
 app.get('/api/student/leaderboard', async (req, res) => {
   try {
     const studentId = req.student.id;
-    const groupR = await pool.query(`SELECT id, name, student_ids FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]);
+    const groupR = await pool.query(`SELECT id, name, level, student_ids FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]);
     const group = groupR.rows[0];
-    if (!group) return res.json({ group: null, rows: [] });
+    if (!group) return res.json({ group: null, mode: null, rows: [] });
 
     const memberIds = group.student_ids || [];
-    const [studentsR, statsR] = await Promise.all([
-      pool.query(`SELECT id, first_name, last_name FROM students WHERE id = ANY($1::text[])`, [memberIds]),
-      pool.query(`
-        SELECT student_id, COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM (
-          SELECT student_id, passed FROM vocab_practice_attempts WHERE student_id = ANY($1::text[])
-          UNION ALL
-          SELECT student_id, passed FROM vocab_attempts WHERE student_id = ANY($1::text[])
-        ) x GROUP BY student_id
-      `, [memberIds]),
-    ]);
+    const studentsR = await pool.query(`SELECT id, first_name, last_name FROM students WHERE id = ANY($1::text[])`, [memberIds]);
+
+    if (group.level === 'CEFR') {
+      const pointsR = await pool.query(
+        `SELECT student_id, COALESCE(SUM(points),0)::int points FROM student_points WHERE student_id = ANY($1::text[]) GROUP BY student_id`,
+        [memberIds]
+      );
+      const pointsByStudent = new Map(pointsR.rows.map(r => [r.student_id, r.points]));
+      const rows = studentsR.rows.map(s => ({
+        studentId: s.id,
+        name: `${s.first_name} ${s.last_name}`.trim(),
+        points: pointsByStudent.get(s.id) || 0,
+        isSelf: s.id === studentId,
+      })).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+
+      return res.json({ group: { id: group.id, name: group.name }, mode: 'points', rows });
+    }
+
+    const statsR = await pool.query(`
+      SELECT student_id, COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM (
+        SELECT student_id, passed FROM vocab_practice_attempts WHERE student_id = ANY($1::text[])
+        UNION ALL
+        SELECT student_id, passed FROM vocab_attempts WHERE student_id = ANY($1::text[])
+      ) x GROUP BY student_id
+    `, [memberIds]);
 
     const statsByStudent = new Map(statsR.rows.map(r => [r.student_id, r]));
     const rows = studentsR.rows.map(s => {
@@ -2958,7 +3033,7 @@ app.get('/api/student/leaderboard', async (req, res) => {
       };
     }).sort((a, b) => b.pct - a.pct || b.passed - a.passed || a.name.localeCompare(b.name));
 
-    res.json({ group: { id: group.id, name: group.name }, rows });
+    res.json({ group: { id: group.id, name: group.name }, mode: 'passRate', rows });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -3067,6 +3142,12 @@ app.post('/api/student/vocab/practice/:sessionId/submit', async (req, res) => {
       [attemptId, req.student.id, JSON.stringify(row.unit_ids), row.language_pair, score, total, passed]
     );
     await pool.query('DELETE FROM vocab_practice_sessions WHERE id=$1', [row.id]);
+    if (await studentIsCefr(req.student.id)) {
+      const countR = await pool.query(`SELECT COUNT(*)::int c FROM student_points WHERE student_id=$1 AND type='practice_attempt'`, [req.student.id]);
+      if (countR.rows[0].c < PRACTICE_POINT_ATTEMPT_CAP) {
+        await awardPoints(req.student.id, 'practice_attempt', POINTS.PRACTICE_ATTEMPT, attemptId);
+      }
+    }
     res.json({ ok: true, score, total, passed, details });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -3305,6 +3386,9 @@ app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
       [attemptId, row.id, row.student_id, JSON.stringify(row.unit_ids), score, total, passed, JSON.stringify(details)]
     );
     await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+    if (passed && (await studentIsCefr(row.student_id))) {
+      await awardPoints(row.student_id, 'vocab_pass', POINTS.VOCAB_PASS, attemptId);
+    }
     broadcast('vocab');
     res.json({ ok: true, score, total, passed, details });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -3353,16 +3437,18 @@ app.post('/api/attendance/:groupId/:date', async (req, res) => {
     // teacher/admin session, or a live-reload landing mid-edit).
     for (const r of records) {
       if (!r.status) {
-        await pool.query(
-          'DELETE FROM attendance WHERE group_id=$1 AND date=$2 AND student_id=$3',
+        const del = await pool.query(
+          'DELETE FROM attendance WHERE group_id=$1 AND date=$2 AND student_id=$3 RETURNING id',
           [req.params.groupId, req.params.date, r.studentId]
         );
+        if (del.rows[0]) await applyAttendancePoints(r.studentId, del.rows[0].id, null);
       } else {
-        await pool.query(
+        const up = await pool.query(
           `INSERT INTO attendance(group_id,date,student_id,status) VALUES($1,$2,$3,$4)
-           ON CONFLICT(group_id,date,student_id) DO UPDATE SET status=$4`,
+           ON CONFLICT(group_id,date,student_id) DO UPDATE SET status=$4 RETURNING id`,
           [req.params.groupId, req.params.date, r.studentId, r.status]
         );
+        await applyAttendancePoints(r.studentId, up.rows[0].id, r.status);
       }
     }
     broadcast('attendance');
