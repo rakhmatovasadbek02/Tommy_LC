@@ -32,6 +32,11 @@
 .sp-lb-name { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-lb-sub { font-size: 11.5px; color: var(--text-secondary); margin-right: 4px; }
 .sp-lb-pct { font-size: 14px; font-weight: 700; color: var(--accent); width: 42px; text-align: right; flex-shrink: 0; }
+.sp-att-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sp-att-chip { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10.5px; color: white; flex-shrink: 0; }
+.sp-att-chip.present { background: var(--green); }
+.sp-att-chip.absent { background: var(--accent); }
+.sp-section-divider { height: 1px; background: var(--border); margin: 16px 0; }
 </style>
 </head>
 <body>
@@ -64,7 +69,7 @@ async function load() {
   try {
     const [me, home, leaderboard] = await Promise.all([
       spGet('/api/student/me'),
-      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, vocabStats: null, attendance: null, recommendedUnits: [] })),
+      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, isCefr: false, vocabStats: null, attendance: null, attendanceRecords: [], recommendedUnits: [] })),
       spGet('/api/student/leaderboard').catch(() => ({ group: null, rows: [] })),
     ]);
     const nextItems = [];
@@ -80,8 +85,7 @@ async function load() {
 
     const vs = home.vocabStats;
     const att = home.attendance;
-    // `verb`/`emptyLabel` let this same percent-bar layout read naturally for both
-    // vocab stats ("3 of 5 passed") and attendance ("8 of 10 attended").
+    // Percent-bar row for a total/passed stat (used for the non-CEFR "Exam Pass" row).
     function vstatRow(title, stat, verb, emptyLabel) {
       verb = verb || 'passed'; emptyLabel = emptyLabel || 'No attempts yet';
       const total = stat?.total || 0, passed = stat?.passed ?? stat?.present ?? 0;
@@ -114,17 +118,33 @@ async function load() {
         `).join('') : `<div class="sp-empty">Nothing scheduled right now.</div>`}
       </div>
 
-      ${att ? `
+      ${(att || vs) ? `
       <div class="sp-card">
-        <div class="sp-card-title">Attendance</div>
-        ${vstatRow('This Month', att, 'attended', 'No classes recorded yet this month')}
-      </div>` : ''}
+        <div class="sp-card-title">Attendance &amp; Vocabulary</div>
 
-      ${vs ? `
-      <div class="sp-card">
-        <div class="sp-card-title">Vocabulary Statistics</div>
-        ${vstatRow('Practice Pass Rate', vs.practice)}
-        ${vstatRow('Unit Test Exams', vs.exams)}
+        <div class="sp-vstat">
+          <div class="sp-vstat-row">
+            <span class="sp-vstat-title">This Month's Attendance</span>
+            <span class="sp-vstat-pct">${att?.total ? Math.round((att.present/att.total)*100)+'%' : '—'}</span>
+          </div>
+          ${(home.attendanceRecords||[]).length ? `
+            <div class="sp-att-chips">
+              ${home.attendanceRecords.map(r => `<div class="sp-att-chip ${r.status}" title="${spEscapeHtml(r.date)}"><i class="fas fa-${r.status==='present'?'check':'xmark'}"></i></div>`).join('')}
+            </div>
+          ` : `<div class="sp-vstat-sub">No classes recorded yet this month</div>`}
+        </div>
+
+        <div class="sp-section-divider"></div>
+
+        ${home.isCefr ? `
+          <div class="sp-vstat">
+            <div class="sp-vstat-row">
+              <span class="sp-vstat-title">Graded Vocab Pass</span>
+              <span class="sp-vstat-pct">${vs?.exams?.passed || 0}</span>
+            </div>
+            <div class="sp-vstat-sub">${vs?.exams?.passed ? `${vs.exams.passed} test${vs.exams.passed===1?'':'s'} passed` : 'No graded tests passed yet'}</div>
+          </div>
+        ` : vstatRow('Exam Pass', vs?.exams)}
       </div>` : ''}
 
       ${leaderboard.group && leaderboard.rows.length ? `

@@ -2922,7 +2922,7 @@ app.get('/api/student/home', async (req, res) => {
     const todayISO = nowTz.toISOString().split('T')[0];
     const monthStart = `${nowTz.getFullYear()}-${String(nowTz.getMonth()+1).padStart(2,'0')}-01`;
 
-    const [groupsR, supportR, pendingR, streak, practiceStatsR, examStatsR, practicedUnitsR, attendanceR] = await Promise.all([
+    const [groupsR, supportR, pendingR, streak, practiceStatsR, examStatsR, practicedUnitsR, attendanceR, attendanceRecordsR] = await Promise.all([
       pool.query(`SELECT name, teacher, room, time, sched_type, custom_days FROM groups WHERE student_ids @> $1::jsonb`, [JSON.stringify([studentId])]),
       pool.query(
         `SELECT to_char(date,'YYYY-MM-DD') AS date, time, teacher FROM support_sessions
@@ -2949,6 +2949,13 @@ app.get('/api/student/home', async (req, res) => {
       pool.query(
         `SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE status='present')::int present
          FROM attendance WHERE student_id=$1 AND date >= $2 AND date <= $3`,
+        [studentId, monthStart, todayISO]
+      ),
+      // Individual lesson-by-lesson marks this month, for the same present/absent chip
+      // style used on the group's own attendance grid (see student-portal.html).
+      pool.query(
+        `SELECT to_char(date,'YYYY-MM-DD') AS date, status FROM attendance
+         WHERE student_id=$1 AND date >= $2 AND date <= $3 ORDER BY date ASC`,
         [studentId, monthStart, todayISO]
       ),
     ]);
@@ -2989,11 +2996,13 @@ app.get('/api/student/home', async (req, res) => {
       nextClass: nextClass ? { date: nextClass.at.toISOString().split('T')[0], time: String(nextClass.at.getHours()).padStart(2,'0')+':'+String(nextClass.at.getMinutes()).padStart(2,'0'), groupName: nextClass.groupName, teacher: nextClass.teacher, room: nextClass.room } : null,
       nextSupport: supportR.rows[0] || null,
       pendingTest,
+      isCefr: level === 'CEFR',
       vocabStats: {
         practice: practiceStatsR.rows[0],
         exams: examStatsR.rows[0],
       },
       attendance: attendanceR.rows[0],
+      attendanceRecords: attendanceRecordsR.rows,
       recommendedUnits,
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
