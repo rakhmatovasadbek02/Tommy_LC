@@ -38,6 +38,12 @@
 .sp-theme-swatch.on .sp-theme-dot i { opacity: 1; }
 .sp-theme-label { font-size: 10.5px; font-weight: 600; color: var(--text-secondary); }
 .sp-back-row { margin-bottom: 14px; }
+.sp-accordion-head { width: 100%; display: flex; align-items: center; justify-content: space-between; background: none; border: none; padding: 0; cursor: pointer; font-family: 'Poppins', sans-serif; color: var(--text-secondary); }
+.sp-accordion-head i { font-size: 12px; transition: transform .2s; }
+.sp-accordion-head i.flip { transform: rotate(180deg); }
+.sp-accordion-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .25s ease, opacity .2s ease; }
+.sp-accordion-body.open { grid-template-rows: 1fr; opacity: 1; }
+.sp-accordion-body > div { overflow: hidden; min-height: 0; }
 </style>
 </head>
 <body>
@@ -219,24 +225,33 @@ function renderSettings() {
     </div>
 
     <div class="sp-card">
-      <div class="sp-card-title">Change Password</div>
-      <form id="pwForm" onsubmit="return submitPasswordChange(event)">
-        <div class="sp-form-group">
-          <label>Current Password</label>
-          <input type="password" class="sp-input" id="pwCurrent" required autocomplete="current-password">
+      <button type="button" class="sp-accordion-head" onclick="togglePasswordForm()">
+        <span class="sp-card-title" style="margin-bottom:0">Change Password</span>
+        <i class="fas fa-chevron-down" id="pwChevron"></i>
+      </button>
+      <form id="pwForm" class="sp-accordion-body" onsubmit="return submitPasswordChange(event)">
+        <div>
+          <div class="sp-form-group" style="margin-top:16px">
+            <label>Current Password</label>
+            <input type="password" class="sp-input" id="pwCurrent" required autocomplete="current-password">
+          </div>
+          <div class="sp-form-group">
+            <label>New Password</label>
+            <input type="password" class="sp-input" id="pwNew" required minlength="4" placeholder="At least 4 characters" autocomplete="new-password">
+          </div>
+          <div class="sp-form-group">
+            <label>Confirm New Password</label>
+            <input type="password" class="sp-input" id="pwConfirm" required minlength="4" autocomplete="new-password">
+          </div>
+          <button type="submit" class="sp-btn sp-btn-primary sp-btn-block" id="pwSubmitBtn">Update Password</button>
         </div>
-        <div class="sp-form-group">
-          <label>New Password</label>
-          <input type="password" class="sp-input" id="pwNew" required minlength="4" placeholder="At least 4 characters" autocomplete="new-password">
-        </div>
-        <div class="sp-form-group">
-          <label>Confirm New Password</label>
-          <input type="password" class="sp-input" id="pwConfirm" required minlength="4" autocomplete="new-password">
-        </div>
-        <button type="submit" class="sp-btn sp-btn-primary sp-btn-block" id="pwSubmitBtn">Update Password</button>
       </form>
     </div>
   `;
+}
+function togglePasswordForm() {
+  document.getElementById('pwForm').classList.toggle('open');
+  document.getElementById('pwChevron').classList.toggle('flip');
 }
 function chooseTheme(key) {
   spSetTheme(key);
