@@ -345,7 +345,7 @@ function renderQuestion() {
         <input type="text" class="sp-quiz-input" id="freeAnswer" placeholder="Type the English word…" autocomplete="off" autofocus onkeydown="if(event.key==='Enter')nextQuestion()">
       `}
       <div style="display:flex;justify-content:space-between;gap:10px;margin-top:18px">
-        <button class="sp-btn sp-btn-outline" onclick="skipQuestion()">Skip</button>
+        ${CUR < total - 1 ? `<button class="sp-btn sp-btn-outline" onclick="skipQuestion()">Skip</button>` : '<span></span>'}
         <button class="sp-btn sp-btn-primary" onclick="nextQuestion()">${CUR===total-1?'Finish':'Next →'}</button>
       </div>
     </div>
@@ -560,7 +560,11 @@ function renderMCQ() {
   const total = LEARN_WORDS.length;
   const w = LEARN_WORDS[LEARN_IDX];
   if (!w._options) {
-    const distractors = shuffleArray(LEARN_WORDS.filter((x,i) => i !== LEARN_IDX).map(x => x.en)).slice(0, 3);
+    // De-dupe by translation, not just by word object — two different vocab entries can
+    // share the same English translation (synonyms, or the same word across units), which
+    // would otherwise show two identical-looking answer buttons.
+    const pool = [...new Set(LEARN_WORDS.filter((x,i) => i !== LEARN_IDX).map(x => x.en))].filter(en => en !== w.en);
+    const distractors = shuffleArray(pool).slice(0, 3);
     w._options = shuffleArray([w.en, ...distractors]);
   }
   el.innerHTML = `

@@ -6,8 +6,12 @@ const cron     = require('node-cron');
 const crypto   = require('crypto');
 const compression = require('compression');
 const ExcelJS  = require('exceljs');
+const bcrypt   = require('bcryptjs');
 
 const app  = express();
+// Deployed behind a reverse proxy (Railway) — without this, req.ip is always the proxy's
+// address, which would make the login rate limiter key on one constant IP for everyone.
+app.set('trust proxy', true);
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
 // SSE live-update clients
@@ -106,6 +110,39 @@ function signToken(userId) {
   const sig = crypto.createHmac('sha256', APP_SECRET).update(String(userId)).digest('hex');
   return Buffer.from(userId + '.' + sig).toString('base64');
 }
+// Simple in-memory brute-force guard for public, unauthenticated auth endpoints (login,
+// registration-code redemption) — this is a single-process app, so an in-memory map is
+// enough; no external store needed. Keyed by caller + target so one abusive IP guessing
+// one account can't lock everyone else out, but repeated guesses against the same
+// account/IP pair get slowed down hard.
+const rateLimitHits = new Map();
+const RATE_LIMIT_MAX = 8;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_LOCKOUT_MS = 15 * 60 * 1000;
+function rateLimited(key) {
+  const rec = rateLimitHits.get(key);
+  if (!rec) return false;
+  const now = Date.now();
+  if (rec.lockedUntil) return rec.lockedUntil > now;
+  return false;
+}
+function recordFailure(key) {
+  const now = Date.now();
+  let rec = rateLimitHits.get(key);
+  if (!rec || now - rec.firstAt > RATE_LIMIT_WINDOW_MS) rec = { count: 0, firstAt: now };
+  rec.count++;
+  if (rec.count >= RATE_LIMIT_MAX) rec.lockedUntil = now + RATE_LIMIT_LOCKOUT_MS;
+  rateLimitHits.set(key, rec);
+}
+function clearFailures(key) { rateLimitHits.delete(key); }
+// Bounds the map's memory: sweep expired entries every so often instead of on every hit.
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, rec] of rateLimitHits) {
+    if ((rec.lockedUntil && rec.lockedUntil < now) || (!rec.lockedUntil && now - rec.firstAt > RATE_LIMIT_WINDOW_MS)) rateLimitHits.delete(k);
+  }
+}, 5 * 60 * 1000).unref();
+
 function verifyToken(token) {
   try {
     const decoded = Buffer.from(token, 'base64').toString('utf8');
@@ -527,6 +564,10 @@ async function initDB() {
     // any database that already created the table under the old shape.
     `ALTER TABLE student_logins RENAME COLUMN phone TO username`,
     `ALTER TABLE student_logins ADD CONSTRAINT student_logins_username_key UNIQUE (username)`,
+    // Session invalidation: any token signed before this timestamp is rejected. Bumped on
+    // password change or a staff-issued reset, so a stolen/old token stops working the
+    // moment the password actually changes (tokens themselves never expired before this).
+    `ALTER TABLE student_logins ADD COLUMN IF NOT EXISTS token_valid_from TIMESTAMPTZ DEFAULT NOW()`,
     // Points ledger — CEFR-only gamification. One row per point-earning/losing event.
     // `ref_id` identifies the source record (attendance row id, vocab attempt id, or a
     // plain date string for daily login) so every award path can be idempotent via the
@@ -748,6 +789,7 @@ async function initDB() {
 
   await loadAppSecret();
   await backfillStudentPoints();
+  await hashLegacyStudentPasswords();
   console.log('Database ready');
 }
 
@@ -769,6 +811,32 @@ async function backfillStudentPoints() {
     await pool.query(`INSERT INTO app_config(key,value) VALUES('student_points_reset_vocab_only','done') ON CONFLICT(key) DO NOTHING`);
     console.log(`Points reset: re-scored graded-pass history for ${studentIds.length} CEFR student(s)`);
   } catch(e) { console.warn('Points reset skipped:', e.message); }
+}
+
+// Student portal passwords used to be stored as plain text. bcrypt hashes always start
+// with '$2' — anything else is a legacy plaintext row, hashed in place here so it never
+// has to be a one-time migration someone remembers to run by hand. Self-guarding: once a
+// row is hashed this WHERE clause no longer matches it.
+async function hashLegacyStudentPasswords() {
+  try {
+    const { rows } = await pool.query(`SELECT student_id, password FROM student_logins WHERE password NOT LIKE '$2%'`);
+    for (const r of rows) {
+      const hash = await bcrypt.hash(r.password, 10);
+      await pool.query('UPDATE student_logins SET password=$1 WHERE student_id=$2', [hash, r.student_id]);
+    }
+    if (rows.length) console.log(`Hashed ${rows.length} legacy plaintext student password(s)`);
+  } catch(e) { console.warn('Legacy password hashing skipped:', e.message); }
+}
+
+// True if `plain` is the student's current password, hashed or (for a row that predates
+// hashing and hasn't logged in yet since) still plaintext — upgrading it to a hash the
+// moment it's confirmed correct, so every row converges to hashed without a forced reset.
+async function studentPasswordMatches(plain, storedHash, studentId) {
+  if (storedHash.startsWith('$2')) return bcrypt.compare(plain, storedHash);
+  if (plain !== storedHash) return false;
+  const hash = await bcrypt.hash(plain, 10);
+  await pool.query('UPDATE student_logins SET password=$1 WHERE student_id=$2', [hash, studentId]);
+  return true;
 }
 
 // Notification helpers
@@ -888,17 +956,36 @@ app.use('/api', async (req, res, next) => {
 });
 
 // Student portal auth — fully separate from the staff `users` token/permission system above.
-// Student tokens sign 'stu:'+studentId so they can never be confused with a staff token.
-function signStudentToken(studentId) { return signToken('stu:' + studentId); }
+// Student tokens sign 'stu:'+studentId+':'+issuedAt so they can never be confused with a
+// staff token, carry their own issue time (for absolute expiry), and can be invalidated
+// server-side (see token_valid_from) — plain HMAC-of-an-id tokens never expired and
+// couldn't be revoked at all.
+const STUDENT_TOKEN_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
+function signStudentToken(studentId) { return signToken(`stu:${studentId}:${Date.now()}`); }
 app.use('/api/student', async (req, res, next) => {
   try {
     const hdr = req.headers.authorization || '';
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
     const signed = token && verifyToken(token);
     if (!signed || !signed.startsWith('stu:')) return res.status(401).json({ error: 'Not authenticated' });
-    const studentId = signed.slice(4);
-    const r = await pool.query('SELECT * FROM students WHERE id=$1', [studentId]);
+    const parts = signed.split(':');
+    // Reject the old 2-part 'stu:<id>' format (no issued-at) — it predates expiry
+    // support and can't be checked against it, so it's just no longer honored.
+    if (parts.length !== 3) return res.status(401).json({ error: 'Session expired — please sign in again.' });
+    const studentId = parts[1];
+    const issuedAt = Number(parts[2]);
+    if (!issuedAt || Date.now() - issuedAt > STUDENT_TOKEN_MAX_AGE_MS) {
+      return res.status(401).json({ error: 'Session expired — please sign in again.' });
+    }
+    const [r, loginR] = await Promise.all([
+      pool.query('SELECT * FROM students WHERE id=$1', [studentId]),
+      pool.query('SELECT token_valid_from FROM student_logins WHERE student_id=$1', [studentId]),
+    ]);
     if (!r.rows[0]) return res.status(401).json({ error: 'Session no longer valid' });
+    const validFrom = loginR.rows[0]?.token_valid_from;
+    if (validFrom && issuedAt < new Date(validFrom).getTime()) {
+      return res.status(401).json({ error: 'Session expired — please sign in again.' });
+    }
     req.student = r.rows[0];
     next();
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -1482,11 +1569,28 @@ app.patch('/api/students/:id/balance', async (req, res) => {
 // Student portal login credentials — CEO only. Staff otherwise have no way to see a
 // student's self-chosen portal username/password (they only grant/revoke the one-time
 // registration code; the student sets these themselves at redemption).
+// Student portal passwords are hashed (bcrypt) — there is no plaintext to show anymore,
+// to anyone, ever. CEO gets the username plus a one-click reset instead of a "view".
 app.get('/api/students/:id/portal-login', async (req, res) => {
   try {
     if (req.user?.role !== 'CEO') return res.status(403).json({ error: 'CEO only' });
-    const { rows } = await pool.query('SELECT username, password FROM student_logins WHERE student_id=$1', [req.params.id]);
-    res.json(rows[0] || { username: null, password: null });
+    const { rows } = await pool.query('SELECT username FROM student_logins WHERE student_id=$1', [req.params.id]);
+    res.json(rows[0] || { username: null });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// CEO-only: force-set a student's portal password (e.g. "forgot password" support ask),
+// without needing a full registration-code redemption. Invalidates existing sessions.
+app.post('/api/students/:id/portal-login/reset', async (req, res) => {
+  try {
+    if (req.user?.role !== 'CEO') return res.status(403).json({ error: 'CEO only' });
+    const newPassword = String(req.body.newPassword || '');
+    if (newPassword.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+    const existing = await pool.query('SELECT 1 FROM student_logins WHERE student_id=$1', [req.params.id]);
+    if (!existing.rows.length) return res.status(404).json({ error: 'This student has not registered a portal account yet — grant them a registration code instead.' });
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE student_logins SET password=$1, token_valid_from=NOW() WHERE student_id=$2', [passwordHash, req.params.id]);
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2750,20 +2854,24 @@ app.post('/api/public/student/redeem', async (req, res) => {
     if (!/^[a-z0-9_.]{3,24}$/.test(username)) return res.status(400).json({ error: 'Username must be 3-24 characters: letters, numbers, "_" or "." only.' });
     if (username === 'test') return res.status(400).json({ error: 'That username is reserved — pick another.' });
     if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+    const rlKey = `redeem:${req.ip}`;
+    if (rateLimited(rlKey)) return res.status(429).json({ error: 'Too many attempts — try again in 15 minutes.' });
     const { rows } = await pool.query('SELECT * FROM student_portal_codes WHERE code=$1', [code]);
     const row = rows[0];
-    if (!row) return res.status(404).json({ error: 'Invalid code.' });
+    if (!row) { recordFailure(rlKey); return res.status(404).json({ error: 'Invalid code.' }); }
     if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
     const stu = await pool.query('SELECT id, first_name, last_name FROM students WHERE id=$1', [row.student_id]);
     if (!stu.rows[0]) return res.status(404).json({ error: 'The student record for this code no longer exists.' });
     const taken = await pool.query('SELECT 1 FROM student_logins WHERE username=$1 AND student_id<>$2', [username, row.student_id]);
     if (taken.rows.length) return res.status(409).json({ error: 'That username is already taken — pick another.' });
+    const passwordHash = await bcrypt.hash(password, 10);
     await pool.query(
-      `INSERT INTO student_logins(student_id, username, password) VALUES($1,$2,$3)
-       ON CONFLICT (student_id) DO UPDATE SET username=$2, password=$3`,
-      [row.student_id, username, password]
+      `INSERT INTO student_logins(student_id, username, password, token_valid_from) VALUES($1,$2,$3,NOW())
+       ON CONFLICT (student_id) DO UPDATE SET username=$2, password=$3, token_valid_from=NOW()`,
+      [row.student_id, username, passwordHash]
     );
     await pool.query('UPDATE student_portal_codes SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+    clearFailures(rlKey);
     res.json({ ok: true, token: signStudentToken(row.student_id), name: `${stu.rows[0].first_name} ${stu.rows[0].last_name}` });
   } catch(e) {
     if (e && e.code === '23505') return res.status(409).json({ error: 'That username is already taken — pick another.' });
@@ -2797,14 +2905,20 @@ app.post('/api/public/student/login', async (req, res) => {
       const id = await ensureHiddenTestStudent();
       return res.json({ ok: true, token: signStudentToken(id), name: 'Test Student' });
     }
+    const rlKey = `login:${req.ip}:${username}`;
+    if (rateLimited(rlKey)) return res.status(429).json({ error: 'Too many attempts — try again in 15 minutes.' });
     const { rows } = await pool.query(
-      `SELECT l.student_id, s.first_name, s.last_name FROM student_logins l
+      `SELECT l.student_id, l.password, s.first_name, s.last_name FROM student_logins l
        JOIN students s ON s.id = l.student_id
-       WHERE l.username=$1 AND l.password=$2`,
-      [username, password]
+       WHERE l.username=$1`,
+      [username]
     );
-    if (!rows.length) return res.status(401).json({ error: 'Invalid username or password.' });
     const r = rows[0];
+    if (!r || !(await studentPasswordMatches(password, r.password, r.student_id))) {
+      recordFailure(rlKey);
+      return res.status(401).json({ error: 'Invalid username or password.' });
+    }
+    clearFailures(rlKey);
     res.json({ ok: true, token: signStudentToken(r.student_id), name: `${r.first_name} ${r.last_name}` });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2864,8 +2978,13 @@ app.post('/api/student/account/change-password', async (req, res) => {
     if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password are required.' });
     if (newPassword.length < 4) return res.status(400).json({ error: 'New password must be at least 4 characters.' });
     const { rows } = await pool.query('SELECT password FROM student_logins WHERE student_id=$1', [req.student.id]);
-    if (!rows[0] || rows[0].password !== currentPassword) return res.status(401).json({ error: 'Current password is incorrect.' });
-    await pool.query('UPDATE student_logins SET password=$1 WHERE student_id=$2', [newPassword, req.student.id]);
+    if (!rows[0] || !(await studentPasswordMatches(currentPassword, rows[0].password, req.student.id))) {
+      return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    // Invalidates every token issued before now, on every device — a real password change
+    // (as opposed to just this browser's "Sign Out") ends every other session too.
+    await pool.query('UPDATE student_logins SET password=$1, token_valid_from=NOW() WHERE student_id=$2', [passwordHash, req.student.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

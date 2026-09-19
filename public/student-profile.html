@@ -268,9 +268,8 @@
                 </div>
                 <div>
                   <div class="pc2-meta-label">Password</div>
-                  <div class="pc2-meta-text" style="display:flex;align-items:center;gap:8px">
-                    <span id="profPortalPassword">••••••••</span>
-                    <button type="button" onclick="togglePortalPassword()" id="portalPwToggle" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;font-size:12px;font-weight:600">Show</button>
+                  <div class="pc2-meta-text">
+                    <button type="button" onclick="resetPortalPassword()" style="background:none;border:none;cursor:pointer;color:var(--accent);padding:0;font-size:12px;font-weight:600">Reset password…</button>
                   </div>
                 </div>
               </div>
@@ -1163,19 +1162,25 @@
   }
   if (can('vocab')) document.getElementById('vocabTestBtn').style.display = '';
 
-  let _portalPw = null, _portalPwShown = false;
+  let _portalRegistered = false;
   async function loadPortalLogin() {
     try {
-      const { username, password } = await apiGet('/api/students/' + STUDENT_ID + '/portal-login');
+      const { username } = await apiGet('/api/students/' + STUDENT_ID + '/portal-login');
       document.getElementById('profPortalUsername').textContent = username || 'Not registered yet';
-      _portalPw = password;
+      _portalRegistered = !!username;
     } catch(e) { document.getElementById('profPortalUsername').textContent = 'Not registered yet'; }
   }
-  function togglePortalPassword() {
-    if (!_portalPw) return;
-    _portalPwShown = !_portalPwShown;
-    document.getElementById('profPortalPassword').textContent = _portalPwShown ? _portalPw : '••••••••';
-    document.getElementById('portalPwToggle').textContent = _portalPwShown ? 'Hide' : 'Show';
+  // Passwords are hashed server-side now, so there's nothing to "show" — CEO can only
+  // force-set a new one (e.g. the student forgot theirs and asked for help).
+  async function resetPortalPassword() {
+    if (!_portalRegistered) { showToast('This student has not registered a portal account yet.', 'error'); return; }
+    const pw = prompt('Enter a new portal password for this student (min 4 characters):');
+    if (pw === null) return;
+    if (pw.length < 4) { showToast('Password must be at least 4 characters.', 'error'); return; }
+    try {
+      await apiPost('/api/students/' + STUDENT_ID + '/portal-login/reset', { newPassword: pw });
+      showToast('Portal password reset.');
+    } catch(e) { showToast(e.message, 'error'); }
   }
 
   function openBalanceModal() {

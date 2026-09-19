@@ -203,8 +203,8 @@ function renderSlotDays() {
       ${SLOT_DAYS.map(d => `<button type="button" class="sp-day-tab ${d.date===activeDay?'on':''}" onclick="selectDay('${d.date}')" ${d.slots.length?'':'disabled'}><div class="sp-day-tab-label">${spEscapeHtml(dayHeading(d.date))}</div><div class="sp-day-tab-date">${spEscapeHtml(dateParts(d.date).num)}</div></button>`).join('')}
     </div>
     <div class="sp-field-label" style="margin-bottom:10px">${spEscapeHtml(fmtDateLong(activeDay))}</div>
-    ${active.slots.length ? active.slots.map(s => `
-      <button type="button" class="sp-slot-row" onclick='pickSlot(${JSON.stringify({date: active.date, time: s.time, teacher: s.teacher})})'>
+    ${active.slots.length ? active.slots.map((s, i) => `
+      <button type="button" class="sp-slot-row" onclick="pickSlot(${i})">
         <div class="sp-slot-time-badge">${spEscapeHtml(s.time)}</div>
         <div class="sp-slot-teacher-name">${spEscapeHtml(s.teacher)}</div>
         <i class="fas fa-chevron-right"></i>
@@ -218,9 +218,11 @@ function selectDay(date) {
   renderSlotDays();
 }
 
-function pickSlot(slot) {
-  selDate = slot.date;
-  selSlot = { time: slot.time, teacher: slot.teacher };
+function pickSlot(i) {
+  const active = SLOT_DAYS.find(d => d.date === activeDay);
+  const s = active.slots[i];
+  selDate = active.date;
+  selSlot = { time: s.time, teacher: s.teacher };
   theme = '';
   STEP = 2;
   renderStep();

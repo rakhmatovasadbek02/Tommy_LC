@@ -95,8 +95,51 @@ function render(points) {
           </div>
         `).join('')}
       </div>` : ''}
+
+      <div class="sp-card">
+        <div class="sp-card-title">Change Password</div>
+        <form id="pwForm" onsubmit="return submitPasswordChange(event)">
+          <div class="sp-form-group">
+            <label>Current Password</label>
+            <input type="password" class="sp-input" id="pwCurrent" required autocomplete="current-password">
+          </div>
+          <div class="sp-form-group">
+            <label>New Password</label>
+            <input type="password" class="sp-input" id="pwNew" required minlength="4" placeholder="At least 4 characters" autocomplete="new-password">
+          </div>
+          <div class="sp-form-group">
+            <label>Confirm New Password</label>
+            <input type="password" class="sp-input" id="pwConfirm" required minlength="4" autocomplete="new-password">
+          </div>
+          <button type="submit" class="sp-btn sp-btn-primary sp-btn-block" id="pwSubmitBtn">Update Password</button>
+        </form>
+      </div>
     </div>
   `;
+}
+
+async function submitPasswordChange(ev) {
+  ev.preventDefault();
+  const btn = document.getElementById('pwSubmitBtn');
+  const currentPassword = document.getElementById('pwCurrent').value;
+  const newPassword = document.getElementById('pwNew').value;
+  const confirm = document.getElementById('pwConfirm').value;
+  if (newPassword !== confirm) { spToast('New passwords do not match.', 'error'); return false; }
+  btn.disabled = true; btn.textContent = 'Updating…';
+  try {
+    await spPost('/api/student/account/change-password', { currentPassword, newPassword });
+    // Changing the password invalidates this session's token too (server-side, on
+    // purpose — see token_valid_from), so sign out cleanly instead of leaving the page
+    // up until its next request 401s.
+    spToast('Password updated — please sign in again.');
+    setTimeout(spLogout, 1200);
+    return false;
+  } catch (e) {
+    spToast(e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Update Password';
+  }
+  return false;
 }
 
 load();
