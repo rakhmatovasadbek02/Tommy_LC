@@ -48,7 +48,6 @@
 .sp-quiz-option.correct-option { border-color: var(--green); background: var(--green-light); color: var(--green); font-weight: 700; }
 .sp-quiz-option.wrong-option { border-color: var(--red); background: var(--red-light); color: var(--red); font-weight: 700; }
 .sp-method-btn { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
-.sp-method-btn-sub { margin-left: auto; color: var(--text-tertiary); font-weight: 400; font-size: 12px; }
 
 @keyframes spFadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spPopIn { 0% { opacity: 0; transform: scale(.7); } 60% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
@@ -238,9 +237,9 @@ function renderLearnPicker() {
     <div class="sp-card">
       <div class="sp-card-title">Choose a Method</div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('flashcards')">📇 Flashcards<span class="sp-method-btn-sub">Flip to reveal</span></button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="showFillDifficultyPicker()">✍️ Fill in the Letters<span class="sp-method-btn-sub">Type the word</span></button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('mcq')">🔘 Multiple Choice<span class="sp-method-btn-sub">Pick the answer</span></button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('flashcards')">📇 Flashcards</button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="showFillDifficultyPicker()">✍️ Fill in the Letters</button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('mcq')">🔘 Multiple Choice</button>
       </div>
     </div>
   `;
@@ -255,9 +254,9 @@ function showFillDifficultyPicker() {
     <div class="sp-card">
       <div class="sp-card-title">Choose Difficulty</div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','easy')">🟢 Easy<span class="sp-method-btn-sub">Fewer letters blanked</span></button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','medium')">🟡 Medium<span class="sp-method-btn-sub">About half the letters blanked</span></button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','hard')">🔴 Hard<span class="sp-method-btn-sub">Most letters blanked</span></button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','easy')">🟢 Easy</button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','medium')">🟡 Medium</button>
+        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','hard')">🔴 Hard</button>
       </div>
       <div style="margin-top:14px">
         <button class="sp-btn sp-btn-outline" onclick="renderLearnPicker()">← Back</button>
