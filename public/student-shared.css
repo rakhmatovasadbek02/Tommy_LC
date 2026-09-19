@@ -19,13 +19,23 @@
   --amber: #96690B; --amber-light: #FFF4DD;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { color-scheme: light; }
+html { color-scheme: light; scroll-behavior: smooth; }
 body {
   font-family: 'Poppins', sans-serif; color: var(--text-primary); background: var(--bg);
   min-height: 100vh; padding-bottom: calc(86px + env(safe-area-inset-bottom));
   -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  /* This is a tap-driven app, not a webpage — real :active feedback below replaces the
+     flash, and the default one lags/looks wrong on most Android browsers anyway. */
+  -webkit-tap-highlight-color: transparent;
 }
 a { color: inherit; text-decoration: none; }
+
+/* Every page's content loads via one innerHTML swap into #content — animating the
+   freshly-inserted direct children (rather than #content itself, whose "sp-loading"
+   class from the initial placeholder markup never actually gets removed by any page's
+   JS) makes that swap read as a deliberate arrival instead of a hard pop-in, everywhere. */
+@keyframes spContentIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+#content > * { animation: spContentIn .3s cubic-bezier(.2,.7,.3,1) both; }
 
 /* ── Top bar: brand + sign out only — section nav lives in the bottom tab bar ── */
 #spHeader { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 30; padding-top: env(safe-area-inset-top); }
@@ -132,6 +142,7 @@ a { color: inherit; text-decoration: none; }
 .sp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 14px; margin-bottom: 14px; }
 .sp-tile { background: linear-gradient(155deg, var(--accent), var(--accent-dark)); color: #fff; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 7px; box-shadow: var(--shadow-md); transition: transform .15s; }
 .sp-tile:hover { transform: translateY(-2px); }
+.sp-tile:active { transform: scale(.98); }
 .sp-tile-title { font-size: 15px; font-weight: 700; }
 .sp-tile-sub { font-size: 12px; color: rgba(255,255,255,.8); line-height: 1.5; }
 .sp-tile-arrow { margin-top: auto; font-size: 12.5px; font-weight: 600; }
@@ -144,7 +155,19 @@ a { color: inherit; text-decoration: none; }
 .sp-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 .sp-btn-outline { background: transparent; border: 1px solid var(--border); color: var(--accent); }
 .sp-btn-outline:hover { background: var(--accent-light); }
+.sp-btn-outline:active { transform: scale(.98); background: var(--accent-light); }
 .sp-btn-outline.on { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+
+/* ── Touch feedback — :hover never fires on a phone, so every tappable row/tile needs
+   its own :active state or a tap just looks unresponsive until the next screen appears. */
+.sp-pick-item:active,
+.sp-quiz-option:active,
+.sp-tab:active,
+.sp-day-tab:not(:disabled):active,
+.sp-slot-row:active,
+.sp-method-btn:active {
+  background: var(--accent-light);
+}
 
 /* ── Tables / lists ── */
 .sp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -165,13 +188,19 @@ a { color: inherit; text-decoration: none; }
 textarea.sp-input { resize: vertical; min-height: 90px; line-height: 1.5; }
 
 /* ── Toasts ── */
-.sp-toast-container { position: fixed; bottom: 96px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
-.sp-toast { background: var(--text-primary); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow-md); opacity: 0; transform: translateY(8px); transition: all .2s; }
+/* Centered, near-full-width — a right-anchored toast either hugs one edge oddly on a
+   phone or needs its own breakpoint; centered reads as a native mobile snackbar. */
+.sp-toast-container {
+  position: fixed; bottom: calc(96px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  width: calc(100% - 40px); max-width: 400px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 999; pointer-events: none;
+}
+.sp-toast { background: var(--text-primary); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; text-align: center; box-shadow: var(--shadow-md); opacity: 0; transform: translateY(8px); transition: all .2s; }
 .sp-toast.show { opacity: 1; transform: translateY(0); }
 .sp-toast-error { background: var(--red); }
 
 /* ── Unit / slot pick lists ── */
-.sp-pick-list { border: 1px solid var(--border); border-radius: 12px; max-height: 280px; overflow: auto; background: var(--surface); }
+.sp-pick-list { border: 1px solid var(--border); border-radius: 12px; max-height: 280px; overflow: auto; background: var(--surface); -webkit-overflow-scrolling: touch; }
 .sp-pick-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .sp-pick-item:last-child { border-bottom: none; }
 .sp-pick-item:hover { background: var(--accent-light); }
@@ -192,7 +221,17 @@ textarea.sp-input { resize: vertical; min-height: 90px; line-height: 1.5; }
 .sp-banner.red { background: var(--red-light); color: var(--red); border: 1px solid #FFC9C9; }
 .sp-banner.amber { background: var(--amber-light); color: var(--amber); border: 1px solid #FFE2A8; }
 
-.sp-loading { text-align: center; color: var(--text-tertiary); padding: 40px; font-size: 13px; }
+/* :not(:has(*)) matters here: #content is given class="sp-loading" once in each page's
+   static HTML and no page's script ever removes it after swapping in real content via
+   innerHTML — only the loading placeholder text itself has no element children, so this
+   is what actually distinguishes "still loading" from "loaded", not the class alone. */
+.sp-loading:not(:has(*)) { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--text-tertiary); padding: 60px 20px; font-size: 13px; }
+.sp-loading:not(:has(*))::before {
+  content: ''; width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: spSpin .7s linear infinite;
+}
+@keyframes spSpin { to { transform: rotate(360deg); } }
 
 /* ── Auth pages (login / register) — the only student pages without the tab bar ── */
 body.sp-auth-body { padding-bottom: 0; }
