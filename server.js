@@ -541,6 +541,16 @@ async function initDB() {
       UNIQUE(student_id, type, ref_id)
     )`,
     `CREATE INDEX IF NOT EXISTS idx_student_points_student ON student_points(student_id)`,
+    // Fix-up: the first points backfill stamped every historical attendance/vocab event
+    // with the moment it ran, not when the event actually happened — a student's whole
+    // history showed up as having occurred "today". Re-date each ledger row back to its
+    // source record's real date. Idempotent — matches nothing once already corrected.
+    `UPDATE student_points sp SET created_at = a.date::timestamptz
+     FROM attendance a WHERE sp.type IN ('lesson_attend','lesson_miss') AND sp.ref_id = a.id::text AND sp.created_at::date <> a.date`,
+    `UPDATE student_points sp SET created_at = v.completed_at
+     FROM vocab_practice_attempts v WHERE sp.type='practice_attempt' AND sp.ref_id = v.id AND sp.created_at <> v.completed_at`,
+    `UPDATE student_points sp SET created_at = v.completed_at
+     FROM vocab_attempts v WHERE sp.type='vocab_pass' AND sp.ref_id = v.id AND sp.created_at <> v.completed_at`,
   ];
   for (const sql of alters) {
     await pool.query(sql).catch(() => {});
@@ -759,20 +769,20 @@ async function backfillStudentPoints() {
     const cefrGroupsR = await pool.query(`SELECT student_ids FROM groups WHERE level='CEFR'`);
     const studentIds = [...new Set(cefrGroupsR.rows.flatMap(g => g.student_ids || []))];
     for (const studentId of studentIds) {
-      const attR = await pool.query('SELECT id, status FROM attendance WHERE student_id=$1', [studentId]);
+      const attR = await pool.query('SELECT id, status, date FROM attendance WHERE student_id=$1', [studentId]);
       for (const a of attR.rows) {
-        if (a.status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, String(a.id));
-        else if (a.status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, String(a.id));
+        if (a.status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, String(a.id), a.date);
+        else if (a.status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, String(a.id), a.date);
       }
 
       const practiceR = await pool.query(
-        'SELECT id FROM vocab_practice_attempts WHERE student_id=$1 ORDER BY completed_at ASC LIMIT $2',
+        'SELECT id, completed_at FROM vocab_practice_attempts WHERE student_id=$1 ORDER BY completed_at ASC LIMIT $2',
         [studentId, PRACTICE_POINT_ATTEMPT_CAP]
       );
-      for (const p of practiceR.rows) await awardPoints(studentId, 'practice_attempt', POINTS.PRACTICE_ATTEMPT, p.id);
+      for (const p of practiceR.rows) await awardPoints(studentId, 'practice_attempt', POINTS.PRACTICE_ATTEMPT, p.id, p.completed_at);
 
-      const passedR = await pool.query('SELECT id FROM vocab_attempts WHERE student_id=$1 AND passed IS TRUE', [studentId]);
-      for (const v of passedR.rows) await awardPoints(studentId, 'vocab_pass', POINTS.VOCAB_PASS, v.id);
+      const passedR = await pool.query('SELECT id, completed_at FROM vocab_attempts WHERE student_id=$1 AND passed IS TRUE', [studentId]);
+      for (const v of passedR.rows) await awardPoints(studentId, 'vocab_pass', POINTS.VOCAB_PASS, v.id, v.completed_at);
     }
     await pool.query(`INSERT INTO app_config(key,value) VALUES('student_points_backfilled','done') ON CONFLICT(key) DO NOTHING`);
     console.log(`Backfilled points for ${studentIds.length} CEFR student(s)`);
@@ -2408,12 +2418,15 @@ async function studentIsCefr(studentId) {
 }
 
 // Idempotent award: (student_id, type, ref_id) is unique, so re-running the same event
-// (e.g. an attendance edit re-processed) never double-awards.
-async function awardPoints(studentId, type, points, refId) {
+// (e.g. an attendance edit re-processed) never double-awards. `at` dates the ledger entry
+// to when the event actually happened (e.g. the lesson's date) rather than when it was
+// recorded — matters for the backfill, which processes months of history in one pass and
+// must not stamp it all with "now".
+async function awardPoints(studentId, type, points, refId, at) {
   await pool.query(
-    `INSERT INTO student_points(student_id, type, points, ref_id) VALUES($1,$2,$3,$4)
+    `INSERT INTO student_points(student_id, type, points, ref_id, created_at) VALUES($1,$2,$3,$4,COALESCE($5,NOW()))
      ON CONFLICT(student_id, type, ref_id) DO NOTHING`,
-    [studentId, type, points, refId]
+    [studentId, type, points, refId, at || null]
   );
 }
 
@@ -2423,14 +2436,15 @@ async function revokePoints(studentId, type, refId) {
 
 // Attendance can be corrected (present → absent → present…) on the same row — clear
 // whichever side was previously awarded before applying the new status, so a status flip
-// never leaves stale points behind or double-counts.
-async function applyAttendancePoints(studentId, attendanceId, status) {
+// never leaves stale points behind or double-counts. Dates the award to the lesson's own
+// date, not whenever a teacher happened to mark it.
+async function applyAttendancePoints(studentId, attendanceId, status, date) {
   if (!(await studentIsCefr(studentId))) return;
   const refId = String(attendanceId);
   await revokePoints(studentId, 'lesson_attend', refId);
   await revokePoints(studentId, 'lesson_miss', refId);
-  if (status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, refId);
-  else if (status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, refId);
+  if (status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, refId, date);
+  else if (status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, refId, date);
 }
 
 // Pass rule: a max number of wrong answers, scaled to how many questions were actually
@@ -3508,14 +3522,14 @@ app.post('/api/attendance/:groupId/:date', async (req, res) => {
           'DELETE FROM attendance WHERE group_id=$1 AND date=$2 AND student_id=$3 RETURNING id',
           [req.params.groupId, req.params.date, r.studentId]
         );
-        if (del.rows[0]) await applyAttendancePoints(r.studentId, del.rows[0].id, null);
+        if (del.rows[0]) await applyAttendancePoints(r.studentId, del.rows[0].id, null, req.params.date);
       } else {
         const up = await pool.query(
           `INSERT INTO attendance(group_id,date,student_id,status) VALUES($1,$2,$3,$4)
            ON CONFLICT(group_id,date,student_id) DO UPDATE SET status=$4 RETURNING id`,
           [req.params.groupId, req.params.date, r.studentId, r.status]
         );
-        await applyAttendancePoints(r.studentId, up.rows[0].id, r.status);
+        await applyAttendancePoints(r.studentId, up.rows[0].id, r.status, req.params.date);
       }
     }
     broadcast('attendance');
