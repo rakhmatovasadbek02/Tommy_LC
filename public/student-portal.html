@@ -120,11 +120,11 @@ async function load() {
 
       ${(att || vs) ? `
       <div class="sp-card">
-        <div class="sp-card-title">Attendance &amp; Vocabulary</div>
+        <div class="sp-card-title">Stats</div>
 
         <div class="sp-vstat">
           <div class="sp-vstat-row">
-            <span class="sp-vstat-title">This Month's Attendance</span>
+            <span class="sp-vstat-title">Attendance</span>
             <span class="sp-vstat-pct">${att?.total ? Math.round((att.present/att.total)*100)+'%' : '—'}</span>
           </div>
           ${(home.attendanceRecords||[]).length ? `
