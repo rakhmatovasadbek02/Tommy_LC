@@ -256,6 +256,26 @@
               </div>
             </div>
 
+            <div class="pc2-section" id="portalLoginSection" style="display:none">
+              <div class="pc2-section-title">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Portal Login
+              </div>
+              <div class="pc2-meta-grid">
+                <div>
+                  <div class="pc2-meta-label">Username</div>
+                  <div class="pc2-meta-text" id="profPortalUsername">—</div>
+                </div>
+                <div>
+                  <div class="pc2-meta-label">Password</div>
+                  <div class="pc2-meta-text" style="display:flex;align-items:center;gap:8px">
+                    <span id="profPortalPassword">••••••••</span>
+                    <button type="button" onclick="togglePortalPassword()" id="portalPwToggle" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0;font-size:12px;font-weight:600">Show</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="pc2-bottom-actions">
               <button class="pc2-action-btn" onclick="openAddToGroupModal()" title="Add to group">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
@@ -1133,12 +1153,30 @@
     } catch(e) { showToast('Error archiving student.', 'error'); }
   }
 
-  // Show balance edit button for CEO only
+  // Show balance edit button + portal login section for CEO only
   const _sess = getSession();
-  if (_sess?.title === 'CEO' || (_sess?.roles||[]).includes('CEO')) {
+  const _isCEO = _sess?.title === 'CEO' || (_sess?.roles||[]).includes('CEO');
+  if (_isCEO) {
     document.getElementById('balEditBtn').style.display = '';
+    document.getElementById('portalLoginSection').style.display = '';
+    loadPortalLogin();
   }
   if (can('vocab')) document.getElementById('vocabTestBtn').style.display = '';
+
+  let _portalPw = null, _portalPwShown = false;
+  async function loadPortalLogin() {
+    try {
+      const { username, password } = await apiGet('/api/students/' + STUDENT_ID + '/portal-login');
+      document.getElementById('profPortalUsername').textContent = username || 'Not registered yet';
+      _portalPw = password;
+    } catch(e) { document.getElementById('profPortalUsername').textContent = 'Not registered yet'; }
+  }
+  function togglePortalPassword() {
+    if (!_portalPw) return;
+    _portalPwShown = !_portalPwShown;
+    document.getElementById('profPortalPassword').textContent = _portalPwShown ? _portalPw : '••••••••';
+    document.getElementById('portalPwToggle').textContent = _portalPwShown ? 'Hide' : 'Show';
+  }
 
   function openBalanceModal() {
     document.getElementById('balNewVal').value = Number(student?.balance || 0).toLocaleString('en-US');

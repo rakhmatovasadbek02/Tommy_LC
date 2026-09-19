@@ -743,7 +743,40 @@ async function initDB() {
   `, [['CEO','Head Admin','Manager','Admin','Teacher']]).catch(() => {});
 
   await loadAppSecret();
+  await backfillStudentPoints();
   console.log('Database ready');
+}
+
+// One-time backfill: scores CEFR students' existing history (attendance, vocab practice,
+// graded passes) into the points ledger, so the leaderboard isn't empty for students who
+// were already active before the points system existed. Guarded by app_config so it only
+// scans the whole history once — everything after that is scored live by the route hooks.
+// (Daily-login points aren't backfilled: no login history was ever recorded to score.)
+async function backfillStudentPoints() {
+  const done = await pool.query(`SELECT 1 FROM app_config WHERE key='student_points_backfilled'`);
+  if (done.rows.length) return;
+  try {
+    const cefrGroupsR = await pool.query(`SELECT student_ids FROM groups WHERE level='CEFR'`);
+    const studentIds = [...new Set(cefrGroupsR.rows.flatMap(g => g.student_ids || []))];
+    for (const studentId of studentIds) {
+      const attR = await pool.query('SELECT id, status FROM attendance WHERE student_id=$1', [studentId]);
+      for (const a of attR.rows) {
+        if (a.status === 'present') await awardPoints(studentId, 'lesson_attend', POINTS.LESSON_ATTEND, String(a.id));
+        else if (a.status === 'absent') await awardPoints(studentId, 'lesson_miss', POINTS.LESSON_MISS, String(a.id));
+      }
+
+      const practiceR = await pool.query(
+        'SELECT id FROM vocab_practice_attempts WHERE student_id=$1 ORDER BY completed_at ASC LIMIT $2',
+        [studentId, PRACTICE_POINT_ATTEMPT_CAP]
+      );
+      for (const p of practiceR.rows) await awardPoints(studentId, 'practice_attempt', POINTS.PRACTICE_ATTEMPT, p.id);
+
+      const passedR = await pool.query('SELECT id FROM vocab_attempts WHERE student_id=$1 AND passed IS TRUE', [studentId]);
+      for (const v of passedR.rows) await awardPoints(studentId, 'vocab_pass', POINTS.VOCAB_PASS, v.id);
+    }
+    await pool.query(`INSERT INTO app_config(key,value) VALUES('student_points_backfilled','done') ON CONFLICT(key) DO NOTHING`);
+    console.log(`Backfilled points for ${studentIds.length} CEFR student(s)`);
+  } catch(e) { console.warn('Points backfill skipped:', e.message); }
 }
 
 // Notification helpers
@@ -1451,6 +1484,17 @@ app.patch('/api/students/:id/balance', async (req, res) => {
     broadcast('students');
     broadcast('finance');
     res.json({ ok: true, balance: val });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Student portal login credentials — CEO only. Staff otherwise have no way to see a
+// student's self-chosen portal username/password (they only grant/revoke the one-time
+// registration code; the student sets these themselves at redemption).
+app.get('/api/students/:id/portal-login', async (req, res) => {
+  try {
+    if (req.user?.role !== 'CEO') return res.status(403).json({ error: 'CEO only' });
+    const { rows } = await pool.query('SELECT username, password FROM student_logins WHERE student_id=$1', [req.params.id]);
+    res.json(rows[0] || { username: null, password: null });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
