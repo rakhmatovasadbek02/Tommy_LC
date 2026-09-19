@@ -34,8 +34,36 @@ function spApplyTheme(key) {
   root.setProperty('--accent-light', t.accentLight);
   root.setProperty('--bg', t.bg || SP_BG_DEFAULT);
   root.setProperty('--border', t.border || SP_BORDER_DEFAULT);
+  spSetAutumnLeaves(key === 'autumn');
 }
 function spSetTheme(key) { try { localStorage.setItem('lc_student_theme', key); } catch {} spApplyTheme(key); }
+
+// A handful of drifting leaf/acorn emoji, fixed to the viewport and non-interactive —
+// the "detail" that makes Autumn feel like a season rather than just a different accent
+// color. Only ever present while the Autumn theme is active; removed the instant it isn't.
+const SP_AUTUMN_EMOJI = ['🍂', '🍁', '🍃', '🌰'];
+function spSetAutumnLeaves(active) {
+  let box = document.getElementById('spAutumnLeaves');
+  if (!active) { if (box) box.remove(); return; }
+  if (box || !document.body) return; // already running, or body not parsed yet
+  box = document.createElement('div');
+  box.id = 'spAutumnLeaves';
+  box.className = 'sp-autumn-leaves';
+  box.setAttribute('aria-hidden', 'true');
+  let html = '';
+  for (let i = 0; i < 14; i++) {
+    const left = Math.round(Math.random() * 100);
+    const duration = (10 + Math.random() * 9).toFixed(1);
+    const delay = (Math.random() * duration).toFixed(1);
+    const drift = Math.round(Math.random() * 70 - 35);
+    const size = 14 + Math.round(Math.random() * 12);
+    const emoji = SP_AUTUMN_EMOJI[i % SP_AUTUMN_EMOJI.length];
+    html += `<span class="sp-leaf" style="left:${left}%;font-size:${size}px;animation-duration:${duration}s;animation-delay:-${delay}s;--drift:${drift}px">${emoji}</span>`;
+  }
+  box.innerHTML = html;
+  document.body.appendChild(box);
+}
+
 // Applied immediately (before the page's own header/content render) so there's no flash
 // of the default red before a saved theme kicks in.
 spApplyTheme(spGetTheme());

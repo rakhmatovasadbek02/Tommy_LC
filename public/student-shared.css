@@ -30,6 +30,23 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 
+/* ── Autumn theme's falling leaves (see spSetAutumnLeaves in student-shared.js) — fixed
+   to the viewport, behind real content (z-index below the header/tabbar's 30 so it never
+   sits on top of anything tappable), and non-interactive. ── */
+.sp-autumn-leaves { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+.sp-leaf {
+  position: absolute; top: -12%; opacity: 0;
+  animation-name: spLeafFall; animation-timing-function: linear; animation-iteration-count: infinite;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.1));
+}
+@keyframes spLeafFall {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  8%   { opacity: .8; }
+  50%  { transform: translateY(60vh) translateX(var(--drift, 20px)) rotate(180deg); }
+  92%  { opacity: .8; }
+  100% { transform: translateY(122vh) translateX(0) rotate(360deg); opacity: 0; }
+}
+
 /* Every page's content loads via one innerHTML swap into #content — animating the
    freshly-inserted direct children (rather than #content itself, whose "sp-loading"
    class from the initial placeholder markup never actually gets removed by any page's
