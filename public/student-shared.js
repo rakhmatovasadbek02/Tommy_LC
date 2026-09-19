@@ -41,7 +41,7 @@ function spSetTheme(key) { try { localStorage.setItem('lc_student_theme', key); 
 // A handful of drifting leaf/acorn emoji, fixed to the viewport and non-interactive —
 // the "detail" that makes Autumn feel like a season rather than just a different accent
 // color. Only ever present while the Autumn theme is active; removed the instant it isn't.
-const SP_AUTUMN_EMOJI = ['🍂', '🍁', '🍃', '🌰'];
+const SP_AUTUMN_EMOJI = ['🍂', '🍁'];
 function spSetAutumnLeaves(active) {
   let box = document.getElementById('spAutumnLeaves');
   if (!active) { if (box) box.remove(); return; }
