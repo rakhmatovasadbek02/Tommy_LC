@@ -2922,7 +2922,7 @@ app.get('/api/student/home', async (req, res) => {
     const todayISO = nowTz.toISOString().split('T')[0];
     const monthStart = `${nowTz.getFullYear()}-${String(nowTz.getMonth()+1).padStart(2,'0')}-01`;
 
-    const [groupsR, supportR, pendingR, streak, practiceStatsR, examStatsR, practicedUnitsR, attendanceR, attendanceRecordsR] = await Promise.all([
+    const [groupsR, supportR, pendingR, streak, practiceStatsR, examStatsR, attendanceR, attendanceRecordsR] = await Promise.all([
       pool.query(`SELECT name, teacher, room, time, sched_type, custom_days FROM groups WHERE student_ids @> $1::jsonb`, [JSON.stringify([studentId])]),
       pool.query(
         `SELECT to_char(date,'YYYY-MM-DD') AS date, time, teacher FROM support_sessions
@@ -2938,12 +2938,6 @@ app.get('/api/student/home', async (req, res) => {
       pool.query(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM vocab_practice_attempts WHERE student_id=$1`, [studentId]),
       // Unit test exam pass rate — formal, admin-graded tests (vocab_attempts, via a one-time code).
       pool.query(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM vocab_attempts WHERE student_id=$1`, [studentId]),
-      // Units this student has actually PASSED (practice or formal exam) — a failed or
-      // unattempted unit still needs recommending, only a pass clears it.
-      pool.query(`
-        SELECT unit_ids FROM vocab_practice_attempts WHERE student_id=$1 AND passed IS TRUE
-        UNION ALL SELECT unit_ids FROM vocab_attempts WHERE student_id=$1 AND passed IS TRUE
-      `, [studentId]),
       // This month's attendance — counted the same way class attendance is recorded
       // per-lesson (attendance table), not the separate one-on-one support_sessions.
       pool.query(
@@ -2975,21 +2969,8 @@ app.get('/api/student/home', async (req, res) => {
       pendingTest = { unitNames: unitsR.rows.map(u => u.name) };
     }
 
-    // Recommend the single next unit the student hasn't passed yet, in the same natural
-    // (1A, 1B, 1C, 2A, …) order the practice picker uses — e.g. once they've passed 2B,
-    // the next un-passed unit in sequence (2C, or whatever follows) is the recommendation.
-    // A failed or never-attempted unit still counts as "not passed" and stays eligible.
-    const passedIds = new Set(practicedUnitsR.rows.flatMap(r => r.unit_ids || []));
     const levelR = await pool.query(`SELECT level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]);
     const level = levelR.rows[0]?.level || null;
-    const unitsR = level
-      ? await pool.query('SELECT id, name, level, words FROM vocab_units WHERE level=$1', [level])
-      : await pool.query('SELECT id, name, level, words FROM vocab_units');
-    const recommendedUnits = unitsR.rows
-      .filter(u => !passedIds.has(u.id))
-      .sort(naturalUnitCompare)
-      .slice(0, 1)
-      .map(u => ({ id: u.id, name: u.name, level: u.level, wordCount: (u.words || []).length }));
 
     res.json({
       streak,
@@ -3003,7 +2984,6 @@ app.get('/api/student/home', async (req, res) => {
       },
       attendance: attendanceR.rows[0],
       attendanceRecords: attendanceRecordsR.rows,
-      recommendedUnits,
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

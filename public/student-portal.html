@@ -21,9 +21,6 @@
 .sp-vstat-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .sp-vstat-sub { font-size: 11.5px; color: var(--text-secondary); }
 .sp-vstat-pct { font-size: 15px; font-weight: 700; color: var(--accent); }
-.sp-rec-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); text-decoration: none; }
-.sp-rec-item:last-child { border-bottom: none; }
-.sp-rec-item:hover .sp-next-title { color: var(--accent); }
 .sp-lb-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
 .sp-lb-row:last-child { border-bottom: none; }
 .sp-lb-row.self { background: var(--accent-light); margin: 0 -16px; padding: 9px 16px; border-radius: 8px; }
@@ -69,7 +66,7 @@ async function load() {
   try {
     const [me, home, leaderboard] = await Promise.all([
       spGet('/api/student/me'),
-      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, isCefr: false, vocabStats: null, attendance: null, attendanceRecords: [], recommendedUnits: [] })),
+      spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, isCefr: false, vocabStats: null, attendance: null, attendanceRecords: [] })),
       spGet('/api/student/leaderboard').catch(() => ({ group: null, rows: [] })),
     ]);
     const nextItems = [];
@@ -165,19 +162,6 @@ async function load() {
           </div>
         `).join('')}
       </div>` : ''}
-
-      <div class="sp-card">
-        <div class="sp-card-title">Recommended For You</div>
-        ${(home.recommendedUnits||[]).length ? home.recommendedUnits.map(u => `
-          <a class="sp-rec-item" href="student-vocab.html?unit=${encodeURIComponent(u.id)}">
-            <div class="sp-next-icon"><i class="fas fa-book-open"></i></div>
-            <div>
-              <div class="sp-next-title">${spEscapeHtml(u.name)}</div>
-              <div class="sp-next-sub">${u.wordCount} word${u.wordCount===1?'':'s'} · ${spEscapeHtml(u.level)}</div>
-            </div>
-          </a>
-        `).join('') : `<div class="sp-empty">You've practiced every unit at your level!</div>`}
-      </div>
     `;
   } catch (e) {
     el.innerHTML = `<div class="sp-banner red">${spEscapeHtml(e.message)}</div>`;
