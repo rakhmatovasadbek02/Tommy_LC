@@ -10,8 +10,8 @@ const SP_API = '';
 // (student-account.html). Everything in student-shared.css is already built on the
 // --accent/--accent-dark/--accent-light custom properties, so re-theming the whole app is
 // just overriding those three at the root — no per-component styling needed. "default" is
-// the portal's current/original red look, and is always what a student who never opens
-// Settings sees — every value below is opt-in, applied only from a saved preference.
+// the portal's original red look, kept as its own selectable theme — but 'autumn' is what
+// a student who's never opened Settings actually sees (see spGetTheme's fallback below).
 // Themes may also warm/cool the page background and border tone (bg/border) — optional,
 // falling back to the portal's original neutral values so a plain accent swap (blue,
 // green, etc.) doesn't unintentionally tint the whole page. Autumn is the one theme that
@@ -25,7 +25,10 @@ const SP_THEMES = {
   orange:  { name: 'Sunset Orange', accent: '#c2410c', accentDark: '#9a3412', accentLight: '#fff7ed' },
   autumn:  { name: 'Autumn 🍂',      accent: '#b5541e', accentDark: '#7a3712', accentLight: '#fdeee0', bg: '#faf3e8', border: '#ecdcc4' },
 };
-function spGetTheme() { try { return localStorage.getItem('lc_student_theme') || 'default'; } catch { return 'default'; } }
+// 'autumn' as the fallback — not 'default' — is what actually makes it the portal-wide
+// default: any student who's never opened Settings and picked a theme gets Autumn, while
+// anyone who explicitly chose a different one (including "Tommy Red") keeps their pick.
+function spGetTheme() { try { return localStorage.getItem('lc_student_theme') || 'autumn'; } catch { return 'autumn'; } }
 
 // The logo art (logo.png) is a fixed red-on-white raster image — the only way to re-tint
 // it per theme without redrawing it is a CSS hue-rotate filter, which works well here
