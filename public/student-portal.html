@@ -24,6 +24,14 @@
 .sp-rec-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); text-decoration: none; }
 .sp-rec-item:last-child { border-bottom: none; }
 .sp-rec-item:hover .sp-next-title { color: var(--accent); }
+.sp-lb-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.sp-lb-row:last-child { border-bottom: none; }
+.sp-lb-row.self { background: var(--accent-light); margin: 0 -16px; padding: 9px 16px; border-radius: 8px; }
+.sp-lb-rank { width: 22px; font-size: 13px; font-weight: 700; color: var(--text-secondary); flex-shrink: 0; text-align: center; }
+.sp-lb-row.self .sp-lb-rank, .sp-lb-row.self .sp-lb-name { color: var(--accent); }
+.sp-lb-name { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-lb-sub { font-size: 11.5px; color: var(--text-secondary); margin-right: 4px; }
+.sp-lb-pct { font-size: 14px; font-weight: 700; color: var(--accent); width: 42px; text-align: right; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -54,9 +62,10 @@ function relativeDayLabel(iso) {
 async function load() {
   const el = document.getElementById('content');
   try {
-    const [me, home] = await Promise.all([
+    const [me, home, leaderboard] = await Promise.all([
       spGet('/api/student/me'),
       spGet('/api/student/home').catch(() => ({ streak: 0, nextClass: null, nextSupport: null, pendingTest: null, vocabStats: null, attendance: null, recommendedUnits: [] })),
+      spGet('/api/student/leaderboard').catch(() => ({ group: null, rows: [] })),
     ]);
     const nextItems = [];
     if (home.pendingTest) {
@@ -116,6 +125,19 @@ async function load() {
         <div class="sp-card-title">Vocabulary Statistics</div>
         ${vstatRow('Practice Pass Rate', vs.practice)}
         ${vstatRow('Unit Test Exams', vs.exams)}
+      </div>` : ''}
+
+      ${leaderboard.group && leaderboard.rows.length ? `
+      <div class="sp-card">
+        <div class="sp-card-title">${spEscapeHtml(leaderboard.group.name)} Leaderboard</div>
+        ${leaderboard.rows.map((r, i) => `
+          <div class="sp-lb-row${r.isSelf ? ' self' : ''}">
+            <div class="sp-lb-rank">${i+1}</div>
+            <div class="sp-lb-name">${spEscapeHtml(r.name)}${r.isSelf ? ' (you)' : ''}</div>
+            <div class="sp-lb-sub">${r.total ? `${r.passed}/${r.total}` : 'no attempts'}</div>
+            <div class="sp-lb-pct">${r.total ? r.pct+'%' : '—'}</div>
+          </div>
+        `).join('')}
       </div>` : ''}
 
       <div class="sp-card">

@@ -2923,6 +2923,45 @@ app.get('/api/student/home', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Group vocab-passing leaderboard: ranks the student's own group by combined pass rate
+// across both practice attempts and formal unit-test exams.
+app.get('/api/student/leaderboard', async (req, res) => {
+  try {
+    const studentId = req.student.id;
+    const groupR = await pool.query(`SELECT id, name, student_ids FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [studentId]);
+    const group = groupR.rows[0];
+    if (!group) return res.json({ group: null, rows: [] });
+
+    const memberIds = group.student_ids || [];
+    const [studentsR, statsR] = await Promise.all([
+      pool.query(`SELECT id, first_name, last_name FROM students WHERE id = ANY($1::text[])`, [memberIds]),
+      pool.query(`
+        SELECT student_id, COUNT(*)::int total, COUNT(*) FILTER (WHERE passed)::int passed FROM (
+          SELECT student_id, passed FROM vocab_practice_attempts WHERE student_id = ANY($1::text[])
+          UNION ALL
+          SELECT student_id, passed FROM vocab_attempts WHERE student_id = ANY($1::text[])
+        ) x GROUP BY student_id
+      `, [memberIds]),
+    ]);
+
+    const statsByStudent = new Map(statsR.rows.map(r => [r.student_id, r]));
+    const rows = studentsR.rows.map(s => {
+      const stat = statsByStudent.get(s.id);
+      const total = stat?.total || 0;
+      const passed = stat?.passed || 0;
+      return {
+        studentId: s.id,
+        name: `${s.first_name} ${s.last_name}`.trim(),
+        total, passed,
+        pct: total ? Math.round((passed / total) * 100) : 0,
+        isSelf: s.id === studentId,
+      };
+    }).sort((a, b) => b.pct - a.pct || b.passed - a.passed || a.name.localeCompare(b.name));
+
+    res.json({ group: { id: group.id, name: group.name }, rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Which units this student may practice: only units matching their group's level (same
 // restriction admins already get when granting a graded test — see POST /api/vocab/access).
 // Natural sort for unit names like "1A Welcome to the class", "2A ...", "10A ...":
