@@ -267,9 +267,9 @@
                   <div class="pc2-meta-text" id="profPortalUsername">—</div>
                 </div>
                 <div>
-                  <div class="pc2-meta-label">Password</div>
+                  <div class="pc2-meta-label">Forgot password?</div>
                   <div class="pc2-meta-text">
-                    <button type="button" onclick="resetPortalPassword()" style="background:none;border:none;cursor:pointer;color:var(--accent);padding:0;font-size:12px;font-weight:600">Reset password…</button>
+                    <button type="button" onclick="generatePortalResetCode()" style="background:none;border:none;cursor:pointer;color:var(--accent);padding:0;font-size:12px;font-weight:600">Get a reset code…</button>
                   </div>
                 </div>
               </div>
@@ -1162,24 +1162,21 @@
   }
   if (can('vocab')) document.getElementById('vocabTestBtn').style.display = '';
 
-  let _portalRegistered = false;
   async function loadPortalLogin() {
     try {
       const { username } = await apiGet('/api/students/' + STUDENT_ID + '/portal-login');
       document.getElementById('profPortalUsername').textContent = username || 'Not registered yet';
-      _portalRegistered = !!username;
     } catch(e) { document.getElementById('profPortalUsername').textContent = 'Not registered yet'; }
   }
-  // Passwords are hashed server-side now, so there's nothing to "show" — CEO can only
-  // force-set a new one (e.g. the student forgot theirs and asked for help).
-  async function resetPortalPassword() {
-    if (!_portalRegistered) { showToast('This student has not registered a portal account yet.', 'error'); return; }
-    const pw = prompt('Enter a new portal password for this student (min 4 characters):');
-    if (pw === null) return;
-    if (pw.length < 4) { showToast('Password must be at least 4 characters.', 'error'); return; }
+  // Forgotten passwords can't be recovered or force-set (they're hashed) — instead this
+  // issues a fresh one-time registration code, same as first-time setup, that the student
+  // uses on student-register.html to pick a brand new username and password themselves.
+  // Any older, unused code for this student is retired automatically (see POST
+  // /api/student-codes), so only the latest one you hand out actually works.
+  async function generatePortalResetCode() {
     try {
-      await apiPost('/api/students/' + STUDENT_ID + '/portal-login/reset', { newPassword: pw });
-      showToast('Portal password reset.');
+      const { code } = await apiPost('/api/student-codes', { studentId: STUDENT_ID });
+      prompt('Send this one-time code to the student (they enter it on the Register page to set a new username/password):', code);
     } catch(e) { showToast(e.message, 'error'); }
   }
 

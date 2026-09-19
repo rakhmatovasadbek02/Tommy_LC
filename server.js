@@ -1566,31 +1566,17 @@ app.patch('/api/students/:id/balance', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Student portal login credentials — CEO only. Staff otherwise have no way to see a
-// student's self-chosen portal username/password (they only grant/revoke the one-time
-// registration code; the student sets these themselves at redemption).
-// Student portal passwords are hashed (bcrypt) — there is no plaintext to show anymore,
-// to anyone, ever. CEO gets the username plus a one-click reset instead of a "view".
+// Student portal username — CEO only. Staff otherwise have no way to see a student's
+// self-chosen portal username (they only grant/revoke the one-time registration code;
+// the student sets their own username/password at redemption). The password itself is
+// hashed (bcrypt) and can't be shown to anyone, ever — "forgot password" is handled by
+// issuing a fresh one-time code (POST /api/student-codes) for the student to re-register
+// with, not by recovering or resetting the old one directly.
 app.get('/api/students/:id/portal-login', async (req, res) => {
   try {
     if (req.user?.role !== 'CEO') return res.status(403).json({ error: 'CEO only' });
     const { rows } = await pool.query('SELECT username FROM student_logins WHERE student_id=$1', [req.params.id]);
     res.json(rows[0] || { username: null });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// CEO-only: force-set a student's portal password (e.g. "forgot password" support ask),
-// without needing a full registration-code redemption. Invalidates existing sessions.
-app.post('/api/students/:id/portal-login/reset', async (req, res) => {
-  try {
-    if (req.user?.role !== 'CEO') return res.status(403).json({ error: 'CEO only' });
-    const newPassword = String(req.body.newPassword || '');
-    if (newPassword.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
-    const existing = await pool.query('SELECT 1 FROM student_logins WHERE student_id=$1', [req.params.id]);
-    if (!existing.rows.length) return res.status(404).json({ error: 'This student has not registered a portal account yet — grant them a registration code instead.' });
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE student_logins SET password=$1, token_valid_from=NOW() WHERE student_id=$2', [passwordHash, req.params.id]);
-    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
