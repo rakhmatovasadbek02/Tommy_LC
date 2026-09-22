@@ -490,6 +490,10 @@ async function initDB() {
     // admin/teacher scheduled for them on the staff side.
     `ALTER TABLE support_sessions ADD COLUMN IF NOT EXISTS booked_by TEXT NOT NULL DEFAULT 'admin'`,
     `CREATE TABLE IF NOT EXISTS support_fines (id TEXT PRIMARY KEY, student_id TEXT NOT NULL, issued_at TIMESTAMPTZ DEFAULT NOW(), blocked_until TIMESTAMPTZ NOT NULL)`,
+    // A student who leaves/closes a graded vocab test mid-attempt (anti-cheat violation)
+    // is locked out of starting another one for an hour. Same self-expiring shape as
+    // support_fines — no cleanup job needed, just filter on blocked_until > NOW().
+    `CREATE TABLE IF NOT EXISTS vocab_bans (id TEXT PRIMARY KEY, student_id TEXT NOT NULL, reason TEXT, issued_at TIMESTAMPTZ DEFAULT NOW(), blocked_until TIMESTAMPTZ NOT NULL)`,
     `CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)`,
     `CREATE TABLE IF NOT EXISTS support_sessions (id TEXT PRIMARY KEY, date DATE, time TEXT, duration INT DEFAULT 30, teacher TEXT, student_id TEXT, created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE INDEX IF NOT EXISTS idx_invoices_student ON invoices(student_id)`,
@@ -2500,6 +2504,26 @@ app.get('/api/students/:id/attendance', async (req, res) => {
 function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function genVocabCode() { return String(Math.floor(100000 + Math.random() * 900000)); } // 6 digits
 
+// A code an admin/teacher grants but the student never opens (question_set still null,
+// i.e. the test was never actually started) is revoked 2 minutes after it was created —
+// once the test has started, this no longer applies, so an in-progress attempt is never
+// cut off mid-test. Returns true (and burns the code) if it just expired.
+const VOCAB_CODE_IDLE_MS = 2 * 60 * 1000;
+async function expireUnstartedVocabAccess(row) {
+  if (row.used || row.question_set) return false;
+  const ageMs = Date.now() - new Date(row.created_at).getTime();
+  if (ageMs < VOCAB_CODE_IDLE_MS) return false;
+  await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+  return true;
+}
+
+// Returns the ban's blocked_until (Date) if the student is currently locked out of
+// starting a graded vocab test, else null.
+async function currentVocabBan(studentId) {
+  const { rows } = await pool.query('SELECT blocked_until FROM vocab_bans WHERE student_id=$1 AND blocked_until > NOW() ORDER BY blocked_until DESC LIMIT 1', [studentId]);
+  return rows[0] ? new Date(rows[0].blocked_until) : null;
+}
+
 /* ═══════════════════════ POINTS / LEADERBOARD (CEFR groups only) ═══════════════════════
    Only one thing earns points: passing a graded (admin-code) vocab test, +200. Only
    students in a 'CEFR' level group earn points — other levels aren't part of this system. */
@@ -2797,6 +2821,8 @@ app.get('/api/students/:id/vocab', async (req, res) => {
    generates a random code; the student redeems it on student-register.html to set up
    their own phone+password login (see student_logins / student_portal_codes tables).
 ══════════════════════════════════════ */
+// An unredeemed portal code expires 12 hours after it was granted.
+const PORTAL_CODE_IDLE_MS = 12 * 60 * 60 * 1000;
 function genStudentCode() {
   // 8 chars, uppercase letters+digits, no ambiguous 0/O/1/I — easy to read out loud.
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -2873,6 +2899,10 @@ app.post('/api/public/student/redeem', async (req, res) => {
     const row = rows[0];
     if (!row) { recordFailure(rlKey); return res.status(404).json({ error: 'Invalid code.' }); }
     if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
+    if (Date.now() - new Date(row.created_at).getTime() > PORTAL_CODE_IDLE_MS) {
+      await pool.query('UPDATE student_portal_codes SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+      return res.status(410).json({ error: 'This code expired after 12 hours unused. Ask your admin for a new one.' });
+    }
     const stu = await pool.query('SELECT id, first_name, last_name FROM students WHERE id=$1', [row.student_id]);
     if (!stu.rows[0]) return res.status(404).json({ error: 'The student record for this code no longer exists.' });
     const taken = await pool.query('SELECT 1 FROM student_logins WHERE username=$1 AND student_id<>$2', [username, row.student_id]);
@@ -3603,7 +3633,7 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
     const { rows } = await pool.query(`
-      SELECT a.id, a.used, a.unit_ids, a.language_pair, s.first_name, s.last_name
+      SELECT a.id, a.student_id, a.used, a.question_set, a.created_at, a.unit_ids, a.language_pair, s.first_name, s.last_name
       FROM vocab_access a
       JOIN students s ON s.id = a.student_id
       WHERE a.code = $1
@@ -3611,6 +3641,9 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
     const row = rows[0];
     if (!row) return res.status(404).json({ error: 'Invalid code.' });
     if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
+    const ban = await currentVocabBan(row.student_id);
+    if (ban) return res.status(403).json({ error: `This student is temporarily banned for leaving a test — try again after ${ban.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}.` });
+    if (await expireUnstartedVocabAccess(row)) return res.status(410).json({ error: 'This code expired after being unused for 2 minutes. Ask your admin for a new one.' });
     const units = await pool.query('SELECT name, words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
     if (!units.rows.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
     const unitNames = units.rows.map(u => u.name);
@@ -3632,6 +3665,7 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
     const row = rows[0];
     if (!row) return res.status(404).json({ error: 'Access not found.' });
     if (row.used) return res.status(410).json({ error: 'This test was already completed.' });
+    if (await expireUnstartedVocabAccess(row)) return res.status(410).json({ error: 'This code expired after being unused for 2 minutes. Ask your admin for a new one.' });
 
     let questionSet = row.question_set;
     if (!questionSet) {
@@ -3673,7 +3707,8 @@ app.put('/api/public/vocab/test/:accessId/submit', async (req, res) => {
 // Public, unauthenticated: anti-cheat guard on vocab-test.html. The client reports this the
 // instant the tab is hidden/closed while a test is in progress (switching tabs, minimizing,
 // closing the page) — the attempt is recorded as an immediate fail and the code is burned,
-// exactly like a normal submit, so the student can't resume or reuse it.
+// exactly like a normal submit, so the student can't resume or reuse it. Treated as cheating:
+// the student is also locked out of starting another graded vocab test for an hour.
 app.put('/api/public/vocab/test/:accessId/violation', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM vocab_access WHERE id=$1', [req.params.accessId]);
@@ -3689,6 +3724,10 @@ app.put('/api/public/vocab/test/:accessId/violation', async (req, res) => {
       [genVocabId('vatt'), row.id, row.student_id, JSON.stringify(row.unit_ids), row.question_set.length, reason]
     );
     await pool.query('UPDATE vocab_access SET used=TRUE, used_at=NOW() WHERE id=$1', [row.id]);
+    await pool.query(
+      `INSERT INTO vocab_bans(id, student_id, reason, blocked_until) VALUES($1,$2,$3, NOW() + INTERVAL '1 hour')`,
+      [genVocabId('vban'), row.student_id, reason]
+    );
     broadcast('vocab');
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
