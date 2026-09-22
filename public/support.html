@@ -411,7 +411,7 @@ ${slots.map(s=>{
   const nowTz=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Tashkent'}));
   const isToday=supportDateISO===nowTz.toISOString().split('T')[0];
   const isPast=isToday && s<=nowTz.getHours()*60+nowTz.getMinutes();
-  const canAdd=isAdministration() && !starting.length && !isPast;
+  const canAdd=(isAdministration()||isSupportTeacher()) && !starting.length && !isPast;
   return `<div ${canAdd?`onclick="openSupport('${tEsc}','${minToTime(s)}')" class="sup-cell"`:''} style="width:${COL_W}px;flex-shrink:0;border-right:1px solid #e0a0a0;border-bottom:1px solid #e0a0a0;min-height:74px;position:relative;${canAdd?'cursor:pointer;':''}">
 ${starting.map(p=>{
   const span=slots.filter(s2=>s2>=p.st && s2<p.en).length;
@@ -472,10 +472,13 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
     if(!window._supportGroups){try{window._supportGroups=await apiGet('/api/groups');}catch{window._supportGroups=[];}}
     document.getElementById('spGroupInfo').style.display='none';
     _spDur=30; document.querySelectorAll('#spDurSeg button').forEach((b,i)=>b.classList.toggle('active',i===0));
-    const onlyWorking=(window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
+    let onlyWorking=(window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
+    const selfOnly=isSupportTeacher()&&!isAdministration();
+    if(selfOnly) onlyWorking=onlyWorking.filter(t=>t.name===SUPPORT_OWNER);
     document.getElementById('spTeacher').innerHTML='<option value="">— Select —</option>'+onlyWorking.map(t=>`<option value="${t.name}">${reverseName(t.name)}</option>`).join('');
-    const pre=(prefillTeacher&&typeof prefillTeacher==='string')?prefillTeacher:'';
+    const pre=selfOnly?SUPPORT_OWNER:((prefillTeacher&&typeof prefillTeacher==='string')?prefillTeacher:'');
     if(pre)document.getElementById('spTeacher').value=pre;
+    document.getElementById('spTeacher').disabled=selfOnly;
     supBuildTimes(pre,(prefillTime&&typeof prefillTime==='string')?prefillTime:'09:00');
     document.getElementById('spStudentSearch').value='';document.getElementById('spStudentId').value='';document.getElementById('spStudentResults').style.display='none';
     document.getElementById('spTheme').value='';
@@ -535,7 +538,7 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
       showToast(attended?'Marked present.':'Marked absent.');
     } catch(e){ showToast(e.message||'Error.','error'); }
   }
-  if(!isAdministration())document.getElementById('addSupportBtn').style.display='none';
+  if(!isAdministration()&&!isSupportTeacher())document.getElementById('addSupportBtn').style.display='none';
   renderSupportDateLabel();
   loadTimetable();
 

@@ -54,7 +54,7 @@ const ROLE_PERMS = {
   'Manager':    ['dashboard','leads','students','groups','finance','teachers','staff','archived','support','vocab','reminders','manreminders'],
   'Admin':      ['dashboard','leads','students','groups','teachers','support','vocab','reminders'],
   'Teacher':    ['dashboard','groups','vocab','reminders'],
-  'Support Teacher': ['dashboard','support','reminders'],
+  'Support Teacher': ['dashboard','support','reminders','vocab'],
 };
 function isSupportTitle(t) { return String(t||'').trim().toLowerCase() === 'support teacher'; }
 const ROLES = Object.keys(ROLE_PERMS);
