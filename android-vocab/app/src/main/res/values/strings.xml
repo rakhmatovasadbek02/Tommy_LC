@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Tommy LC Vocab Test</string>
-    <string name="title_activity_main">Tommy LC Vocab Test</string>
+    <string name="app_name">GradedTest</string>
+    <string name="title_activity_main">GradedTest</string>
     <string name="package_name">com.tommylc.vocabtest</string>
     <string name="custom_url_scheme">com.tommylc.vocabtest</string>
 </resources>

@@ -1,6 +1,6 @@
 {
   "appId": "com.tommylc.student",
-  "appName": "Tommy LC",
+  "appName": "Student Portal",
   "webDir": "www",
   "server": {
     "url": "https://tommylc.up.railway.app/student-login.html",
