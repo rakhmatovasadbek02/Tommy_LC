@@ -147,6 +147,12 @@ function rolloverTimer() {
   stopTimer();
   TIMER_BANK += TIME_PER_WORD;
 }
+// Skipping just carries the current remaining time forward unchanged — no fresh +15s.
+// Skipping costs no effort/time to do, so treating it like a genuine answer (rolloverTimer)
+// let a student spam Skip to bank nearly a free 15s per click and stockpile a huge lead.
+function carryTimer() {
+  stopTimer();
+}
 function handleTimeout() {
   if (!SESSION || CUR >= SESSION.questions.length) return;
   const q = SESSION.questions[CUR];
@@ -427,7 +433,7 @@ function pickOption(val, btn) {
 function skipQuestion() {
   const [q] = SESSION.questions.splice(CUR, 1);
   SESSION.questions.push(q);
-  rolloverTimer();
+  carryTimer();
   renderQuestion();
 }
 

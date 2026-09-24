@@ -244,11 +244,17 @@ function renderTimer() {
   el.textContent = TIMER_BANK + 's';
   el.classList.toggle('low', TIMER_BANK <= 5);
 }
-// Whatever's left on the clock when leaving a word (by answer, skip, or 0 timeout)
-// carries into the next word's allowance.
+// Whatever's left on the clock when leaving a word (by answering, or 0 timeout) carries
+// into the next word's fresh 15s allowance.
 function rolloverTimer() {
   stopTimer();
   TIMER_BANK += TIME_PER_WORD;
+}
+// Skipping just carries the current remaining time forward unchanged — no fresh +15s.
+// Skipping costs no effort/time to do, so treating it like a genuine answer (rolloverTimer)
+// let a student spam Skip to bank nearly a free 15s per click and stockpile a huge lead.
+function carryTimer() {
+  stopTimer();
 }
 function handleTimeout() {
   if (IDX >= QUESTIONS.length) return;
@@ -397,7 +403,7 @@ function selectMc(btn, i) {
 function skipQuestion() {
   const [q] = QUESTIONS.splice(IDX, 1);
   QUESTIONS.push(q);
-  rolloverTimer();
+  carryTimer();
   renderQuestion();
 }
 
