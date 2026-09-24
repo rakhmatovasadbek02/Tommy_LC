@@ -89,9 +89,7 @@
   .qcounter{text-align:center;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:10px}
   .qtimer{text-align:center;font-size:14px;font-weight:800;color:var(--muted);margin-bottom:6px;transition:color .2s}
   .qtimer.low{color:var(--crimson-dark);animation:shake .3s}
-  /* Selecting the word lets a student trigger the browser/OS's built-in "Translate"/"Ask AI"
-     popup on long-press or right-click — disabling selection on the prompt removes that path. */
-  .qprompt{font-size:36px;font-weight:800;text-align:center;margin:4px 0 30px;line-height:1.25;word-break:break-word;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  .qprompt{font-size:36px;font-weight:800;text-align:center;margin:4px 0 30px;line-height:1.25;word-break:break-word}
   @media (min-width:700px){ .qprompt{font-size:42px} }
 
   #questionBody{animation:qIn .28s cubic-bezier(.2,.8,.2,1)}
@@ -310,10 +308,6 @@ window.addEventListener('pagehide', () => reportViolation('left_page'));
 window.addEventListener('beforeunload', (e) => {
   if (TEST_ACTIVE) { e.preventDefault(); e.returnValue = ''; }
 });
-// Copying the word or opening the right-click menu are both ways to feed it to a
-// translator/AI outside the page; neither has any legitimate use while taking the test.
-document.addEventListener('copy', () => reportViolation('copy_attempt'));
-document.addEventListener('contextmenu', e => { if (TEST_ACTIVE) { e.preventDefault(); reportViolation('right_click'); } });
 
 const IC_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const IC_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
