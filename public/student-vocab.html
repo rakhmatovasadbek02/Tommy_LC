@@ -162,7 +162,27 @@ function handleTimeout() {
   submitPractice();
 }
 
+// ── Anti-cheat guard (Practice Mode only — Learning Mode isn't timed/scored, nothing to
+// cheat on there) ── Copying the word or opening the right-click menu are both ways to
+// feed it to a translator/AI outside the page; neither has any legitimate use while
+// answering, so either one ends the attempt immediately.
+let PRACTICE_ACTIVE = false;
+function terminatePractice() {
+  if (!PRACTICE_ACTIVE) return;
+  PRACTICE_ACTIVE = false;
+  stopTimer();
+  document.getElementById('content').innerHTML = `
+    <div class="sp-card" style="text-align:center">
+      <div class="sp-card-title">Practice Ended</div>
+      <div style="color:var(--text-secondary);font-size:13.5px;margin:10px 0 18px">Copying or right-clicking during practice isn't allowed, so this attempt was ended. You can start a fresh one anytime.</div>
+      <button class="sp-btn sp-btn-primary" onclick="showPicker()">Back to Units</button>
+    </div>`;
+}
+document.addEventListener('copy', () => terminatePractice());
+document.addEventListener('contextmenu', e => { if (PRACTICE_ACTIVE) { e.preventDefault(); terminatePractice(); } });
+
 async function showPicker() {
+  PRACTICE_ACTIVE = false;
   const el = document.getElementById('content');
   el.innerHTML = `<div class="sp-loading">Loading units…</div>`;
   try {
@@ -391,6 +411,7 @@ async function startPractice() {
   try {
     SESSION = await spPost('/api/student/vocab/practice/start', { unitIds: [...SELECTED] });
     ANSWERS = {}; CUR = 0; TIMER_BANK = TIME_PER_WORD; ROLLED_QIDS.clear();
+    PRACTICE_ACTIVE = true;
     renderQuestion();
   } catch (e) { spToast(e.message, 'error'); }
 }
@@ -449,6 +470,7 @@ async function nextQuestion() {
 }
 
 async function submitPractice() {
+  PRACTICE_ACTIVE = false;
   stopTimer();
   const el = document.getElementById('content');
   el.innerHTML = `<div class="sp-loading">Scoring…</div>`;
