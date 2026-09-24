@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tommy LC</string>
+    <string name="title_activity_main">Tommy LC</string>
+    <string name="package_name">com.tommylc.student</string>
+    <string name="custom_url_scheme">com.tommylc.student</string>
+</resources>

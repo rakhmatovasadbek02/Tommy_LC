@@ -1,0 +1,13 @@
+{
+  "appId": "com.tommylc.student",
+  "appName": "Tommy LC",
+  "webDir": "www",
+  "server": {
+    "url": "https://tommylc.up.railway.app/student-login.html",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
