@@ -132,7 +132,7 @@ function tickTimer() {
 }
 function stopTimer() {
   if (TIMER_INTERVAL) { clearInterval(TIMER_INTERVAL); TIMER_INTERVAL = null; }
-  // Settle the bank to the real elapsed time before it's read (e.g. by rolloverTimer) —
+  // Settle the bank to the real elapsed time before it's read (e.g. by leaveWord) —
   // otherwise a word answered right after the tab regains visibility would still show
   // however many seconds were left at the last tick, not what's actually left now.
   if (TIMER_DEADLINE != null) { TIMER_BANK = Math.max(0, Math.ceil((TIMER_DEADLINE - Date.now()) / 1000)); TIMER_DEADLINE = null; }
@@ -143,21 +143,21 @@ function renderTimer() {
   el.textContent = TIMER_BANK + 's';
   el.classList.toggle('low', TIMER_BANK <= 5);
 }
-function rolloverTimer() {
+// Whatever's left on the clock when leaving a word carries into the next word, plus a
+// fresh +15s — but only the FIRST time a given word is left. Each word gets exactly one
+// +15s allowance to grant, no matter how it's left (answered, skipped, or timed out);
+// without that guard, skipping the same word every time it cycles back around would
+// re-grant +15s forever, letting a student stockpile unlimited time.
+const ROLLED_QIDS = new Set();
+function leaveWord(qid) {
   stopTimer();
-  TIMER_BANK += TIME_PER_WORD;
-}
-// Skipping just carries the current remaining time forward unchanged — no fresh +15s.
-// Skipping costs no effort/time to do, so treating it like a genuine answer (rolloverTimer)
-// let a student spam Skip to bank nearly a free 15s per click and stockpile a huge lead.
-function carryTimer() {
-  stopTimer();
+  if (!ROLLED_QIDS.has(qid)) { TIMER_BANK += TIME_PER_WORD; ROLLED_QIDS.add(qid); }
 }
 function handleTimeout() {
   if (!SESSION || CUR >= SESSION.questions.length) return;
   const q = SESSION.questions[CUR];
   ANSWERS[q.qid] = '';
-  rolloverTimer();
+  leaveWord(q.qid);
   if (CUR < SESSION.questions.length - 1) { CUR++; renderQuestion(); return; }
   submitPractice();
 }
@@ -390,7 +390,7 @@ async function startPractice() {
   if (!SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
   try {
     SESSION = await spPost('/api/student/vocab/practice/start', { unitIds: [...SELECTED] });
-    ANSWERS = {}; CUR = 0; TIMER_BANK = TIME_PER_WORD;
+    ANSWERS = {}; CUR = 0; TIMER_BANK = TIME_PER_WORD; ROLLED_QIDS.clear();
     renderQuestion();
   } catch (e) { spToast(e.message, 'error'); }
 }
@@ -433,7 +433,7 @@ function pickOption(val, btn) {
 function skipQuestion() {
   const [q] = SESSION.questions.splice(CUR, 1);
   SESSION.questions.push(q);
-  carryTimer();
+  leaveWord(q.qid);
   renderQuestion();
 }
 
@@ -443,7 +443,7 @@ async function nextQuestion() {
     const v = document.getElementById('freeAnswer').value.trim();
     if (v) ANSWERS[q.qid] = v;
   }
-  rolloverTimer();
+  leaveWord(q.qid);
   if (CUR < SESSION.questions.length - 1) { CUR++; renderQuestion(); return; }
   await submitPractice();
 }
