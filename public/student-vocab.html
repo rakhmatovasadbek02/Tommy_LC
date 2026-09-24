@@ -107,20 +107,32 @@ let LEARN_MCQ_PICKED = null;
 const TIME_PER_WORD = 15;
 let TIMER_BANK = TIME_PER_WORD;
 let TIMER_INTERVAL = null;
+// The bank counts down against a wall-clock deadline rather than "one tick = one second
+// gone" — a backgrounded tab has its setInterval throttled (or paused) by the browser, so
+// counting ticks lets a student bank extra real time just by switching away and back.
+// Deriving the remaining time from Date.now() instead means switching tabs can never add
+// time: whatever real seconds actually passed are always what get deducted.
+let TIMER_DEADLINE = null;
 function timerEnabled() { return localStorage.getItem('sp_vocab_timer') !== 'off'; }
 function setTimerEnabled(on) { localStorage.setItem('sp_vocab_timer', on ? 'on' : 'off'); }
 function startTimer() {
   stopTimer();
   if (!timerEnabled()) return;
+  TIMER_DEADLINE = Date.now() + TIMER_BANK * 1000;
+  tickTimer();
+  TIMER_INTERVAL = setInterval(tickTimer, 250);
+}
+function tickTimer() {
+  TIMER_BANK = Math.max(0, Math.ceil((TIMER_DEADLINE - Date.now()) / 1000));
   renderTimer();
-  TIMER_INTERVAL = setInterval(() => {
-    TIMER_BANK--;
-    if (TIMER_BANK <= 0) { TIMER_BANK = 0; renderTimer(); stopTimer(); handleTimeout(); return; }
-    renderTimer();
-  }, 1000);
+  if (TIMER_BANK <= 0) { stopTimer(); handleTimeout(); }
 }
 function stopTimer() {
   if (TIMER_INTERVAL) { clearInterval(TIMER_INTERVAL); TIMER_INTERVAL = null; }
+  // Settle the bank to the real elapsed time before it's read (e.g. by rolloverTimer) —
+  // otherwise a word answered right after the tab regains visibility would still show
+  // however many seconds were left at the last tick, not what's actually left now.
+  if (TIMER_DEADLINE != null) { TIMER_BANK = Math.max(0, Math.ceil((TIMER_DEADLINE - Date.now()) / 1000)); TIMER_DEADLINE = null; }
 }
 function renderTimer() {
   const el = document.getElementById('qTimer');
