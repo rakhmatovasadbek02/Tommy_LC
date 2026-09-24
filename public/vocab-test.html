@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -7,6 +7,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Discourage Chrome/Android's built-in "Translate this page" prompt — the word itself
+     must stay untranslated for the test to mean anything. -->
+<meta name="google" content="notranslate">
 <title>Vocabulary Test — Tommy LC Student Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -86,7 +89,9 @@
   .qcounter{text-align:center;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:10px}
   .qtimer{text-align:center;font-size:14px;font-weight:800;color:var(--muted);margin-bottom:6px;transition:color .2s}
   .qtimer.low{color:var(--crimson-dark);animation:shake .3s}
-  .qprompt{font-size:36px;font-weight:800;text-align:center;margin:4px 0 30px;line-height:1.25;word-break:break-word}
+  /* Selecting the word lets a student trigger the browser/OS's built-in "Translate"/"Ask AI"
+     popup on long-press or right-click — disabling selection on the prompt removes that path. */
+  .qprompt{font-size:36px;font-weight:800;text-align:center;margin:4px 0 30px;line-height:1.25;word-break:break-word;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
   @media (min-width:700px){ .qprompt{font-size:42px} }
 
   #questionBody{animation:qIn .28s cubic-bezier(.2,.8,.2,1)}
