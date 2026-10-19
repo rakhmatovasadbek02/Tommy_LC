@@ -112,15 +112,16 @@
 .sp-stat.bad { background: var(--red-light); } .sp-stat.bad b { color: var(--red); }
 .sp-missed-list { max-height: 200px; overflow-y: auto; margin-bottom: 14px; padding: 0 4px; }
 .sp-done-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-.sp-wheel-wrap { position: relative; width: 140px; margin: 4px auto 0; }
-.sp-wheel { height: 132px; overflow-y: auto; scroll-snap-type: y mandatory; scroll-padding-top: 44px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
+.sp-wheel-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 2px 0 4px; }
+.sp-wheel-wrap { position: relative; width: 92px; height: 108px; }
+.sp-wheel { position: relative; z-index: 1; height: 108px; overflow-y: auto; scroll-snap-type: y mandatory; scroll-padding-top: 36px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); }
 .sp-wheel::-webkit-scrollbar { display: none; }
-.sp-wheel-pad { height: 44px; }
-.sp-wheel-item { height: 44px; display: flex; align-items: center; justify-content: center; scroll-snap-align: start; font-size: 20px; font-weight: 600; color: var(--text-tertiary); cursor: pointer; transition: color .15s, font-size .15s; }
-.sp-wheel-item.on { color: var(--accent); font-size: 28px; font-weight: 800; }
-.sp-wheel-hl { position: absolute; left: 0; right: 0; top: 44px; height: 44px; border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent); border-radius: 4px; pointer-events: none; }
-.sp-wheel-label { text-align: center; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-.sp-count-note { margin-top: 12px; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.4; }
+.sp-wheel-pad { height: 36px; }
+.sp-wheel-item { height: 36px; display: flex; align-items: center; justify-content: center; scroll-snap-align: start; font-size: 16px; font-weight: 600; color: var(--text-tertiary); cursor: pointer; transition: color .15s, font-size .15s; user-select: none; }
+.sp-wheel-item.on { color: var(--accent); font-size: 24px; font-weight: 800; }
+.sp-wheel-hl { position: absolute; left: 0; right: 0; top: 36px; height: 36px; border-radius: 12px; background: var(--accent-light); pointer-events: none; }
+.sp-wheel-unit { font-size: 14px; font-weight: 600; color: var(--text-secondary); min-width: 44px; }
+.sp-count-note { margin-top: 8px; text-align: center; font-size: 11px; color: var(--text-tertiary); line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -394,11 +395,13 @@ function renderLearnStepCount() {
     <div class="sp-card">
       <div class="sp-card-title">How Many Words?</div>
       <div class="sp-empty" id="learnCountInfo" style="padding:0 0 12px">Checking your progress…</div>
-      <div class="sp-wheel-wrap">
-        <div class="sp-wheel" id="learnWheel"></div>
-        <div class="sp-wheel-hl"></div>
+      <div class="sp-wheel-row">
+        <div class="sp-wheel-wrap">
+          <div class="sp-wheel-hl"></div>
+          <div class="sp-wheel" id="learnWheel"></div>
+        </div>
+        <div class="sp-wheel-unit" id="learnWheelLabel">words</div>
       </div>
-      <div class="sp-wheel-label" id="learnWheelLabel"></div>
       <div class="sp-count-note">Words you've already revised won't come up again until every word in these units has been revised.</div>
     </div>
     <div class="sp-nav-row">
@@ -427,7 +430,7 @@ async function refreshLearnCounts() {
 }
 // Scroll-wheel number picker: the number sitting in the highlighted middle row is the
 // amount of words for the session (1 up to the words still unrevised).
-const WHEEL_ITEM_H = 44;
+const WHEEL_ITEM_H = 36;
 function renderLearnWheel() {
   const box = document.getElementById('learnWheel');
   if (!box) return;
@@ -438,7 +441,7 @@ function renderLearnWheel() {
   const paint = () => {
     box.querySelectorAll('.sp-wheel-item').forEach(el => el.classList.toggle('on', +el.dataset.n === LEARN_COUNT));
     const label = document.getElementById('learnWheelLabel');
-    if (label) label.textContent = `${LEARN_COUNT} word${LEARN_COUNT === 1 ? '' : 's'}`;
+    if (label) label.textContent = LEARN_COUNT === 1 ? 'word' : 'words';
   };
   box.onscroll = () => {
     const v = Math.min(n, Math.max(1, Math.round(box.scrollTop / WHEEL_ITEM_H) + 1));
