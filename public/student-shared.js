@@ -175,6 +175,9 @@ async function spGet(path) {
 async function spPost(path, data) {
   return spHandleRes(await fetch(SP_API + path, { method:'POST', headers: spAuthHeaders({'Content-Type':'application/json'}), body: JSON.stringify(data||{}) }));
 }
+async function spPut(path, data) {
+  return spHandleRes(await fetch(SP_API + path, { method:'PUT', headers: spAuthHeaders({'Content-Type':'application/json'}), body: JSON.stringify(data||{}) }));
+}
 async function spDelete(path) {
   return spHandleRes(await fetch(SP_API + path, { method:'DELETE', headers: spAuthHeaders() }));
 }
@@ -352,6 +355,8 @@ function spOpenFeedback() {
   document.body.appendChild(root);
   let type = 'suggestion';
   let draft = '';
+  let view = 'new';   // 'new' | 'mine' (the student's messages and CEO replies)
+  let mine = null;
 
   function close() { root.remove(); }
   function keepDraft() { const t = document.getElementById('spFbMessage'); if (t) draft = t.value; }
@@ -369,11 +374,56 @@ function spOpenFeedback() {
       btn.disabled = false; btn.textContent = 'Send';
     }
   }
-  function draw() {
+  function fmt(d) { return new Date(d).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:false }); }
+  async function loadMine() {
+    try { mine = await spGet('/api/student/feedback'); } catch (e) { mine = { items: [], unreadReplies: 0 }; }
+    keepDraft(); draw();
+  }
+  async function openMine() {
+    keepDraft(); view = 'mine'; draw();
+    if (mine && mine.unreadReplies) {
+      try { await spPut('/api/student/feedback/seen'); mine.unreadReplies = 0; spSetFeedbackDot(0); if (view === 'mine') drawMine(); } catch (e) {}
+    }
+  }
+  function drawMine() {
     root.innerHTML = `
       <div class="sp-modal-overlay" id="spFbOverlay">
         <div class="sp-modal-card">
           <div class="sp-modal-title">Suggestion or Complaint</div>
+          ${tabsHtml()}
+          <div class="sp-fb-list">
+            ${!mine ? '<div class="sp-fb-empty">Loading…</div>' : !mine.items.length ? '<div class="sp-fb-empty">You haven\'t sent any messages yet.</div>' : mine.items.map(it => `
+              <div class="sp-fb-item">
+                <div class="sp-fb-item-top"><span>${it.type === 'complaint' ? '⚠️ Complaint' : '💡 Suggestion'}</span><span>${fmt(it.createdAt)}</span></div>
+                <div class="sp-fb-msg">${spEscapeHtml(it.message)}</div>
+                ${it.reply ? `<div class="sp-fb-reply"><div class="sp-fb-reply-head">Reply · ${fmt(it.repliedAt)}</div>${spEscapeHtml(it.reply)}</div>` : '<div class="sp-fb-pending">No reply yet</div>'}
+              </div>`).join('')}
+          </div>
+          <div class="sp-tour-actions"><button class="sp-btn sp-btn-outline" id="spFbCancel">Close</button></div>
+        </div>
+      </div>`;
+    bindCommon();
+  }
+  function tabsHtml() {
+    const unread = mine ? mine.unreadReplies : 0;
+    return `<div class="sp-fb-toggle">
+      <button type="button" class="sp-fb-toggle-btn${view==='new'?' on':''}" id="spFbTabNew">✍️ New message</button>
+      <button type="button" class="sp-fb-toggle-btn${view==='mine'?' on':''}" id="spFbTabMine">💬 Replies${unread ? ` (${unread})` : ''}</button>
+    </div>`;
+  }
+  function bindCommon() {
+    document.getElementById('spFbTabNew').onclick = () => { view = 'new'; draw(); };
+    document.getElementById('spFbTabMine').onclick = openMine;
+    document.getElementById('spFbCancel').onclick = close;
+    document.getElementById('spFbOverlay').addEventListener('click', e => { if (e.target.id === 'spFbOverlay') close(); });
+  }
+  function draw() {
+    if (view === 'mine') { drawMine(); return; }
+    root.innerHTML = `
+      <div class="sp-modal-overlay" id="spFbOverlay">
+        <div class="sp-modal-card">
+          <div class="sp-modal-title">Suggestion or Complaint</div>
+          ${tabsHtml()}
           <div class="sp-modal-sub">This goes straight to the CEO — no one else sees it.</div>
           <div class="sp-fb-toggle">
             <button type="button" class="sp-fb-toggle-btn${type==='suggestion'?' on':''}" id="spFbSuggestion">💡 Suggestion</button>
@@ -392,12 +442,21 @@ function spOpenFeedback() {
     document.getElementById('spFbMessage').value = draft;
     document.getElementById('spFbSuggestion').onclick = () => { keepDraft(); type = 'suggestion'; draw(); };
     document.getElementById('spFbComplaint').onclick = () => { keepDraft(); type = 'complaint'; draw(); };
-    document.getElementById('spFbCancel').onclick = close;
     document.getElementById('spFbSend').onclick = send;
-    document.getElementById('spFbOverlay').addEventListener('click', e => { if (e.target.id === 'spFbOverlay') close(); });
+    bindCommon();
     document.getElementById('spFbMessage').focus();
   }
   draw();
+  loadMine();
+}
+
+// Unread-reply dot on the header's feedback button.
+function spSetFeedbackDot(n) {
+  const dot = document.getElementById('spFbDot');
+  if (dot) dot.style.display = n ? '' : 'none';
+}
+async function spRefreshFeedbackDot() {
+  try { const d = await spGet('/api/student/feedback'); spSetFeedbackDot(d.unreadReplies); } catch (e) {}
 }
 
 function spInitials(name) {
@@ -432,11 +491,12 @@ function spRenderHeader(activeKey) {
         </a>
         <div class="sp-header-right">
           <span class="sp-header-name">${spEscapeHtml(s ? s.name : '')}</span>
-          <button class="sp-logout-btn" onclick="spOpenFeedback()" title="Suggest an idea or send a complaint"><i class="fas fa-comment-dots"></i></button>
+          <button class="sp-logout-btn" onclick="spOpenFeedback()" title="Suggest an idea or send a complaint"><i class="fas fa-comment-dots"></i><span class="sp-dot" id="spFbDot" style="display:none"></span></button>
           <button class="sp-logout-btn" onclick="spStartTutorial()" title="Take the tour"><i class="fas fa-circle-question"></i></button>
           <button class="sp-logout-btn" onclick="spLogout()" title="Sign out"><i class="fas fa-arrow-right-from-bracket"></i></button>
         </div>
       </div>`;
+    spRefreshFeedbackDot();
   }
   const tabs = document.getElementById('spTabbar');
   if (tabs) {

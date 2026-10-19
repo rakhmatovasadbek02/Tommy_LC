@@ -75,6 +75,8 @@ a { color: inherit; text-decoration: none; }
   border: none; background: transparent; color: var(--accent); font-size: 17px; cursor: pointer;
   width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
 }
+.sp-logout-btn { position: relative; }
+.sp-dot { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); border: 2px solid var(--surface, #fff); }
 .sp-logout-btn:hover { background: var(--accent-light); color: var(--accent-dark); }
 
 /* ── Bottom tab bar: the app's primary navigation ── */
@@ -330,3 +332,13 @@ body.sp-auth-body { padding-bottom: 0; }
   font-family: 'Poppins', sans-serif; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
 }
 .sp-fb-toggle-btn.on { border-color: var(--accent); background: var(--accent-light); color: var(--accent-dark); }
+
+/* ── Feedback modal: the student's messages and CEO replies ── */
+.sp-fb-list { max-height: 52vh; overflow-y: auto; margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
+.sp-fb-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.sp-fb-item-top { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; color: var(--text-tertiary); margin-bottom: 6px; }
+.sp-fb-msg { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+.sp-fb-reply { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--accent-light); font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+.sp-fb-reply-head { font-size: 11px; font-weight: 700; color: var(--accent-dark); margin-bottom: 4px; }
+.sp-fb-pending { margin-top: 8px; font-size: 12px; color: var(--text-tertiary); }
+.sp-fb-empty { text-align: center; color: var(--text-tertiary); padding: 24px 8px; font-size: 13px; }

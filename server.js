@@ -607,6 +607,11 @@ async function initDB() {
       revised_at  TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (student_id, word_key)
     )`,
+    // CEO replies to student feedback; reply_seen flips to FALSE on each new/edited reply so
+    // the student portal can show an unread dot until they open it.
+    `ALTER TABLE student_feedback ADD COLUMN IF NOT EXISTS reply TEXT`,
+    `ALTER TABLE student_feedback ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ`,
+    `ALTER TABLE student_feedback ADD COLUMN IF NOT EXISTS reply_seen BOOLEAN DEFAULT TRUE`,
     // Words a student got wrong in Learning Mode (Fill / Multiple Choice / "Still learning"
     // flashcards); a later correct answer clears the word. Feeds "Practise my mistakes".
     `CREATE TABLE IF NOT EXISTS vocab_learn_weak (
@@ -3733,6 +3738,26 @@ app.post('/api/student/feedback', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// The student's own messages and any CEO replies, plus how many replies they haven't read.
+app.get('/api/student/feedback', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, type, message, created_at, reply, replied_at, reply_seen FROM student_feedback WHERE student_id=$1 ORDER BY created_at DESC LIMIT 50`,
+      [req.student.id]
+    );
+    res.json({
+      unreadReplies: rows.filter(r => r.reply && r.reply_seen === false).length,
+      items: rows.map(r => ({ id: r.id, type: r.type, message: r.message, createdAt: r.created_at, reply: r.reply || null, repliedAt: r.replied_at || null }))
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/student/feedback/seen', async (req, res) => {
+  try {
+    await pool.query(`UPDATE student_feedback SET reply_seen=TRUE WHERE student_id=$1 AND reply IS NOT NULL`, [req.student.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Public, unauthenticated: standalone vocab-test.html. Student enters the code an
 // admin/teacher granted them. Bypassed in the /api auth middleware above.
 app.get('/api/public/vocab/access/:code', async (req, res) => {
@@ -4491,8 +4516,23 @@ app.get('/api/feedback', async (req, res) => {
     const { rows } = await pool.query(`SELECT * FROM student_feedback ORDER BY created_at DESC`);
     res.json(rows.map(r => ({
       id: r.id, studentId: r.student_id, studentName: r.student_name,
-      type: r.type, message: r.message, read: r.read, createdAt: r.created_at
+      type: r.type, message: r.message, read: r.read, createdAt: r.created_at,
+      reply: r.reply || null, repliedAt: r.replied_at || null
     })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+// CEO's reply to a student's message — the student reads it in their portal.
+app.put('/api/feedback/:id/reply', async (req, res) => {
+  try {
+    const reply = String(req.body.reply || '').trim().slice(0, 2000);
+    if (!reply) return res.status(400).json({ error: 'Write a reply first.' });
+    const r = await pool.query(
+      `UPDATE student_feedback SET reply=$1, replied_at=NOW(), reply_seen=FALSE, read=TRUE WHERE id=$2 RETURNING id`,
+      [reply, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Message not found.' });
+    broadcast('feedback');
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.put('/api/feedback/:id/read', async (req, res) => {

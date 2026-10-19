@@ -157,6 +157,11 @@
     .fb-message{font-size:13.5px;color:var(--text);line-height:1.6;white-space:pre-wrap;margin-bottom:10px}
     .fb-actions{display:flex;gap:8px}
     .fb-actions button{font-size:11.5px;padding:6px 12px}
+    .fb-reply-shown{background:#F1F7FF;border-left:3px solid #2F6FEB;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:13px;line-height:1.55;white-space:pre-wrap}
+    .fb-reply-head{font-size:11px;font-weight:700;color:#2F6FEB;margin-bottom:4px}
+    .fb-reply-box{display:flex;gap:8px;align-items:flex-end;margin-bottom:10px}
+    .fb-reply-box textarea{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;resize:vertical;min-height:40px}
+    .fb-reply-box .btn{font-size:12px;padding:9px 14px;white-space:nowrap}
     .fb-empty{text-align:center;color:var(--muted);padding:40px;font-size:13.5px}
   </style>
 </head>
@@ -984,6 +989,7 @@
   /* ══════════════════════════════════════════ FEEDBACK (fbk-prefixed) ══════════════════════════════════════════ */
   let fbkItems = [];
   let fbkFilter = 'all';
+  const fbkDrafts = {};
 
   function fbkSwitchTab(f) {
     fbkFilter = f;
@@ -1018,12 +1024,30 @@
           <div class="fb-date">${fbkFmtDate(it.createdAt)}</div>
         </div>
         <div class="fb-message">${escapeHtml(it.message)}</div>
+        ${it.reply ? `<div class="fb-reply-shown"><div class="fb-reply-head">Your reply · ${fbkFmtDate(it.repliedAt)}</div>${escapeHtml(it.reply)}</div>` : ''}
+        <div class="fb-reply-box">
+          <textarea id="fbkReply_${it.id}" rows="2" maxlength="2000" placeholder="${it.reply ? 'Edit your reply…' : 'Write a reply the student can read…'}" oninput="fbkDrafts['${it.id}']=this.value">${escapeHtml(fbkDrafts[it.id] || '')}</textarea>
+          <button class="btn btn-primary" onclick="fbkSendReply('${it.id}')">${it.reply ? 'Update reply' : 'Send reply'}</button>
+        </div>
         <div class="fb-actions">
           ${it.read ? '' : `<button class="btn btn-outline" onclick="fbkMarkRead('${it.id}')">Mark read</button>`}
           <button class="btn btn-outline" onclick="fbkRemoveItem('${it.id}')">Delete</button>
         </div>
       </div>
     `).join('');
+  }
+
+  async function fbkSendReply(id) {
+    const reply = (fbkDrafts[id] || '').trim();
+    if (!reply) { showToast('Write a reply first.', 'error'); return; }
+    try {
+      await apiPut(`/api/feedback/${id}/reply`, { reply });
+      const it = fbkItems.find(x => x.id === id);
+      if (it) { it.reply = reply; it.repliedAt = new Date().toISOString(); it.read = true; }
+      delete fbkDrafts[id];
+      fbkRender(); refreshNotifCount();
+      showToast('Reply sent — the student can read it in their portal.');
+    } catch (e) { showToast(e.message, 'error'); }
   }
 
   async function fbkMarkRead(id) {
