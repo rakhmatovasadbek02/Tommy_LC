@@ -112,8 +112,14 @@
 .sp-stat.bad { background: var(--red-light); } .sp-stat.bad b { color: var(--red); }
 .sp-missed-list { max-height: 200px; overflow-y: auto; margin-bottom: 14px; padding: 0 4px; }
 .sp-done-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-.sp-custom-count { margin-top: 14px; }
-.sp-custom-count label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.sp-wheel-wrap { position: relative; width: 140px; margin: 4px auto 0; }
+.sp-wheel { height: 132px; overflow-y: auto; scroll-snap-type: y mandatory; scroll-padding-top: 44px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
+.sp-wheel::-webkit-scrollbar { display: none; }
+.sp-wheel-pad { height: 44px; }
+.sp-wheel-item { height: 44px; display: flex; align-items: center; justify-content: center; scroll-snap-align: start; font-size: 20px; font-weight: 600; color: var(--text-tertiary); cursor: pointer; transition: color .15s, font-size .15s; }
+.sp-wheel-item.on { color: var(--accent); font-size: 28px; font-weight: 800; }
+.sp-wheel-hl { position: absolute; left: 0; right: 0; top: 44px; height: 44px; border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent); border-radius: 4px; pointer-events: none; }
+.sp-wheel-label { text-align: center; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
 .sp-count-note { margin-top: 12px; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.4; }
 </style>
 </head>
@@ -388,11 +394,11 @@ function renderLearnStepCount() {
     <div class="sp-card">
       <div class="sp-card-title">How Many Words?</div>
       <div class="sp-empty" id="learnCountInfo" style="padding:0 0 12px">Checking your progress…</div>
-      <div class="sp-count-chips" id="learnCountChips"></div>
-      <div class="sp-custom-count">
-        <label for="learnCountInput">Or enter your own amount</label>
-        <input type="number" id="learnCountInput" class="sp-quiz-input" inputmode="numeric" min="1" placeholder="e.g. 25" oninput="onLearnCountInput(this)">
+      <div class="sp-wheel-wrap">
+        <div class="sp-wheel" id="learnWheel"></div>
+        <div class="sp-wheel-hl"></div>
       </div>
+      <div class="sp-wheel-label" id="learnWheelLabel"></div>
       <div class="sp-count-note">Words you've already revised won't come up again until every word in these units has been revised.</div>
     </div>
     <div class="sp-nav-row">
@@ -404,8 +410,7 @@ function renderLearnStepCount() {
 }
 async function refreshLearnCounts() {
   const info = document.getElementById('learnCountInfo');
-  const chips = document.getElementById('learnCountChips');
-  if (!info || !chips) return;
+  if (!info) return;
   const token = ++_learnCountsToken;
   let counts;
   try {
@@ -418,30 +423,33 @@ async function refreshLearnCounts() {
   info.textContent = unrevised
     ? `${unrevised} of ${total} word${total===1?'':'s'} not yet revised`
     : `All ${total} word${total===1?'':'s'} revised — starting a fresh round`;
-  renderLearnCountChips();
+  renderLearnWheel();
 }
-function renderLearnCountChips() {
-  const chips = document.getElementById('learnCountChips');
-  if (!chips) return;
-  const presets = [10, 20, 30, 50].filter(n => n < LEARN_AVAILABLE);
-  const input = document.getElementById('learnCountInput');
-  if (input) { input.max = LEARN_AVAILABLE; input.placeholder = `1–${LEARN_AVAILABLE}`; }
-  chips.innerHTML = presets.map(n => `<button type="button" class="sp-count-chip${LEARN_COUNT===n?' on':''}" onclick="pickLearnCount(${n})">${n}</button>`).join('')
-    + `<button type="button" class="sp-count-chip${LEARN_COUNT===LEARN_AVAILABLE?' on':''}" onclick="pickLearnCount(${LEARN_AVAILABLE})">All ${LEARN_AVAILABLE}</button>`;
-}
-function pickLearnCount(n) {
-  LEARN_COUNT = n;
-  const input = document.getElementById('learnCountInput');
-  if (input) input.value = '';
-  renderLearnCountChips();
-}
-// Any amount from 1 up to the words still unrevised; larger numbers are capped to that.
-function onLearnCountInput(input) {
-  let v = parseInt(input.value, 10);
-  if (!v || v < 1) return;
-  if (v > LEARN_AVAILABLE) { v = LEARN_AVAILABLE; input.value = v; }
-  LEARN_COUNT = v;
-  renderLearnCountChips();
+// Scroll-wheel number picker: the number sitting in the highlighted middle row is the
+// amount of words for the session (1 up to the words still unrevised).
+const WHEEL_ITEM_H = 44;
+function renderLearnWheel() {
+  const box = document.getElementById('learnWheel');
+  if (!box) return;
+  const n = LEARN_AVAILABLE;
+  box.innerHTML = '<div class="sp-wheel-pad"></div>'
+    + Array.from({ length: n }, (_, i) => `<div class="sp-wheel-item" data-n="${i + 1}">${i + 1}</div>`).join('')
+    + '<div class="sp-wheel-pad"></div>';
+  const paint = () => {
+    box.querySelectorAll('.sp-wheel-item').forEach(el => el.classList.toggle('on', +el.dataset.n === LEARN_COUNT));
+    const label = document.getElementById('learnWheelLabel');
+    if (label) label.textContent = `${LEARN_COUNT} word${LEARN_COUNT === 1 ? '' : 's'}`;
+  };
+  box.onscroll = () => {
+    const v = Math.min(n, Math.max(1, Math.round(box.scrollTop / WHEEL_ITEM_H) + 1));
+    if (v !== LEARN_COUNT) { LEARN_COUNT = v; paint(); }
+  };
+  box.onclick = e => {
+    const el = e.target.closest('.sp-wheel-item');
+    if (el) box.scrollTo({ top: (+el.dataset.n - 1) * WHEEL_ITEM_H, behavior: 'smooth' });
+  };
+  box.scrollTop = (LEARN_COUNT - 1) * WHEEL_ITEM_H;
+  paint();
 }
 
 function renderLearnStepMethod() {
