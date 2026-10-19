@@ -1832,8 +1832,8 @@ app.put('/api/groups/:id', async (req, res) => {
   try {
     const { name, teacher, room, level, lang, maxStudents, schedType, customDays, time, duration, startDate, notes, studentIds, currentUnit, price } = req.body;
     await pool.query(
-      'UPDATE groups SET name=$1,teacher=$2,room=$3,level=$4,lang=$5,max_students=$6,sched_type=$7,custom_days=$8,time=$9,duration=$10,start_date=$11,notes=$12,student_ids=$13,current_unit=$14,price=$15 WHERE id=$16',
-      [name, teacher||null, room||null, level||null, lang||'UZ', maxStudents||null, schedType||'odd', JSON.stringify(customDays||[]), time||null, duration||90, startDate||null, notes||null, JSON.stringify(studentIds||[]), currentUnit||'1A', price||0, req.params.id]
+      'UPDATE groups SET name=$1,teacher=$2,room=$3,level=$4,lang=$5,max_students=$6,sched_type=$7,custom_days=$8,time=$9,duration=$10,start_date=$11,notes=$12,student_ids=$13,current_unit=COALESCE($14,current_unit),price=$15 WHERE id=$16',
+      [name, teacher||null, room||null, level||null, lang||'UZ', maxStudents||null, schedType||'odd', JSON.stringify(customDays||[]), time||null, duration||90, startDate||null, notes||null, JSON.stringify(studentIds||[]), currentUnit||null, price||0, req.params.id]
     );
     broadcast('groups');
     res.json({ ok: true });
