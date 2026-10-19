@@ -71,6 +71,47 @@
 .sp-learn-topbar .sp-quiz-progress { margin-bottom: 0; }
 .sp-learn-back-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; font-size: 13px; transition: background .15s, color .15s, border-color .15s; }
 .sp-learn-back-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+.sp-steps { display: flex; gap: 6px; margin-bottom: 14px; }
+.sp-step { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 6px; border-radius: 10px; background: var(--border); color: var(--text-tertiary); font-size: 12px; font-weight: 600; }
+.sp-step span { width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.12); display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; }
+.sp-step.on { background: var(--accent); color: #fff; }
+.sp-step.on span { background: rgba(255,255,255,.28); }
+.sp-step.done { background: var(--accent-light); color: var(--accent); }
+.sp-step.done span { background: var(--accent); color: #fff; }
+.sp-lu-level { padding: 8px 14px; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-tertiary); background: var(--accent-light); border-bottom: 1px solid var(--border); }
+.sp-lu-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.sp-lu-row:last-child { border-bottom: none; }
+.sp-lu-row input { width: 17px; height: 17px; accent-color: var(--accent); flex-shrink: 0; }
+.sp-lu-main { flex: 1; min-width: 0; }
+.sp-lu-name { font-size: 13.5px; font-weight: 600; }
+.sp-lu-bar { height: 5px; background: var(--border); border-radius: 10px; overflow: hidden; margin: 6px 0 4px; }
+.sp-lu-bar div { height: 100%; background: var(--green); border-radius: 10px; transition: width .3s; }
+.sp-lu-sub { font-size: 11px; color: var(--text-tertiary); }
+.sp-weak-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; margin-bottom: 14px; border-radius: 14px; background: var(--amber-light); border: 1px solid var(--amber); }
+.sp-weak-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.sp-weak-sub { font-size: 12px; color: var(--text-secondary); }
+.sp-nav-row { display: flex; gap: 10px; margin-top: 4px; }
+.sp-nav-row .sp-btn { flex: 1; }
+.sp-method-list { display: flex; flex-direction: column; gap: 10px; }
+.sp-method-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); cursor: pointer; font-family: 'Poppins', sans-serif; }
+.sp-method-card:hover, .sp-method-card.open { border-color: var(--accent); background: var(--accent-light); }
+.sp-method-icon { font-size: 24px; }
+.sp-method-text { display: flex; flex-direction: column; gap: 2px; }
+.sp-method-text b { font-size: 14px; color: var(--text-primary); }
+.sp-method-text small { font-size: 12px; color: var(--text-secondary); }
+.sp-diff { display: flex; gap: 8px; }
+.sp-diff .sp-btn { flex: 1; padding-left: 4px; padding-right: 4px; }
+.sp-flash-hint { text-align: center; color: var(--text-tertiary); font-size: 13px; margin-top: 4px; }
+.sp-flash-actions { gap: 10px; margin-top: 4px; }
+.sp-flash-actions .sp-btn { flex: 1; }
+.sp-stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 14px; }
+.sp-stat { text-align: center; padding: 12px 6px; border-radius: 12px; background: var(--border); }
+.sp-stat b { display: block; font-size: 22px; font-weight: 800; }
+.sp-stat span { font-size: 11px; color: var(--text-secondary); }
+.sp-stat.good { background: var(--green-light); } .sp-stat.good b { color: var(--green); }
+.sp-stat.bad { background: var(--red-light); } .sp-stat.bad b { color: var(--red); }
+.sp-missed-list { max-height: 200px; overflow-y: auto; margin-bottom: 14px; padding: 0 4px; }
+.sp-done-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -102,6 +143,12 @@ let LEARN_CURRENT_BLANK = '';
 let LEARN_FILL_RESULT = null; // null | 'correct' | 'wrong'
 let LEARN_FILL_DIFFICULTY = 'medium'; // 'easy' | 'medium' | 'hard'
 let LEARN_MCQ_PICKED = null;
+let LEARN_STEP = 1;           // setup wizard: 1 units · 2 word count · 3 method
+let LEARN_SOURCE = 'units';   // 'units' | 'weak' (the student's mistakes)
+let LEARN_PROGRESS = null;    // { units: { id: { total, revised } }, weakCount }
+let LEARN_RESULTS = [];       // this session: [{ w, ok }]
+let LEARN_FILL_OPEN = false;
+let LEARN_FILL_TIMER = null;
 
 // ── Per-word timer (student can turn this off; unlike the graded test, it's optional here) ──
 // Each word gets 15s, but time isn't reset per word — whatever's left when the student
@@ -255,34 +302,75 @@ function renderPracticePicker() {
 }
 function toggleUnit(id, checked) { if (checked) SELECTED.add(id); else SELECTED.delete(id); }
 
-function renderLearnPicker() {
-  const el = document.getElementById('content');
-  el.innerHTML = `
+async function renderLearnPicker() {
+  if (!LEARN_PROGRESS) {
+    document.getElementById('content').innerHTML = `${modeToggleHtml()}<div class="sp-loading">Loading…</div>`;
+    try { LEARN_PROGRESS = await spGet('/api/student/vocab/learn/progress'); }
+    catch (e) { LEARN_PROGRESS = { units: {}, weakCount: 0 }; }
+  }
+  if (LEARN_STEP === 1) renderLearnStepUnits();
+  else if (LEARN_STEP === 2) renderLearnStepCount();
+  else renderLearnStepMethod();
+}
+function learnGoStep(n) {
+  if (n === 2 && !LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
+  LEARN_SOURCE = 'units';
+  LEARN_FILL_OPEN = false;
+  LEARN_STEP = n;
+  renderLearnPicker();
+}
+function startWeakFlow() { LEARN_SOURCE = 'weak'; LEARN_FILL_OPEN = false; LEARN_STEP = 3; renderLearnPicker(); }
+
+function learnStepperHtml() {
+  const labels = ['Units', 'Words', 'Method'];
+  return `<div class="sp-steps">${labels.map((l, i) => {
+    const n = i + 1;
+    const cls = LEARN_STEP === n ? ' on' : (LEARN_STEP > n || (LEARN_SOURCE === 'weak' && n < 3)) ? ' done' : '';
+    return `<div class="sp-step${cls}"><span>${cls === ' done' ? '✓' : n}</span>${l}</div>`;
+  }).join('')}</div>`;
+}
+
+function learnUnitRowsHtml() {
+  const prog = LEARN_PROGRESS.units;
+  const levels = [...new Set(UNITS.map(u => u.level))];
+  const row = u => {
+    const p = prog[u.id] || { total: u.wordCount, revised: 0 };
+    const pct = p.total ? Math.round(p.revised / p.total * 100) : 0;
+    return `<label class="sp-lu-row">
+      <input type="checkbox" ${LEARN_SELECTED.has(u.id) ? 'checked' : ''} onchange="toggleLearnUnit('${u.id}', this.checked)">
+      <div class="sp-lu-main">
+        <div class="sp-lu-name">${spEscapeHtml(u.name)}</div>
+        <div class="sp-lu-bar"><div style="width:${pct}%"></div></div>
+        <div class="sp-lu-sub">${p.revised} / ${p.total} words revised${pct === 100 ? ' ✓' : ''}</div>
+      </div>
+    </label>`;
+  };
+  if (!UNITS.length) return `<div class="sp-empty">No units available for your level yet — ask your admin.</div>`;
+  return levels.length > 1
+    ? levels.map(l => `<div class="sp-lu-level">${spEscapeHtml(l)}</div>${UNITS.filter(u => u.level === l).map(row).join('')}`).join('')
+    : UNITS.map(row).join('');
+}
+
+function renderLearnStepUnits() {
+  const weak = LEARN_PROGRESS.weakCount || 0;
+  document.getElementById('content').innerHTML = `
     ${modeToggleHtml()}
+    ${learnStepperHtml()}
+    ${weak ? `<div class="sp-weak-card">
+      <div><div class="sp-weak-title">${weak} word${weak === 1 ? '' : 's'} to review</div><div class="sp-weak-sub">Words you missed recently</div></div>
+      <button type="button" class="sp-btn sp-btn-primary" onclick="startWeakFlow()">Practise</button>
+    </div>` : ''}
     <div class="sp-card">
       <div class="sp-card-title">Choose Unit(s)</div>
-      <div class="sp-pick-list" id="learnUnitList"></div>
+      <div class="sp-pick-list">${learnUnitRowsHtml()}</div>
     </div>
-    <div class="sp-card">
-      <div class="sp-card-title">How Many Words?</div>
-      <div class="sp-empty" id="learnCountInfo" style="padding:0 0 12px">Pick a unit first.</div>
-      <div class="sp-count-chips" id="learnCountChips"></div>
-    </div>
-    <div class="sp-card">
-      <div class="sp-card-title">Choose a Method</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('flashcards')">📇 Flashcards</button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="showFillDifficultyPicker()">✍️ Fill in the Letters</button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('mcq')">🔘 Multiple Choice</button>
-      </div>
-    </div>
+    <button type="button" class="sp-btn sp-btn-primary" id="learnNextBtn" style="width:100%" ${LEARN_SELECTED.size ? '' : 'disabled'} onclick="learnGoStep(2)">Continue</button>
   `;
-  document.getElementById('learnUnitList').innerHTML = unitPickListHtml(LEARN_SELECTED, 'toggleLearnUnit');
-  refreshLearnCounts();
 }
 function toggleLearnUnit(id, checked) {
   if (checked) LEARN_SELECTED.add(id); else LEARN_SELECTED.delete(id);
-  refreshLearnCounts();
+  const btn = document.getElementById('learnNextBtn');
+  if (btn) btn.disabled = !LEARN_SELECTED.size;
 }
 
 // "How many words?" — lets a student revise e.g. 20 of a 150-word unit at a time instead
@@ -290,19 +378,32 @@ function toggleLearnUnit(id, checked) {
 let LEARN_COUNT = null;
 let LEARN_AVAILABLE = 0; // words the current LEARN_SELECTED/count choice can draw from
 let _learnCountsToken = 0;
+function renderLearnStepCount() {
+  document.getElementById('content').innerHTML = `
+    ${modeToggleHtml()}
+    ${learnStepperHtml()}
+    <div class="sp-card">
+      <div class="sp-card-title">How Many Words?</div>
+      <div class="sp-empty" id="learnCountInfo" style="padding:0 0 12px">Checking your progress…</div>
+      <div class="sp-count-chips" id="learnCountChips"></div>
+    </div>
+    <div class="sp-nav-row">
+      <button type="button" class="sp-btn sp-btn-outline" onclick="learnGoStep(1)">← Back</button>
+      <button type="button" class="sp-btn sp-btn-primary" onclick="learnGoStep(3)">Continue</button>
+    </div>
+  `;
+  refreshLearnCounts();
+}
 async function refreshLearnCounts() {
   const info = document.getElementById('learnCountInfo');
   const chips = document.getElementById('learnCountChips');
   if (!info || !chips) return;
-  if (!LEARN_SELECTED.size) { info.textContent = 'Pick a unit first.'; chips.innerHTML = ''; return; }
   const token = ++_learnCountsToken;
-  info.textContent = 'Checking your progress…';
-  chips.innerHTML = '';
   let counts;
   try {
     counts = await spGet('/api/student/vocab/learn/counts?unitIds=' + [...LEARN_SELECTED].map(encodeURIComponent).join(','));
   } catch (e) { if (token === _learnCountsToken) info.textContent = e.message; return; }
-  if (token !== _learnCountsToken) return; // a newer unit selection has since started loading
+  if (token !== _learnCountsToken) return;
   const { total, unrevised } = counts;
   LEARN_AVAILABLE = unrevised || total; // 0 unrevised = fully revised, next session starts a fresh cycle over all of them
   if (LEARN_COUNT === null || LEARN_COUNT > LEARN_AVAILABLE) LEARN_COUNT = Math.min(20, LEARN_AVAILABLE);
@@ -320,23 +421,35 @@ function renderLearnCountChips() {
 }
 function pickLearnCount(n) { LEARN_COUNT = n; renderLearnCountChips(); }
 
-function showFillDifficultyPicker() {
-  if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
-  const el = document.getElementById('content');
-  el.innerHTML = `
+function renderLearnStepMethod() {
+  const card = (key, icon, title, desc, onclick) => `
+    <button type="button" class="sp-method-card${LEARN_FILL_OPEN && key === 'fill' ? ' open' : ''}" onclick="${onclick}">
+      <span class="sp-method-icon">${icon}</span>
+      <span class="sp-method-text"><b>${title}</b><small>${desc}</small></span>
+    </button>`;
+  const back = LEARN_SOURCE === 'weak' ? 1 : 2;
+  document.getElementById('content').innerHTML = `
+    ${modeToggleHtml()}
+    ${learnStepperHtml()}
     <div class="sp-card">
-      <div class="sp-card-title">Choose Difficulty</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','easy')">🟢 Easy</button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','medium')">🟡 Medium</button>
-        <button type="button" class="sp-btn sp-btn-outline sp-method-btn" onclick="startLearn('fill','hard')">🔴 Hard</button>
+      <div class="sp-card-title">${LEARN_SOURCE === 'weak' ? 'Practise Mistakes — Choose a Method' : 'Choose a Method'}</div>
+      <div class="sp-method-list">
+        ${card('flashcards', '📇', 'Flashcards', 'Flip each card, then tell us if you knew it.', "startLearn('flashcards')")}
+        ${card('fill', '✍️', 'Fill in the Letters', 'Complete the missing letters of the word.', 'toggleFillOpen()')}
+        ${LEARN_FILL_OPEN ? `<div class="sp-diff">
+          <button type="button" class="sp-btn sp-btn-outline" onclick="startLearn('fill','easy')">🟢 Easy</button>
+          <button type="button" class="sp-btn sp-btn-outline" onclick="startLearn('fill','medium')">🟡 Medium</button>
+          <button type="button" class="sp-btn sp-btn-outline" onclick="startLearn('fill','hard')">🔴 Hard</button>
+        </div>` : ''}
+        ${card('mcq', '🔘', 'Multiple Choice', 'Pick the right answer from the options.', "startLearn('mcq')")}
       </div>
-      <div style="margin-top:14px">
-        <button class="sp-btn sp-btn-outline" onclick="renderLearnPicker()">← Back</button>
-      </div>
+    </div>
+    <div class="sp-nav-row">
+      <button type="button" class="sp-btn sp-btn-outline" onclick="learnGoStep(${back})">← Back</button>
     </div>
   `;
 }
+function toggleFillOpen() { LEARN_FILL_OPEN = !LEARN_FILL_OPEN; renderLearnStepMethod(); }
 
 // Per-unit status from official graded tests: Passed / Not passed / Not tested.
 let PROGRESS_UNITS = [], PROGRESS_FILTER = 'all';
@@ -531,27 +644,53 @@ function shuffleArray(arr) {
 }
 
 async function startLearn(method, fillDifficulty) {
-  if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
   try {
-    const unitIds = [...LEARN_SELECTED].map(encodeURIComponent).join(',');
-    const count = LEARN_COUNT ? `&count=${LEARN_COUNT}` : '';
-    const r = await spGet(`/api/student/vocab/learn?unitIds=${unitIds}${count}`);
-    if (r.cycled) spToast("You've revised every word here — starting a fresh round.");
-    LEARN_WORDS = shuffleArray(r.words);
-    LEARN_METHOD = method;
-    if (fillDifficulty) LEARN_FILL_DIFFICULTY = fillDifficulty;
-    LEARN_IDX = 0;
-    LEARN_FLIPPED = false;
-    LEARN_CURRENT_BLANK = '';
-    LEARN_FILL_RESULT = null;
-    LEARN_MCQ_PICKED = null;
-    renderLearnSession();
+    let words;
+    if (LEARN_SOURCE === 'weak') {
+      words = (await spGet('/api/student/vocab/learn/weak')).words;
+    } else {
+      if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
+      const unitIds = [...LEARN_SELECTED].map(encodeURIComponent).join(',');
+      const count = LEARN_COUNT ? `&count=${LEARN_COUNT}` : '';
+      const r = await spGet(`/api/student/vocab/learn?unitIds=${unitIds}${count}`);
+      if (r.cycled) spToast("You've revised every word here — starting a fresh round.");
+      words = r.words;
+    }
+    if (!words.length) { spToast('No words to study here yet.', 'error'); return; }
+    if (method === 'mcq' && words.length < 4) { spToast('Multiple choice needs at least 4 words — try Flashcards or Fill in the Letters.', 'error'); return; }
+    beginLearnSession(words, method, fillDifficulty);
   } catch (e) { spToast(e.message, 'error'); }
 }
 
-function exitLearnSession() { renderLearnPicker(); }
+function beginLearnSession(words, method, fillDifficulty) {
+  clearTimeout(LEARN_FILL_TIMER);
+  LEARN_WORDS = shuffleArray(words.map(w => ({ key: w.key, en: w.en, enAlt: w.enAlt || [], back: w.back })));
+  LEARN_METHOD = method;
+  if (fillDifficulty) LEARN_FILL_DIFFICULTY = fillDifficulty;
+  LEARN_IDX = 0;
+  LEARN_FLIPPED = false;
+  LEARN_CURRENT_BLANK = '';
+  LEARN_FILL_RESULT = null;
+  LEARN_MCQ_PICKED = null;
+  LEARN_RESULTS = [];
+  renderLearnSession();
+}
+
+function exitLearnSession() {
+  clearTimeout(LEARN_FILL_TIMER);
+  LEARN_STEP = 1; LEARN_SOURCE = 'units'; LEARN_FILL_OPEN = false; LEARN_PROGRESS = null;
+  renderLearnPicker();
+}
 
 function restartLearn() { startLearn(LEARN_METHOD); }
+
+// Re-drills just the words missed this session, in the same method.
+function practiseMissed() {
+  const missed = LEARN_RESULTS.filter(r => !r.ok).map(r => r.w);
+  if (!missed.length) return;
+  const method = (LEARN_METHOD === 'mcq' && missed.length < 4) ? 'flashcards' : LEARN_METHOD;
+  beginLearnSession(missed, method);
+}
 
 function renderLearnSession() {
   if (LEARN_METHOD === 'fill') renderFillLetters();
@@ -559,25 +698,56 @@ function renderLearnSession() {
   else renderFlashcard();
 }
 
+// Records how one word went. Wrong answers are flagged server-side as mistakes (feeding
+// the "words to review" shortcut on the setup screen); a later right answer clears the flag.
+function recordLearnResult(w, ok) {
+  LEARN_RESULTS.push({ w, ok });
+  if (w?.key) spPost('/api/student/vocab/learn/weak', { key: w.key, correct: ok }).catch(() => {});
+}
+
 function renderLearnDone() {
-  const el = document.getElementById('content');
-  el.innerHTML = `
-    <div class="sp-card sp-learn-card" style="text-align:center">
-      <div style="font-size:40px;margin-bottom:10px">🎉</div>
-      <div class="sp-card-title" style="justify-content:center">Session Complete</div>
-      <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:18px">You went through ${LEARN_WORDS.length} word${LEARN_WORDS.length===1?'':'s'}.</div>
-      <div style="display:flex;gap:10px">
-        <button class="sp-btn sp-btn-outline" style="flex:1" onclick="exitLearnSession()">Back to Units</button>
-        <button class="sp-btn sp-btn-primary" style="flex:1" onclick="restartLearn()">Study Again</button>
+  clearTimeout(LEARN_FILL_TIMER);
+  LEARN_PROGRESS = null; // setup screen reloads fresh progress next time
+  const total = LEARN_RESULTS.length;
+  const ok = LEARN_RESULTS.filter(r => r.ok).length;
+  const missed = LEARN_RESULTS.filter(r => !r.ok);
+  const pct = total ? Math.round(ok / total * 100) : 0;
+  const flash = LEARN_METHOD === 'flashcards';
+  const barColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('content').innerHTML = `
+    <div class="sp-card sp-learn-card">
+      <div style="text-align:center">
+        <div style="font-size:38px;margin-bottom:6px">${pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪'}</div>
+        <div class="sp-card-title" style="justify-content:center">Session Complete</div>
+      </div>
+      <div class="sp-stat-tiles">
+        <div class="sp-stat"><b>${total}</b><span>Words</span></div>
+        <div class="sp-stat good"><b>${ok}</b><span>${flash ? 'Got it' : 'Correct'}</span></div>
+        <div class="sp-stat bad"><b>${missed.length}</b><span>${flash ? 'Still learning' : 'Missed'}</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin:4px 0 16px">
+        <div style="flex:1;background:var(--border);border-radius:20px;height:8px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${barColor}"></div></div>
+        <div style="font-weight:800;color:${barColor}">${pct}%</div>
+      </div>
+      ${missed.length ? `
+        <div class="sp-card-title" style="font-size:13px">To review</div>
+        <div class="sp-missed-list">${missed.map(r => `<div class="sp-review-row"><span>${spEscapeHtml(r.w.back)}</span><span class="sp-review-wrong">${spEscapeHtml(r.w.en)}</span></div>`).join('')}</div>
+      ` : `<div style="text-align:center;color:var(--green);font-weight:600;margin-bottom:6px">No mistakes — great work!</div>`}
+      <div class="sp-done-actions">
+        ${missed.length ? `<button class="sp-btn sp-btn-primary" onclick="practiseMissed()">Practise ${missed.length} mistake${missed.length === 1 ? '' : 's'}</button>` : ''}
+        <div style="display:flex;gap:10px">
+          <button class="sp-btn sp-btn-outline" style="flex:1" onclick="exitLearnSession()">Back to Units</button>
+          <button class="sp-btn ${missed.length ? 'sp-btn-outline' : 'sp-btn-primary'}" style="flex:1" onclick="restartLearn()">Study Again</button>
+        </div>
       </div>
     </div>
   `;
 }
 
 // ── Flashcards ──
-// A real flip: tapping the card while it shows the translation flips it (CSS 3D
-// transform) to reveal the English word. Tapping again — now that the answer is
-// showing — advances straight to the next card; there's no separate Next button.
+// Tap the card to flip it and reveal the English word, then say whether you knew it
+// ("Got it" / "Still learning") — that choice is what feeds the end-of-session summary
+// and the mistakes review.
 function renderFlashcard() {
   const el = document.getElementById('content');
   const total = LEARN_WORDS.length;
@@ -595,6 +765,11 @@ function renderFlashcard() {
         </div>
       </div>
     </div>
+    <div class="sp-flash-hint" id="flashHint">Tap the card to reveal the answer</div>
+    <div class="sp-flash-actions" id="flashActions" style="display:none">
+      <button type="button" class="sp-btn sp-btn-outline" onclick="rateFlashcard(false)">Still learning</button>
+      <button type="button" class="sp-btn sp-btn-primary" onclick="rateFlashcard(true)">Got it</button>
+    </div>
   `;
 }
 // Fire-and-forget: only counts once the student has actually moved past a word, never
@@ -605,13 +780,17 @@ function markLearnWordRevised(w) {
 }
 
 function handleFlashcardTap() {
-  if (!LEARN_FLIPPED) {
-    LEARN_FLIPPED = true;
-    document.getElementById('flashcardEl')?.classList.add('flipped');
-    return;
-  }
+  LEARN_FLIPPED = !LEARN_FLIPPED;
+  document.getElementById('flashcardEl')?.classList.toggle('flipped', LEARN_FLIPPED);
+  const hint = document.getElementById('flashHint'), actions = document.getElementById('flashActions');
+  if (hint) hint.style.display = LEARN_FLIPPED ? 'none' : '';
+  if (actions) actions.style.display = LEARN_FLIPPED ? 'flex' : 'none';
+}
+function rateFlashcard(ok) {
+  const w = LEARN_WORDS[LEARN_IDX];
+  recordLearnResult(w, ok);
+  markLearnWordRevised(w);
   LEARN_FLIPPED = false;
-  markLearnWordRevised(LEARN_WORDS[LEARN_IDX]);
   if (LEARN_IDX < LEARN_WORDS.length - 1) { LEARN_IDX++; renderFlashcard(); }
   else renderLearnDone();
 }
@@ -653,7 +832,8 @@ function renderFillLetters() {
     </div>
   `;
   if (!LEARN_FILL_RESULT) setTimeout(() => document.getElementById('fillAnswer')?.focus(), 30);
-  if (LEARN_FILL_RESULT) setTimeout(nextFill, 2000);
+  clearTimeout(LEARN_FILL_TIMER);
+  if (LEARN_FILL_RESULT) LEARN_FILL_TIMER = setTimeout(nextFill, 2000);
 }
 function checkFill() {
   const input = document.getElementById('fillAnswer');
@@ -662,10 +842,12 @@ function checkFill() {
   const w = LEARN_WORDS[LEARN_IDX];
   const accepted = [w.en, ...(w.enAlt||[])].map(s => s.trim().toLowerCase());
   LEARN_FILL_RESULT = accepted.includes(v) ? 'correct' : 'wrong';
+  recordLearnResult(w, LEARN_FILL_RESULT === 'correct');
   renderFillLetters();
 }
 function nextFill() {
-  if (LEARN_METHOD !== 'fill') return;
+  if (LEARN_METHOD !== 'fill' || !LEARN_FILL_RESULT) return;
+  clearTimeout(LEARN_FILL_TIMER);
   markLearnWordRevised(LEARN_WORDS[LEARN_IDX]);
   LEARN_FILL_RESULT = null;
   LEARN_CURRENT_BLANK = '';
@@ -712,6 +894,7 @@ function renderMCQ() {
 function pickMCQ(val) {
   if (LEARN_MCQ_PICKED) return;
   LEARN_MCQ_PICKED = val;
+  recordLearnResult(LEARN_WORDS[LEARN_IDX], val === LEARN_WORDS[LEARN_IDX].en);
   renderMCQ();
 }
 function nextMCQ() {

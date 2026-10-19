@@ -607,6 +607,14 @@ async function initDB() {
       revised_at  TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (student_id, word_key)
     )`,
+    // Words a student got wrong in Learning Mode (Fill / Multiple Choice / "Still learning"
+    // flashcards); a later correct answer clears the word. Feeds "Practise my mistakes".
+    `CREATE TABLE IF NOT EXISTS vocab_learn_weak (
+      student_id  TEXT NOT NULL,
+      word_key    TEXT NOT NULL,
+      missed_at   TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (student_id, word_key)
+    )`,
     // The points shop — one-time-unlock items (currently just the VIP theme) a CEFR
     // student can buy with their points. Ownership is permanent once bought, tracked
     // separately from the points ledger itself (whose balance can move independently
@@ -3409,6 +3417,64 @@ app.post('/api/student/vocab/learn/progress', async (req, res) => {
       [req.student.id, key]
     );
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Per-unit Learning Mode progress (revised / total words) for the setup screen, plus how
+// many words are currently flagged as mistakes.
+app.get('/api/student/vocab/learn/progress', async (req, res) => {
+  try {
+    const groupR = await pool.query(`SELECT level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]);
+    const level = groupR.rows[0]?.level || null;
+    const [unitsR, revisedR, weakR] = await Promise.all([
+      level ? pool.query('SELECT id, words FROM vocab_units WHERE level=$1', [level]) : pool.query('SELECT id, words FROM vocab_units'),
+      pool.query('SELECT word_key FROM vocab_learn_progress WHERE student_id=$1', [req.student.id]),
+      pool.query('SELECT word_key FROM vocab_learn_weak WHERE student_id=$1', [req.student.id]),
+    ]);
+    const revised = new Set(revisedR.rows.map(r => r.word_key));
+    const weak = new Set(weakR.rows.map(r => r.word_key));
+    const units = {};
+    let weakCount = 0;
+    for (const u of unitsR.rows) {
+      const keys = (u.words || []).map(w => wordKey(u.id, w.en));
+      units[u.id] = { total: keys.length, revised: keys.filter(k => revised.has(k)).length };
+      weakCount += keys.filter(k => weak.has(k)).length;
+    }
+    res.json({ units, weakCount });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Records the outcome of one Learning Mode answer: wrong flags the word as a mistake,
+// right clears any earlier flag.
+app.post('/api/student/vocab/learn/weak', async (req, res) => {
+  try {
+    const key = String(req.body.key || '');
+    if (!key) return res.status(400).json({ error: 'key is required.' });
+    if (req.body.correct) await pool.query('DELETE FROM vocab_learn_weak WHERE student_id=$1 AND word_key=$2', [req.student.id, key]);
+    else await pool.query(`INSERT INTO vocab_learn_weak(student_id, word_key) VALUES($1,$2) ON CONFLICT (student_id, word_key) DO UPDATE SET missed_at=NOW()`, [req.student.id, key]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// The student's current mistakes as a ready-to-study word list (same shape as /learn).
+app.get('/api/student/vocab/learn/weak', async (req, res) => {
+  try {
+    const [weakR, groupR] = await Promise.all([
+      pool.query('SELECT word_key FROM vocab_learn_weak WHERE student_id=$1', [req.student.id]),
+      pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]),
+    ]);
+    const weak = new Set(weakR.rows.map(r => r.word_key));
+    const level = groupR.rows[0]?.level || null;
+    const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
+    const backKey = languagePair === 'ENG-UZ' ? 'uz' : 'ru';
+    if (!weak.size) return res.json({ words: [], languagePair });
+    const unitsR = level ? await pool.query('SELECT id, words FROM vocab_units WHERE level=$1', [level]) : await pool.query('SELECT id, words FROM vocab_units');
+    const words = [];
+    for (const u of unitsR.rows) for (const w of (u.words || [])) {
+      const key = wordKey(u.id, w.en);
+      if (weak.has(key)) words.push({ key, en: w.en, enAlt: w.enAlt || [], back: w[backKey] });
+    }
+    res.json({ words: shuffleServer(words), languagePair });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
