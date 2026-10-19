@@ -339,27 +339,38 @@ function showFillDifficultyPicker() {
 }
 
 // Per-unit status from official graded tests: Passed / Not passed / Not tested.
+let PROGRESS_UNITS = [], PROGRESS_FILTER = 'all';
 async function loadProgress() {
   const box = document.getElementById('progressBox');
   try {
-    const units = await spGet('/api/student/vocab/progress');
-    if (!units.length) { box.innerHTML = `<div class="sp-empty">No units available for your level yet.</div>`; return; }
-    const passed = units.filter(u => u.status === 'passed').length;
-    const badge = { passed: '<span class="sp-badge green">Passed</span>', failed: '<span class="sp-badge red">Not passed</span>', none: '<span class="sp-badge">Not tested</span>' };
-    box.innerHTML = `
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px"><b>${passed}</b> of ${units.length} unit${units.length===1?'':'s'} passed</div>
-      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
-        ${units.map(u => `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)">
-            <div style="min-width:0">
-              <div style="font-size:13.5px;font-weight:600">${spEscapeHtml(u.name)}</div>
-              <div style="font-size:11.5px;color:var(--text-tertiary)">${u.best ? `Best ${u.best.score}/${u.best.total}` : `${u.wordCount} word${u.wordCount===1?'':'s'}`}${u.practicePassed ? ' · practice passed' : ''}</div>
-            </div>
-            ${badge[u.status]}
-          </div>`).join('')}
-      </div>`;
-    box.lastElementChild.lastElementChild.style.borderBottom = 'none';
+    PROGRESS_UNITS = await spGet('/api/student/vocab/progress');
+    PROGRESS_FILTER = 'all';
+    renderProgress();
   } catch (e) { box.innerHTML = `<div class="sp-empty">Could not load progress.</div>`; }
+}
+function setProgressFilter(f) { PROGRESS_FILTER = f; renderProgress(); }
+function renderProgress() {
+  const box = document.getElementById('progressBox');
+  const units = PROGRESS_UNITS;
+  if (!units.length) { box.innerHTML = `<div class="sp-empty">No units available for your level yet.</div>`; return; }
+  const count = st => units.filter(u => u.status === st).length;
+  const badge = { passed: '<span class="sp-badge green">Passed</span>', failed: '<span class="sp-badge red">Not passed</span>', none: '<span class="sp-badge">Not tested</span>' };
+  const filters = [['all', 'All', units.length], ['passed', 'Passed', count('passed')], ['failed', 'Not passed', count('failed')], ['none', 'Not tested', count('none')]];
+  const shown = PROGRESS_FILTER === 'all' ? units : units.filter(u => u.status === PROGRESS_FILTER);
+  box.innerHTML = `
+    <div class="sp-count-chips" style="margin-bottom:10px">
+      ${filters.map(([k, label, n]) => `<button type="button" class="sp-count-chip${PROGRESS_FILTER===k?' on':''}" style="padding:6px 12px;font-size:12px" onclick="setProgressFilter('${k}')">${label} ${n}</button>`).join('')}
+    </div>
+    <div style="max-height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);border-radius:10px">
+      ${shown.length ? shown.map(u => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border)">
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:600">${spEscapeHtml(u.name)}</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">${u.best ? `Best ${u.best.score}/${u.best.total}` : `${u.wordCount} word${u.wordCount===1?'':'s'}`}${u.practicePassed ? ' · practice passed' : ''}</div>
+          </div>
+          ${badge[u.status]}
+        </div>`).join('') : `<div class="sp-empty">No units here.</div>`}
+    </div>`;
 }
 
 async function loadGradedHistory() {
