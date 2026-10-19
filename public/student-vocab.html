@@ -236,6 +236,10 @@ function renderPracticePicker() {
       <button class="sp-btn sp-btn-primary" id="startPracticeBtn" style="margin-top:14px" onclick="startPractice()">Start Practice</button>
     </div>
     <div class="sp-card">
+      <div class="sp-card-title">My Unit Progress</div>
+      <div id="progressBox"><div class="sp-empty">Loading…</div></div>
+    </div>
+    <div class="sp-card">
       <div class="sp-card-title">Official Test Results</div>
       <div id="gradedBox"><div class="sp-empty">Loading…</div></div>
     </div>
@@ -245,6 +249,7 @@ function renderPracticePicker() {
     </div>
   `;
   document.getElementById('unitList').innerHTML = unitPickListHtml(SELECTED, 'toggleUnit');
+  loadProgress();
   loadGradedHistory();
   loadHistory();
 }
@@ -331,6 +336,30 @@ function showFillDifficultyPicker() {
       </div>
     </div>
   `;
+}
+
+// Per-unit status from official graded tests: Passed / Not passed / Not tested.
+async function loadProgress() {
+  const box = document.getElementById('progressBox');
+  try {
+    const units = await spGet('/api/student/vocab/progress');
+    if (!units.length) { box.innerHTML = `<div class="sp-empty">No units available for your level yet.</div>`; return; }
+    const passed = units.filter(u => u.status === 'passed').length;
+    const badge = { passed: '<span class="sp-badge green">Passed</span>', failed: '<span class="sp-badge red">Not passed</span>', none: '<span class="sp-badge">Not tested</span>' };
+    box.innerHTML = `
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px"><b>${passed}</b> of ${units.length} unit${units.length===1?'':'s'} passed</div>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        ${units.map(u => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)">
+            <div style="min-width:0">
+              <div style="font-size:13.5px;font-weight:600">${spEscapeHtml(u.name)}</div>
+              <div style="font-size:11.5px;color:var(--text-tertiary)">${u.best ? `Best ${u.best.score}/${u.best.total}` : `${u.wordCount} word${u.wordCount===1?'':'s'}`}${u.practicePassed ? ' · practice passed' : ''}</div>
+            </div>
+            ${badge[u.status]}
+          </div>`).join('')}
+      </div>`;
+    box.lastElementChild.lastElementChild.style.borderBottom = 'none';
+  } catch (e) { box.innerHTML = `<div class="sp-empty">Could not load progress.</div>`; }
 }
 
 async function loadGradedHistory() {

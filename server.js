@@ -3492,6 +3492,46 @@ app.get('/api/student/vocab/graded-history', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Per-unit progress at the student's level: a unit is "passed" once any official graded
+// test covering it was passed (a multi-unit test counts for every unit in it), "failed" if
+// it was only ever attempted and never passed (leaving mid-test counts as an attempt), and
+// "none" if never tested. Self-practice is reported alongside, never mixed into the status.
+app.get('/api/student/vocab/progress', async (req, res) => {
+  try {
+    const groupR = await pool.query(`SELECT level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]);
+    const level = groupR.rows[0]?.level || null;
+    const [unitsR, gradedR, practiceR] = await Promise.all([
+      level ? pool.query('SELECT id, name, level, words FROM vocab_units WHERE level=$1', [level])
+            : pool.query('SELECT id, name, level, words FROM vocab_units'),
+      pool.query('SELECT unit_ids, score, total, passed, terminated_reason, completed_at FROM vocab_attempts WHERE student_id=$1', [req.student.id]),
+      pool.query('SELECT unit_ids, passed FROM vocab_practice_attempts WHERE student_id=$1', [req.student.id]),
+    ]);
+    const stats = new Map();
+    const stat = id => { if (!stats.has(id)) stats.set(id, { attempts: 0, passed: false, best: null, lastAt: null, practicePassed: false }); return stats.get(id); };
+    for (const t of gradedR.rows) {
+      const ok = !t.terminated_reason && (t.passed !== null ? t.passed : vocabPassed(t.score, t.total));
+      for (const id of (t.unit_ids || [])) {
+        const s = stat(id);
+        s.attempts++;
+        if (ok) s.passed = true;
+        if (!t.terminated_reason && (!s.best || t.score / t.total > s.best.score / s.best.total)) s.best = { score: t.score, total: t.total };
+        if (!s.lastAt || t.completed_at > s.lastAt) s.lastAt = t.completed_at;
+      }
+    }
+    for (const t of practiceR.rows) if (t.passed) for (const id of (t.unit_ids || [])) stat(id).practicePassed = true;
+    const units = unitsR.rows.map(u => {
+      const s = stats.get(u.id);
+      return {
+        id: u.id, name: u.name, level: u.level, wordCount: (u.words || []).length,
+        status: !s || !s.attempts ? 'none' : s.passed ? 'passed' : 'failed',
+        best: s?.best || null, lastAt: s?.lastAt || null, practicePassed: !!s?.practicePassed,
+      };
+    });
+    units.sort(naturalUnitCompare);
+    res.json(units);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/student/support/teachers', async (req, res) => {
   try {
     const [teachersR, groupR] = await Promise.all([
