@@ -112,6 +112,9 @@
 .sp-stat.bad { background: var(--red-light); } .sp-stat.bad b { color: var(--red); }
 .sp-missed-list { max-height: 200px; overflow-y: auto; margin-bottom: 14px; padding: 0 4px; }
 .sp-done-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.sp-custom-count { margin-top: 14px; }
+.sp-custom-count label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.sp-count-note { margin-top: 12px; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -386,6 +389,11 @@ function renderLearnStepCount() {
       <div class="sp-card-title">How Many Words?</div>
       <div class="sp-empty" id="learnCountInfo" style="padding:0 0 12px">Checking your progress…</div>
       <div class="sp-count-chips" id="learnCountChips"></div>
+      <div class="sp-custom-count">
+        <label for="learnCountInput">Or enter your own amount</label>
+        <input type="number" id="learnCountInput" class="sp-quiz-input" inputmode="numeric" min="1" placeholder="e.g. 25" oninput="onLearnCountInput(this)">
+      </div>
+      <div class="sp-count-note">Words you've already revised won't come up again until every word in these units has been revised.</div>
     </div>
     <div class="sp-nav-row">
       <button type="button" class="sp-btn sp-btn-outline" onclick="learnGoStep(1)">← Back</button>
@@ -416,10 +424,25 @@ function renderLearnCountChips() {
   const chips = document.getElementById('learnCountChips');
   if (!chips) return;
   const presets = [10, 20, 30, 50].filter(n => n < LEARN_AVAILABLE);
+  const input = document.getElementById('learnCountInput');
+  if (input) { input.max = LEARN_AVAILABLE; input.placeholder = `1–${LEARN_AVAILABLE}`; }
   chips.innerHTML = presets.map(n => `<button type="button" class="sp-count-chip${LEARN_COUNT===n?' on':''}" onclick="pickLearnCount(${n})">${n}</button>`).join('')
     + `<button type="button" class="sp-count-chip${LEARN_COUNT===LEARN_AVAILABLE?' on':''}" onclick="pickLearnCount(${LEARN_AVAILABLE})">All ${LEARN_AVAILABLE}</button>`;
 }
-function pickLearnCount(n) { LEARN_COUNT = n; renderLearnCountChips(); }
+function pickLearnCount(n) {
+  LEARN_COUNT = n;
+  const input = document.getElementById('learnCountInput');
+  if (input) input.value = '';
+  renderLearnCountChips();
+}
+// Any amount from 1 up to the words still unrevised; larger numbers are capped to that.
+function onLearnCountInput(input) {
+  let v = parseInt(input.value, 10);
+  if (!v || v < 1) return;
+  if (v > LEARN_AVAILABLE) { v = LEARN_AVAILABLE; input.value = v; }
+  LEARN_COUNT = v;
+  renderLearnCountChips();
+}
 
 function renderLearnStepMethod() {
   const card = (key, icon, title, desc, onclick) => `
