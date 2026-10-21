@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<title>Speaking Practice — Tommy LC Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="student-shared.css">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+.sk-chat { display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 380px); min-height: 200px; overflow-y: auto; padding: 4px 2px 8px; }
+.sk-row { display: flex; flex-direction: column; max-width: 86%; }
+.sk-row.ai { align-self: flex-start; }
+.sk-row.me { align-self: flex-end; align-items: flex-end; }
+.sk-bubble { padding: 10px 14px; border-radius: 16px; font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; }
+.sk-row.ai .sk-bubble { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.sk-row.me .sk-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.sk-fix { margin-top: 6px; padding: 9px 12px; border-radius: 12px; background: var(--amber-light); font-size: 12.5px; line-height: 1.5; max-width: 100%; }
+.sk-fix .bad { color: var(--red); text-decoration: line-through; }
+.sk-fix .good { color: var(--green); font-weight: 700; }
+.sk-fix .why { color: var(--text-secondary); margin-top: 2px; }
+.sk-ok { margin-top: 4px; font-size: 11.5px; color: var(--green); font-weight: 600; }
+.sk-typing { align-self: flex-start; color: var(--text-tertiary); font-size: 13px; padding-left: 6px; }
+.sk-controls { margin-top: 10px; padding-bottom: 24px; }
+.sk-live { min-height: 20px; text-align: center; font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; font-style: italic; }
+.sk-mic-row { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.sk-mic { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 26px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.18); transition: transform .15s; }
+.sk-mic.on { background: var(--red); animation: skPulse 1.2s infinite; }
+@keyframes skPulse { 0% { box-shadow: 0 0 0 0 rgba(192,32,46,.45); } 70% { box-shadow: 0 0 0 18px rgba(192,32,46,0); } 100% { box-shadow: 0 0 0 0 rgba(192,32,46,0); } }
+.sk-side { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; font-size: 16px; }
+.sk-type { display: flex; gap: 8px; margin-top: 12px; }
+.sk-type input { flex: 1; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; font-size: 15px; font-family: 'Poppins', sans-serif; outline: none; }
+.sk-type input:focus { border-color: var(--accent); }
+.sk-meta { text-align: center; margin-top: 10px; font-size: 11.5px; color: var(--text-tertiary); }
+.sk-meta a { color: var(--accent); cursor: pointer; font-weight: 600; }
+.sk-sum-fix { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1.5; }
+.sk-sum-fix:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+<div id="spHeader"></div>
+<div class="sp-main">
+  <div id="content" class="sp-loading">Loading…</div>
+</div>
+<div id="spTabbar" class="sp-tabbar"></div>
+<script src="student-shared.js"></script>
+<script>
+spRequireAuth();
+spRenderHeader('speak');
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let HIST = [];          // [{ role: 'assistant'|'user', content }] — sent to the server as context
+let FIXES = [];         // every correction made this session, for the summary
+let TURNS = 0;
+let BUSY = false;
+let LISTENING = false;
+let SOUND = true;
+let rec = null;
+let liveText = '';
+
+function showIntro() {
+  stopListening(); speechSynthesis.cancel();
+  document.getElementById('content').innerHTML = `
+    <div class="sp-title">Speaking Practice</div>
+    <div class="sp-subtitle">Chat with an AI partner that asks questions at your level and corrects your mistakes.</div>
+    <div class="sp-card">
+      <div class="sp-card-title">How it works</div>
+      <div style="font-size:13.5px;line-height:1.7;color:var(--text-secondary)">
+        🎙️ Answer out loud (or type if you prefer)<br>
+        🧠 You get one question at a time, matched to your level<br>
+        ✏️ Mistakes are corrected with a short explanation<br>
+        🔊 The assistant speaks its replies — turn sound off any time
+      </div>
+      ${SR ? '' : '<div class="sp-banner amber" style="margin-top:12px">Voice input isn\'t supported in this browser — you can still type your answers (Chrome or Safari work best for voice).</div>'}
+      <button class="sp-btn sp-btn-primary" style="width:100%;margin-top:16px" onclick="startSession()">Start Speaking</button>
+    </div>`;
+}
+
+function startSession() {
+  HIST = []; FIXES = []; TURNS = 0;
+  document.getElementById('content').innerHTML = `
+    <div class="sk-chat" id="skChat"></div>
+    <div class="sk-controls">
+      <div class="sk-live" id="skLive"></div>
+      <div class="sk-mic-row">
+        <button class="sk-side" id="skSound" onclick="toggleSound()" title="Sound on/off"><i class="fas fa-volume-high"></i></button>
+        ${SR ? '<button class="sk-mic" id="skMic" onclick="toggleMic()" aria-label="Speak"><i class="fas fa-microphone"></i></button>' : ''}
+        <button class="sk-side" onclick="endSession()" title="End session"><i class="fas fa-flag-checkered"></i></button>
+      </div>
+      <div class="sk-type">
+        <input type="text" id="skInput" placeholder="…or type your answer" autocomplete="off" onkeydown="if(event.key==='Enter')sendTyped()">
+        <button class="sp-btn sp-btn-primary" onclick="sendTyped()">Send</button>
+      </div>
+      <div class="sk-meta" id="skMeta"></div>
+    </div>`;
+  askAI();
+}
+
+function addBubble(role, text) {
+  const chat = document.getElementById('skChat');
+  const row = document.createElement('div');
+  row.className = 'sk-row ' + (role === 'user' ? 'me' : 'ai');
+  row.innerHTML = `<div class="sk-bubble">${spEscapeHtml(text)}</div>`;
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
+  return row;
+}
+
+function addFeedback(row, correction) {
+  const box = document.createElement('div');
+  if (correction) {
+    box.className = 'sk-fix';
+    box.innerHTML = `<span class="bad">${spEscapeHtml(correction.original)}</span> → <span class="good">${spEscapeHtml(correction.corrected)}</span>${correction.explanation ? `<div class="why">${spEscapeHtml(correction.explanation)}</div>` : ''}`;
+  } else {
+    box.className = 'sk-ok';
+    box.textContent = '✓ Sounds good!';
+  }
+  row.appendChild(box);
+}
+
+async function askAI(userRow) {
+  if (BUSY) return;
+  BUSY = true;
+  const chat = document.getElementById('skChat');
+  const typing = document.createElement('div');
+  typing.className = 'sk-typing'; typing.textContent = 'Thinking…';
+  chat.appendChild(typing); chat.scrollTop = chat.scrollHeight;
+  try {
+    const r = await spPost('/api/student/speaking/chat', { messages: HIST });
+    typing.remove();
+    if (userRow && HIST.length) {
+      if (r.correction) FIXES.push(r.correction);
+      addFeedback(userRow, r.correction);
+    }
+    HIST.push({ role: 'assistant', content: r.reply });
+    addBubble('ai', r.reply);
+    speak(r.reply);
+    const meta = document.getElementById('skMeta');
+    if (meta) meta.textContent = `${r.remaining} message${r.remaining === 1 ? '' : 's'} left today`;
+  } catch (e) {
+    typing.remove();
+    spToast(e.message, 'error');
+    if (!HIST.length) { showIntro(); }
+    else HIST.pop(); // drop the unanswered student turn so they can try again
+  }
+  BUSY = false;
+}
+
+function submitText(text) {
+  text = text.trim();
+  if (!text || BUSY) return;
+  speechSynthesis.cancel();
+  TURNS++;
+  HIST.push({ role: 'user', content: text });
+  const row = addBubble('user', text);
+  askAI(row);
+}
+function sendTyped() {
+  const input = document.getElementById('skInput');
+  const v = input.value; input.value = '';
+  submitText(v);
+}
+
+function speak(text) {
+  if (!SOUND || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.95;
+  speechSynthesis.speak(u);
+}
+function toggleSound() {
+  SOUND = !SOUND;
+  if (!SOUND) speechSynthesis.cancel();
+  document.querySelector('#skSound i').className = 'fas ' + (SOUND ? 'fa-volume-high' : 'fa-volume-xmark');
+}
+
+function toggleMic() { LISTENING ? stopListening(true) : startListening(); }
+function startListening() {
+  if (!SR || BUSY) return;
+  speechSynthesis.cancel();
+  rec = new SR();
+  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false;
+  liveText = '';
+  rec.onresult = e => {
+    liveText = Array.from(e.results).map(r => r[0].transcript).join(' ');
+    const live = document.getElementById('skLive'); if (live) live.textContent = liveText;
+  };
+  rec.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') spToast('Microphone access is blocked — allow it in your browser settings, or type your answer.', 'error');
+    else if (e.error === 'no-speech') spToast("I didn't hear anything — try again.", 'error');
+  };
+  rec.onend = () => {
+    LISTENING = false;
+    document.getElementById('skMic')?.classList.remove('on');
+    const live = document.getElementById('skLive'); if (live) live.textContent = '';
+    const t = liveText; liveText = '';
+    if (t.trim()) submitText(t);
+  };
+  try { rec.start(); LISTENING = true; document.getElementById('skMic')?.classList.add('on'); } catch (e) {}
+}
+function stopListening() { if (rec && LISTENING) { try { rec.stop(); } catch (e) {} } }
+
+function endSession() {
+  stopListening(); speechSynthesis.cancel();
+  document.getElementById('content').innerHTML = `
+    <div class="sp-card sp-learn-card">
+      <div style="text-align:center;font-size:38px;margin-bottom:6px">${FIXES.length ? '💪' : '🎉'}</div>
+      <div class="sp-card-title" style="justify-content:center">Session Complete</div>
+      <div style="text-align:center;color:var(--text-secondary);font-size:13.5px;margin-bottom:14px">You answered ${TURNS} question${TURNS === 1 ? '' : 's'}${TURNS ? ` and made ${FIXES.length} mistake${FIXES.length === 1 ? '' : 's'} to learn from` : ''}.</div>
+      ${FIXES.length ? `<div class="sp-card-title" style="font-size:13px">Things to remember</div>` + FIXES.map(f => `
+        <div class="sk-sum-fix"><span style="color:var(--red);text-decoration:line-through">${spEscapeHtml(f.original)}</span> → <b style="color:var(--green)">${spEscapeHtml(f.corrected)}</b>${f.explanation ? `<div style="color:var(--text-secondary)">${spEscapeHtml(f.explanation)}</div>` : ''}</div>`).join('') : '<div style="text-align:center;color:var(--green);font-weight:600">No mistakes — great speaking!</div>'}
+      <button class="sp-btn sp-btn-primary" style="width:100%;margin-top:16px" onclick="showIntro()">Practise Again</button>
+    </div>`;
+}
+
+showIntro();
+</script>
+</body>
+</html>

@@ -612,6 +612,13 @@ async function initDB() {
     `ALTER TABLE student_feedback ADD COLUMN IF NOT EXISTS reply TEXT`,
     `ALTER TABLE student_feedback ADD COLUMN IF NOT EXISTS replied_at TIMESTAMPTZ`,
     `ALTER TABLE student_feedback ADD COLUMN IF NOT EXISTS reply_seen BOOLEAN DEFAULT TRUE`,
+    // Per-student daily counter for the AI speaking partner, so cost can't run away.
+    `CREATE TABLE IF NOT EXISTS ai_usage (
+      student_id TEXT NOT NULL,
+      day        DATE NOT NULL,
+      count      INT NOT NULL DEFAULT 0,
+      PRIMARY KEY (student_id, day)
+    )`,
     // Words a student got wrong in Learning Mode (Fill / Multiple Choice / "Still learning"
     // flashcards); a later correct answer clears the word. Feeds "Practise my mistakes".
     `CREATE TABLE IF NOT EXISTS vocab_learn_weak (
@@ -3755,6 +3762,72 @@ app.put('/api/student/feedback/seen', async (req, res) => {
   try {
     await pool.query(`UPDATE student_feedback SET reply_seen=TRUE WHERE student_id=$1 AND reply IS NOT NULL`, [req.student.id]);
     res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+/* ══════════════════════════════════════
+   AI SPEAKING PARTNER — the student chats (spoken or typed on the client) with Claude, which
+   asks questions at their level and corrects mistakes. The API key stays on the server
+   (ANTHROPIC_API_KEY); each student gets a daily message cap.
+══════════════════════════════════════ */
+const AI_DAILY_LIMIT = Number(process.env.AI_DAILY_LIMIT) || 40;
+const AI_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
+
+function speakingSystemPrompt(level, lang) {
+  const native = lang === 'UZ' ? 'Uzbek' : 'Russian';
+  return `You are a friendly English speaking partner for a student at a language school. The student's course level is "${level || 'Elementary'}" (their first language is ${native}).
+
+Rules:
+- Hold a natural conversation: ask ONE short question at a time, on everyday topics suited to that level. Use vocabulary and grammar a student at this level can understand. Never lecture.
+- Look at the student's LAST message only. If it contains grammar, word-choice or phrasing mistakes, correct it. Ignore capitalisation and punctuation (it is speech-to-text). If it is already correct, give no correction.
+- Keep "reply" to 1-3 short sentences: react briefly to what they said, then ask the next question.
+- Keep "explanation" to one simple sentence a student at this level understands.
+- If the student writes in ${native} or asks for help, answer briefly in simple English and gently steer back to English.
+- Stay on topic: English conversation practice only. Politely decline anything else.
+
+Respond with ONLY a JSON object, no other text:
+{"correction": null OR {"original": "<the student's mistaken phrase>", "corrected": "<the corrected phrase>", "explanation": "<why>"}, "reply": "<your next message>"}`;
+}
+
+app.post('/api/student/speaking/chat', async (req, res) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: "The speaking assistant isn't set up yet — please ask your teacher." });
+    // Normalise the client's history: alternating roles, bounded size and length. The
+    // conversation always starts with a hidden "ready" user turn so the first call greets.
+    const raw = Array.isArray(req.body.messages) ? req.body.messages.slice(-20) : [];
+    const msgs = [{ role: 'user', content: '(The student is ready. Greet them in one short sentence and ask your first question.)' }];
+    for (const m of raw) {
+      const role = m && m.role === 'user' ? 'user' : 'assistant';
+      const content = String((m && m.content) || '').trim().slice(0, 600);
+      if (!content || msgs[msgs.length - 1].role === role) continue;
+      msgs.push({ role, content });
+    }
+    if (msgs[msgs.length - 1].role !== 'user' && msgs.length > 1) { /* waiting on the student, not allowed */ return res.status(400).json({ error: 'Say something first.' }); }
+
+    const usage = await pool.query(
+      `INSERT INTO ai_usage(student_id, day, count) VALUES($1, (NOW() AT TIME ZONE 'Asia/Tashkent')::date, 1)
+       ON CONFLICT (student_id, day) DO UPDATE SET count = ai_usage.count + 1 RETURNING count`,
+      [req.student.id]
+    );
+    if (usage.rows[0].count > AI_DAILY_LIMIT) return res.status(429).json({ error: "You've reached today's speaking limit — come back tomorrow!" });
+
+    const groupR = await pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]);
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: AI_MODEL, max_tokens: 400, system: speakingSystemPrompt(groupR.rows[0]?.level, groupR.rows[0]?.lang), messages: msgs }),
+    });
+    if (!r.ok) { console.error('Anthropic error', r.status, await r.text().catch(() => '')); return res.status(502).json({ error: 'The assistant is unavailable right now — try again in a moment.' }); }
+    const data = await r.json();
+    const text = (data.content || []).map(c => c.text || '').join('').trim();
+    let out;
+    try { out = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e) { out = { correction: null, reply: text }; }
+    const c = out.correction && out.correction.corrected ? out.correction : null;
+    res.json({
+      reply: String(out.reply || '').trim() || 'Could you say that again?',
+      correction: c ? { original: String(c.original || ''), corrected: String(c.corrected || ''), explanation: String(c.explanation || '') } : null,
+      remaining: Math.max(0, AI_DAILY_LIMIT - usage.rows[0].count),
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

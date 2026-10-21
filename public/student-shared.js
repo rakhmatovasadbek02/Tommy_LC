@@ -504,6 +504,7 @@ function spRenderHeader(activeKey) {
       { key: 'home', href: 'student-portal.html', icon: 'fa-house', label: 'Home' },
       { key: 'profile', href: 'student-account.html', icon: 'fa-user', label: 'Profile' },
       { key: 'vocab', href: 'student-vocab.html', icon: 'fa-lightbulb', label: 'Vocab' },
+      { key: 'speak', href: 'student-speaking.html', icon: 'fa-microphone', label: 'Speak' },
       { key: 'support', href: 'student-support.html', icon: 'fa-comments', label: 'Support' },
     ];
     tabs.innerHTML = `
