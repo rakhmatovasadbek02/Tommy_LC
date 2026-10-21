@@ -306,6 +306,7 @@ async function renderLearnPicker() {
     document.getElementById('content').innerHTML = `${modeToggleHtml()}<div class="sp-loading">Loading…</div>`;
     try { LEARN_PROGRESS = await spGet('/api/student/vocab/learn/progress'); }
     catch (e) { LEARN_PROGRESS = { units: {}, weakCount: 0 }; }
+    if (MODE !== 'learn') return; // student switched to Practice while this was loading
   }
   if (LEARN_STEP === 1) renderLearnStepUnits();
   else if (LEARN_STEP === 2) renderLearnStepCount();

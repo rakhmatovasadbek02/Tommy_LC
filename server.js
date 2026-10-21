@@ -3812,12 +3812,18 @@ app.post('/api/student/speaking/chat', async (req, res) => {
     if (usage.rows[0].count > AI_DAILY_LIMIT) return res.status(429).json({ error: "You've reached today's speaking limit — come back tomorrow!" });
 
     const groupR = await pool.query(`SELECT lang, level FROM groups WHERE student_ids @> to_jsonb($1::text) LIMIT 1`, [req.student.id]);
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: AI_MODEL, max_tokens: 400, system: speakingSystemPrompt(groupR.rows[0]?.level, groupR.rows[0]?.lang), messages: msgs }),
-    });
-    if (!r.ok) { console.error('Anthropic error', r.status, await r.text().catch(() => '')); return res.status(502).json({ error: 'The assistant is unavailable right now — try again in a moment.' }); }
+    // A failed or timed-out call shouldn't cost the student one of their daily messages.
+    const refund = () => pool.query(`UPDATE ai_usage SET count = GREATEST(count - 1, 0) WHERE student_id=$1 AND day=(NOW() AT TIME ZONE 'Asia/Tashkent')::date`, [req.student.id]).catch(() => {});
+    let r;
+    try {
+      r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: AI_MODEL, max_tokens: 400, system: speakingSystemPrompt(groupR.rows[0]?.level, groupR.rows[0]?.lang), messages: msgs }),
+        signal: AbortSignal.timeout(25000),
+      });
+    } catch (e) { await refund(); return res.status(504).json({ error: 'The assistant took too long to answer — try again.' }); }
+    if (!r.ok) { await refund(); console.error('Anthropic error', r.status, await r.text().catch(() => '')); return res.status(502).json({ error: 'The assistant is unavailable right now — try again in a moment.' }); }
     const data = await r.json();
     const text = (data.content || []).map(c => c.text || '').join('').trim();
     let out;
@@ -3846,7 +3852,7 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
     if (!row) return res.status(404).json({ error: 'Invalid code.' });
     if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
     const ban = await currentVocabBan(row.student_id);
-    if (ban) return res.status(403).json({ error: `This student is temporarily banned for leaving a test — try again after ${ban.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}.` });
+    if (ban) return res.status(403).json({ error: `This student is temporarily banned for leaving a test — try again after ${ban.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tashkent'})}.` });
     if (await expireUnstartedVocabAccess(row)) return res.status(410).json({ error: 'This code expired after being unused for 2 minutes. Ask your admin for a new one.' });
     const units = await pool.query('SELECT name, words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
     if (!units.rows.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });

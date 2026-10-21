@@ -1000,6 +1000,9 @@
   async function fbkLoad() {
     try {
       fbkItems = await apiGet('/api/feedback');
+      // A live refresh (e.g. a new student message) would rebuild the list and drop the
+      // caret from a reply the CEO is in the middle of typing — skip it, drafts are kept.
+      if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.fb-reply-box')) return;
       fbkRender();
     } catch (e) {
       document.getElementById('fbkList').innerHTML = `<div class="fb-empty">${e.message}</div>`;
