@@ -753,7 +753,8 @@ function renderVocab() {
   let tbody = '<tbody>';
   sorted.forEach(s => {
     const name = s.lastName+' '+s.firstName;
-    // Most recent attempt (by completedAt) covering each unit decides that cell.
+    // A unit is marked passed as soon as any test covering it was passed (a later failed retake
+    // doesn't undo it — same rule as the student's own progress); otherwise it shows the latest failed attempt.
     const mine = VOCAB_ATTEMPTS.filter(a => a.studentId === s.id).sort((a,b) => new Date(b.completedAt)-new Date(a.completedAt));
     // Portal registration, not identity, is what matters on this table — swap the usual
     // initials avatar for a tick/cross so it's visible at a glance who can self-practice.
@@ -768,11 +769,14 @@ function renderVocab() {
         </div>
       </td>
       ${VOCAB_UNITS.map(u => {
-        const att = mine.find(a => (a.unitIds||[]).includes(u.id));
-        if (!att) return `<td><span class="chip-locked"></span></td>`;
-        const pass = att.passed;
+        const covering = mine.filter(a => (a.unitIds||[]).includes(u.id));
+        if (!covering.length) return `<td><span class="chip-locked"></span></td>`;
+        const passedAtt = covering.find(a => a.passed && !a.terminatedReason);
+        const att = passedAtt || covering[0];
+        const pass = !!passedAtt;
         const title = `${att.score}/${att.total} · ${new Date(att.completedAt).toLocaleDateString('en-GB', { timeZone:'Asia/Tashkent' })}`
-          + (att.terminatedReason ? ' · left test (auto-failed)' : '');
+          + (att.terminatedReason ? ' · left test (auto-failed)' : '')
+          + (covering.length > 1 ? ` · ${covering.length} attempts` : '');
         return `<td><span class="chip ${pass?'chip-present':'chip-absent'} chip-locked" title="${title}">${pass?IC_CHECK:IC_X}</span></td>`;
       }).join('')}
     </tr>`;
