@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="student-shared.css">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
-.sk-chat { display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 380px); min-height: 200px; overflow-y: auto; padding: 4px 2px 8px; }
+.sk-chat { display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 330px); min-height: 220px; overflow-y: auto; padding: 4px 2px 8px; }
 .sk-row { display: flex; flex-direction: column; max-width: 86%; }
 .sk-row.ai { align-self: flex-start; }
 .sk-row.me { align-self: flex-end; align-items: flex-end; }
@@ -30,9 +30,6 @@
 .sk-mic.on { background: var(--red); animation: skPulse 1.2s infinite; }
 @keyframes skPulse { 0% { box-shadow: 0 0 0 0 rgba(192,32,46,.45); } 70% { box-shadow: 0 0 0 18px rgba(192,32,46,0); } 100% { box-shadow: 0 0 0 0 rgba(192,32,46,0); } }
 .sk-side { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; font-size: 16px; }
-.sk-type { display: flex; gap: 8px; margin-top: 12px; }
-.sk-type input { flex: 1; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; font-size: 15px; font-family: 'Poppins', sans-serif; outline: none; }
-.sk-type input:focus { border-color: var(--accent); }
 .sk-meta { text-align: center; margin-top: 10px; font-size: 11.5px; color: var(--text-tertiary); }
 .sk-meta a { color: var(--accent); cursor: pointer; font-weight: 600; }
 .sk-sum-fix { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1.5; }
@@ -68,13 +65,13 @@ function showIntro() {
     <div class="sp-card">
       <div class="sp-card-title">How it works</div>
       <div style="font-size:13.5px;line-height:1.7;color:var(--text-secondary)">
-        🎙️ Answer out loud (or type if you prefer)<br>
+        🎙️ Tap the microphone and answer out loud<br>
         🧠 You get one question at a time, matched to your level<br>
         ✏️ Mistakes are corrected with a short explanation<br>
         🔊 The assistant speaks its replies — turn sound off any time
       </div>
-      ${SR ? '' : '<div class="sp-banner amber" style="margin-top:12px">Voice input isn\'t supported in this browser — you can still type your answers (Chrome or Safari work best for voice).</div>'}
-      <button class="sp-btn sp-btn-primary" style="width:100%;margin-top:16px" onclick="startSession()">Start Speaking</button>
+      ${SR ? '<button class="sp-btn sp-btn-primary" style="width:100%;margin-top:16px" onclick="startSession()">Start Speaking</button>'
+           : '<div class="sp-banner red" style="margin-top:14px">Speaking practice needs voice input, which this browser doesn\'t support. Please open the portal in Chrome (Android/computer) or Safari (iPhone).</div>'}
     </div>`;
 }
 
@@ -83,15 +80,11 @@ function startSession() {
   document.getElementById('content').innerHTML = `
     <div class="sk-chat" id="skChat"></div>
     <div class="sk-controls">
-      <div class="sk-live" id="skLive"></div>
+      <div class="sk-live" id="skLive">Tap the microphone and answer out loud</div>
       <div class="sk-mic-row">
         <button class="sk-side" id="skSound" onclick="toggleSound()" title="Sound on/off"><i class="fas fa-volume-high"></i></button>
-        ${SR ? '<button class="sk-mic" id="skMic" onclick="toggleMic()" aria-label="Speak"><i class="fas fa-microphone"></i></button>' : ''}
+        <button class="sk-mic" id="skMic" onclick="toggleMic()" aria-label="Speak"><i class="fas fa-microphone"></i></button>
         <button class="sk-side" onclick="endSession()" title="End session"><i class="fas fa-flag-checkered"></i></button>
-      </div>
-      <div class="sk-type">
-        <input type="text" id="skInput" placeholder="…or type your answer" autocomplete="off" onkeydown="if(event.key==='Enter')sendTyped()">
-        <button class="sp-btn sp-btn-primary" onclick="sendTyped()">Send</button>
       </div>
       <div class="sk-meta" id="skMeta"></div>
     </div>`;
@@ -157,12 +150,6 @@ function submitText(text) {
   const row = addBubble('user', text);
   askAI(row);
 }
-function sendTyped() {
-  const input = document.getElementById('skInput');
-  const v = input.value; input.value = '';
-  submitText(v);
-}
-
 function speak(text) {
   if (!SOUND || !('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
@@ -194,7 +181,7 @@ function startListening() {
   rec.onend = () => {
     LISTENING = false;
     document.getElementById('skMic')?.classList.remove('on');
-    const live = document.getElementById('skLive'); if (live) live.textContent = '';
+    const live = document.getElementById('skLive'); if (live) live.textContent = 'Tap the microphone and answer out loud';
     const t = liveText; liveText = '';
     if (t.trim()) submitText(t);
   };
