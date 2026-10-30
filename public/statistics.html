@@ -41,6 +41,8 @@
     .sta-alert.red .dot { background:#dc2626; } .sta-alert.amber .dot { background:#d97706; }
     .sta-alert .go { margin-left:auto; color:var(--muted); }
     .sta-subtabs { margin-bottom:16px !important; border-bottom:0 !important; } .sta-subtabs .sta-tab { background:#f7eded; } .sta-subtabs .sta-tab.on { background:#c0392b; color:#fff; }
+    .smeta { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:8px; }
+    .smeta b { color:var(--text); }
     .stbl a { color:inherit; font-weight:700; text-decoration:none; } .stbl a:hover { text-decoration:underline; }
     .linechart-wrap { position:relative; width:100%; }
     .linechart-legend { display:flex; gap:20px; margin-bottom:14px; flex-wrap:wrap; }
@@ -164,6 +166,20 @@
     .stat-page .f-lbl { width:96px; font-size:12.5px; }
     .stat-page .sname { display:flex; align-items:center; gap:10px; font-weight:600; }
     .stat-page .arch-pill { background:#f7eded; border:1px solid var(--line); border-radius:999px; }
+
+    .sticks { position:relative; height:16px; margin-top:5px; font-size:11px; color:var(--muted); }
+    .sticks span { position:absolute; transform:translateX(-50%); white-space:nowrap; }
+    .sfunnel { display:flex; flex-direction:column; gap:10px; }
+    .sfunnel-row { display:grid; grid-template-columns:130px 1fr 92px; gap:12px; align-items:center; font-size:13px; }
+    .sfunnel-track { height:30px; background:#f7eded; border-radius:10px; overflow:hidden; }
+    .sfunnel-fill { height:100%; border-radius:10px; display:flex; align-items:center; padding-left:12px; color:#fff; font-weight:800; font-size:13px; min-width:34px; }
+    .sfunnel-pct { text-align:right; font-weight:800; }
+    .sfunnel-pct small { display:block; font-weight:500; color:var(--muted); font-size:11px; }
+    .gbar { display:flex; align-items:center; gap:10px; margin:3px 0; }
+    .gbar-t { flex:1; height:8px; background:#f3e4e4; border-radius:999px; overflow:hidden; }
+    .gbar-f { height:100%; border-radius:999px; }
+    .gbar-n { width:38px; text-align:right; font-weight:800; font-size:12px; }
+    @media(max-width:600px){ .sfunnel-row { grid-template-columns:1fr 70px; } .sfunnel-row > :first-child { grid-column:1 / -1; } }
     @media(max-width:600px){
       .stat-page .card { padding:16px; border-radius:16px; }
       .sta-kpis { grid-template-columns:repeat(2,1fr); gap:10px; }
@@ -327,6 +343,7 @@ function staMonthOptions() {
 
 function staRender(d, sys, pi) {
   const {students:S, leads:L, finance:F, staff:ST, archive:AR, portal:P} = d;
+  const PO_ = P;
 
   const allMonths = new Set([
     ...Object.keys(F.revenueByMonth||{}),
@@ -470,44 +487,6 @@ function staRender(d, sys, pi) {
   `;
   const P_PORTAL = `
     <div id="portalSubTabs"></div>
-    <div id="portalBase" class="psub" data-sub="adoption">
-    <!-- STUDENT PORTAL -->
-    <div class="sec">
-      <div class="sec-hd">
-        <div class="sec-icon" style="background:#eff6ff">${iPortal.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
-        <h2>Adoption &amp; Registration</h2>
-        <span class="sec-meta">${P.accountsCreated} accounts · ${P.adoptionRate}% adoption</span>
-      </div>
-      <div class="g3">
-        <div class="card">
-          <div class="card-title">Adoption</div>
-          <div class="gauge-card">
-            ${staGaugeSVG(P.adoptionRate||0)}
-            <div class="gauge-num">${P.adoptionRate||0}%</div>
-            <div class="gauge-lbl">Students with an account</div>
-            <div class="gauge-sub">${P.accountsCreated} of ${S.total} · +${P.accountsThisMonth} this month</div>
-          </div>
-        </div>
-        <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
-          <div class="card-title" style="margin-bottom:4px">Vocabulary Practice</div>
-          ${[
-            ['Attempts (all time)', P.practiceAttempts, '#2563eb'],
-            ['Attempts this month', P.practiceThisMonth, '#c0392b'],
-            ['Pass rate', P.practicePassRate+'%', '#16a34a'],
-          ].map(([l,v,c])=>`<div class="srow"><span class="srow-l">${l}</span><span class="srow-v" style="color:${c}">${v}</span></div>`).join('')}
-        </div>
-        <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
-          <div class="card-title" style="margin-bottom:4px">Registration Codes &amp; Support</div>
-          ${[
-            ['Codes issued', P.codesIssued, '#2563eb'],
-            ['Codes used', P.codesUsed, '#16a34a'],
-            ['Codes pending', P.codesPending, '#d97706'],
-            ['Support sessions this month', P.supportSessionsThisMonth, '#c0392b'],
-          ].map(([l,v,c])=>`<div class="srow"><span class="srow-l">${l}</span><span class="srow-v" style="color:${c}">${v}</span></div>`).join('')}
-        </div>
-      </div>
-    </div>
-    </div>
     <div id="portalInsights"></div>
   `;
   const P_STAFF = `
@@ -536,6 +515,7 @@ function staRender(d, sys, pi) {
       </div>
     </div>
   `;
+  window._staPO = PO_; window._staStudents = S;
   staShell({ P_FIN, P_LEADS, P_PORTAL, P_STAFF, archHTML }, d, sys, pi);
 
   const wrap = document.getElementById('finChartWrap');
@@ -684,6 +664,12 @@ function staColumns(vals, labels, color, h) {
   const max = Math.max(1, ...vals);
   return `<div class="scols" style="height:${h}px">${vals.map((v,i)=>`<div title="${labels[i]}: ${v}" style="flex:1;min-width:2px;height:${Math.max(v?3:1, Math.round(v/max*h))}px;background:${v?color:'#f3dede'};border-radius:3px 3px 0 0"></div>`).join('')}</div>`;
 }
+function staChart(vals, labels, color, h, ticks, hi) {
+  const max = Math.max(1, ...vals);
+  const bars = vals.map((v, i) => `<div title="${labels[i]}: ${v}" style="height:${v ? Math.max(4, Math.round(v / max * h)) : 2}px;background:${i === hi ? '#16a34a' : v ? color : '#f0dede'}"></div>`).join('');
+  const tk = ticks.map(([i, t]) => `<span style="left:${(i + .5) / vals.length * 100}%">${t}</span>`).join('');
+  return `<div class="scols" style="height:${h}px">${bars}</div><div class="sticks">${tk}</div>`;
+}
 function staAgo(iso) {
   if (!iso) return 'never';
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -723,29 +709,53 @@ function staRenderPortalInsights(d) {
   const kpis = arr => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px">${arr.join('')}</div>`;
   const ago = iso => staAgo(iso);
   const SUBS = {
-    adoption: `
+    usage: (() => {
+      const S0 = window._staStudents || {}, PO = window._staPO || {};
+      const stuTotal = S0.active || S0.total || 0;
+      const dormant30 = Math.max(0, d.accounts - d.active30);
+      const fun = [
+        ['Active students', stuTotal, '#94a3b8', null],
+        ['Have an account', d.accounts, '#2563eb', pct(d.accounts, stuTotal)],
+        ['Used it in 30 days', d.active30, '#0891b2', pct(d.active30, d.accounts)],
+        ['Used it in 7 days', d.active7, '#16a34a', pct(d.active7, d.accounts)],
+      ];
+      const fMax = Math.max(1, ...fun.map(f => f[1]));
+      const funnel = `<div class="sfunnel">${fun.map(([l, v, c, p]) => `<div class="sfunnel-row"><span>${l}</span><div class="sfunnel-track"><div class="sfunnel-fill" style="width:${Math.max(6, Math.round(v / fMax * 100))}%;background:${c}">${v}</div></div><span class="sfunnel-pct">${p == null ? '' : p + '%'}<small>${p == null ? '' : 'of previous step'}</small></span></div>`).join('')}</div>`;
+      const peakDay = evs.indexOf(Math.max(...evs));
+      const dayTicks = [[0, days[0].slice(5)], [10, days[10].slice(5)], [20, days[20].slice(5)], [29, days[29].slice(5)]];
+      const hrTicks = [[0, '0h'], [6, '6h'], [12, '12h'], [18, '18h'], [23, '23h']];
+      const gRows = groups.slice(0, 12).map(g => `<tr><td>${esc(g.name)}<div style="font-size:11px;color:var(--muted)">${esc(g.teacher || '')}</div></td>
+        <td style="min-width:130px"><div class="gbar"><div class="gbar-t"><div class="gbar-f" style="width:${g.adopt}%;background:${g.adopt < 50 ? '#dc2626' : g.adopt < 80 ? '#d97706' : '#16a34a'}"></div></div><span class="gbar-n">${g.adopt}%</span></div><div style="font-size:11px;color:var(--muted);text-align:right">${g.accounts} of ${g.members}</div></td>
+        <td style="min-width:130px"><div class="gbar"><div class="gbar-t"><div class="gbar-f" style="width:${g.actv}%;background:#2563eb"></div></div><span class="gbar-n">${g.actv}%</span></div><div style="font-size:11px;color:var(--muted);text-align:right">${g.active} active</div></td></tr>`);
+      const mixTotal = mixRows.reduce((t, r) => t + r.v, 0);
+      return `
       ${kpis([
-        kpi('Accounts', d.accounts, '#2563eb'),
-        kpi('Active 7 days', d.active7, '#16a34a', pct(d.active7, d.accounts) + '% of accounts'),
-        kpi('Active 30 days', d.active30, '#0891b2', pct(d.active30, d.accounts) + '% of accounts'),
-        kpi('Inactive 30d+', Math.max(0, d.accounts - d.active30), '#d97706', 'have an account, no use'),
+        kpi('Accounts', d.accounts, '#2563eb', pct(d.accounts, stuTotal) + '% of active students'),
+        kpi('Active this week', d.active7, '#16a34a', pct(d.active7, d.accounts) + '% of accounts'),
+        kpi('Active this month', d.active30, '#0891b2', pct(d.active30, d.accounts) + '% of accounts'),
+        kpi('Not used in 30 days', dormant30, dormant30 ? '#d97706' : '#16a34a', 'have an account'),
+        kpi('Codes waiting', PO.codesPending ?? 0, '#7c3aed', (PO.codesUsed ?? 0) + ' of ' + (PO.codesIssued ?? 0) + ' used'),
       ])}
       <div class="g2" style="margin-bottom:14px">
-        ${card('New accounts · last 6 months', staBars(d.accountsByMonth || [], 'n', r => r.month, '#2563eb'))}
-        ${card('Adoption by group', `<div class="tscroll"><table class="stbl"><thead><tr><th>Group</th><th>Accounts</th><th>Active 14d</th></tr></thead><tbody>${groups.slice(0, 12).map(g => `<tr><td>${esc(g.name)}<div style="font-size:11px;color:var(--muted)">${esc(g.teacher || '')}</div></td><td>${g.accounts}/${g.members} <b style="color:${g.adopt < 50 ? '#c0392b' : '#16a34a'}">${g.adopt}%</b></td><td>${g.active}/${g.members} <b>${g.actv}%</b></td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--muted);text-align:center">No groups</td></tr>'}</tbody></table></div>`, 'Lowest adoption first — where to push sign-ups')}
+        ${card('From student to daily user', funnel, 'Where students drop off between having a login and using it')}
+        ${card('What students do (30 days)', staBars(mixRows.map(r => ({ ...r, share: r.v })), 'share', r => r.l + (mixTotal ? ' · ' + pct(r.v, mixTotal) + '%' : ''), '#7c3aed'), 'Share of all portal activity')}
       </div>
-      ${card('Gone quiet · need a nudge', tbl(['Student', 'Group', 'Last active'], d.dormant.map(r => `<tr><td><a href="student-profile.html?id=${encodeURIComponent(r.id)}">${esc(r.name)}</a></td><td>${esc(r.group || '—')}</td><td>${ago(r.lastAt)}</td></tr>`), 'Everyone is active 🎉'), 'Have an account, no activity for 14+ days')}`,
-    engagement: `
       <div class="g2" style="margin-bottom:14px">
-        ${card('Daily activity · last 30 days', staColumns(evs, days, '#2563eb', 90) + `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px"><span>${days[0].slice(5)}</span><span>peak ${Math.max(...stu)} students/day</span><span>${days[29].slice(5)}</span></div>`, 'Practice, learning, exams and points events')}
-        ${card('When students study', staColumns(hrs, hrs.map((_, h) => h + ':00'), '#c0392b', 90) + `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px"><span>0h</span><span>busiest ${peakH}:00–${peakH+1}:00</span><span>23h</span></div>`, 'Hour of day (Tashkent), last 60 days')}
+        ${card('Activity per day', staChart(evs, days, '#2563eb', 110, dayTicks, peakDay) + `<div class="smeta"><span>Peak <b>${Math.max(...evs)}</b> actions on ${days[peakDay].slice(5)}</span><span>Up to <b>${Math.max(...stu)}</b> students/day</span></div>`, 'Last 30 days · green = busiest day')}
+        ${card('Best time to reach students', staChart(hrs, hrs.map((_, h) => h + ':00'), '#c0392b', 110, hrTicks, peakH) + `<div class="smeta"><span>Busiest hour <b>${peakH}:00–${peakH + 1}:00</b></span><span>Tashkent time</span></div>`, 'When students are on the portal · last 60 days')}
       </div>
-      ${card('What students use (30 days)', staBars(mixRows, 'v', r => r.l, '#7c3aed'))}`,
+      <div class="g2" style="margin-bottom:14px">
+        ${card('Adoption by group', `<div class="tscroll"><table class="stbl"><thead><tr><th>Group</th><th>Has account</th><th>Active 14 days</th></tr></thead><tbody>${gRows.join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No groups</td></tr>'}</tbody></table></div>`, 'Lowest first — these groups need a push to sign up')}
+        ${card('New accounts per month', staBars(d.accountsByMonth || [], 'n', r => r.month, '#2563eb'), 'Last 6 months')}
+      </div>
+      ${card('Gone quiet · need a nudge', tbl(['Student', 'Group', 'Last active'], d.dormant.map(r => `<tr><td><a href="student-profile.html?id=${encodeURIComponent(r.id)}">${esc(r.name)}</a></td><td>${esc(r.group || '—')}</td><td style="color:${r.lastAt ? 'inherit' : '#dc2626'};font-weight:700">${r.lastAt ? ago(r.lastAt) : 'never used'}</td></tr>`), 'Everyone is active 🎉'), 'Have an account, no activity for 14+ days · tap a name to open the profile')}`;
+    })(),
     learning: `
       ${kpis([
         kpi('Learning mode users', d.learn?.students || 0, '#7c3aed', 'all time'),
         kpi('Words revised', d.learn?.words || 0, '#2563eb', (d.learn?.words30 || 0) + ' in 30 days'),
-        kpi('Practice events (30d)', mix.practice || 0, '#16a34a'),
+        kpi('Practice tests', (window._staPO||{}).practiceAttempts ?? 0, '#16a34a', ((window._staPO||{}).practiceThisMonth ?? 0) + ' this month'),
+        kpi('Practice pass rate', ((window._staPO||{}).practicePassRate ?? 0) + '%', '#d97706'),
       ])}
       <div class="g2">
         ${card('Most practiced units', staBars(d.units.slice(0, 8), 'attempts', r => r.name, '#2563eb'), '3+ attempts')}
@@ -764,6 +774,7 @@ function staRenderPortalInsights(d) {
         ${card('Recent graded tests', tbl(['Student', 'Score', 'Result', 'When'], (d.recentExams || []).map(r => `<tr><td><a href="student-profile.html?id=${encodeURIComponent(r.id)}">${esc(r.name)}</a></td><td>${r.score}/${r.total}</td><td style="font-weight:800;color:${r.left ? '#d97706' : r.passed ? '#16a34a' : '#dc2626'}">${r.left ? 'Left early' : r.passed ? 'Passed' : 'Failed'}</td><td>${ago(r.at)}</td></tr>`), 'No graded tests yet'))}
       </div>`,
     support: `
+      ${kpis([kpi('Sessions this month', (window._staPO||{}).supportSessionsThisMonth ?? 0, '#0891b2')])}
       <div class="g2">
         ${card('Support bookings by teacher', tbl(['Teacher', 'Booked', 'Attended', 'No-show'], d.supportByTeacher.map(r => `<tr><td>${esc(r.teacher || '—')}</td><td>${r.booked}</td><td>${r.attended}</td><td>${r.missed}</td></tr>`), 'No student bookings'), 'Student self-bookings, last 60 days')}
         ${card('Busiest weekdays', staBars(dow, 'v', r => r.n, '#0891b2'), 'All support sessions, last 90 days')}
@@ -775,8 +786,8 @@ function staRenderPortalInsights(d) {
       </div>
       <div style="margin-top:14px">${card('Student feedback', (fb.map(r => `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>${esc(r.type)}</span><b>${r.n} · ${r.unread} unread · ${r.unanswered} unanswered</b></div>`).join('') || empty) + ((d.fbRecent || []).length ? `<div style="margin-top:12px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted)">Latest</div>` + d.fbRecent.map(r => `<div style="padding:8px 0;border-top:1px solid #fae8e8;font-size:13px"><b>${esc(r.name)}</b> <span style="color:var(--muted)">· ${esc(r.type)} · ${ago(r.at)}${r.replied ? ' · replied' : ''}</span><div style="margin-top:2px">${esc(String(r.message).slice(0, 200))}</div></div>`).join('') : ''))}</div>`,
   };
-  const SUB_LABELS = [['adoption', 'Adoption'], ['engagement', 'Engagement'], ['learning', 'Vocabulary'], ['exams', 'Exams'], ['support', 'Support'], ['rewards', 'Points & Feedback']];
-  window._staSub = window._staSub || 'adoption';
+  const SUB_LABELS = [['usage', 'Adoption & Engagement'], ['learning', 'Vocabulary'], ['exams', 'Exams'], ['support', 'Support'], ['rewards', 'Points & Feedback']];
+  window._staSub = window._staSub || 'usage';
   window.staPortalSub = k => {
     window._staSub = k;
     document.querySelectorAll('.psub-tab').forEach(b => b.classList.toggle('on', b.dataset.sub === k));
