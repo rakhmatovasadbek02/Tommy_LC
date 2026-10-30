@@ -579,6 +579,22 @@ async function initDB() {
     // moment the password actually changes (tokens themselves never expired before this).
     `ALTER TABLE student_logins ADD COLUMN IF NOT EXISTS token_valid_from TIMESTAMPTZ DEFAULT NOW()`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS token_valid_from TIMESTAMPTZ DEFAULT NOW()`,
+    // When a student last stopped being 'Active' (went Inactive/Frozen/archived). Statistics keep
+    // counting such a student until the end of that calendar month. A trigger maintains it so every
+    // code path that changes status (group removal, archive, manual edit) is covered.
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS left_active_at TIMESTAMPTZ`,
+    `CREATE OR REPLACE FUNCTION students_track_left_active() RETURNS trigger AS $$
+     BEGIN
+       IF NEW.status = 'Active' THEN NEW.left_active_at := NULL;
+       ELSIF OLD.status = 'Active' THEN NEW.left_active_at := NOW();
+       END IF;
+       RETURN NEW;
+     END $$ LANGUAGE plpgsql`,
+    `DROP TRIGGER IF EXISTS trg_students_left_active ON students`,
+    `CREATE TRIGGER trg_students_left_active BEFORE UPDATE OF status ON students FOR EACH ROW EXECUTE FUNCTION students_track_left_active()`,
+    // One-time best-effort backfill for students who are already not Active: archive date, else last group removal.
+    `UPDATE students s SET left_active_at = COALESCE(s.archived_at, (SELECT MAX(h.created_at) FROM student_history h WHERE h.student_id=s.id AND h.action='group_removed'))
+     WHERE s.status <> 'Active' AND s.left_active_at IS NULL`,
     // Points ledger — CEFR-only gamification. One row per point-earning/losing event.
     // `ref_id` identifies the source record (attendance row id, vocab attempt id, or a
     // plain date string for daily login) so every award path can be idempotent via the
@@ -4649,6 +4665,12 @@ app.post('/api/activity', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Statistics are calculated across ACTIVE students only. A student who stops being active
+// (inactive / frozen / archived) stays in the numbers until the end of that calendar month, then drops out.
+function statScope(a) {
+  return `(${a}.is_test IS NOT TRUE AND ${a}.status NOT IN ('Lead','Trial') AND (${a}.status='Active' OR ${a}.left_active_at >= (date_trunc('month', NOW() AT TIME ZONE 'Asia/Tashkent') AT TIME ZONE 'Asia/Tashkent')))`;
+}
+
 app.get('/api/statistics', async (req, res) => {
   try {
     const callerRoles_ = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
@@ -4668,8 +4690,8 @@ app.get('/api/statistics', async (req, res) => {
     const staffMonthEnd = new Date(staffYear, staffMonthNum, 1).toISOString().split('T')[0];
     const prevSelectedMonth = new Date(staffYear, staffMonthNum - 2, 1).toISOString().slice(0, 7);
 
-    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadsInMonthR, convInMonthR, spendR, loginR, codeR, practiceR] = await Promise.all([
-      pool.query("SELECT id, status, balance FROM students WHERE archived IS NOT TRUE AND status NOT IN ('Lead','Trial') AND is_test IS NOT TRUE"),
+    const [stuR, leadR, grpR, invR, usersR, archR, attR, supR, leadsInMonthR, convInMonthR, spendR, loginR, codeR, practiceR, scopeR] = await Promise.all([
+      pool.query(`SELECT s.id, s.status, s.balance FROM students s WHERE ${statScope('s')}`),
       pool.query('SELECT id, status, created_at FROM leads WHERE archived IS NOT TRUE'),
       pool.query('SELECT id, name, teacher, level, lang, student_ids FROM groups'),
       pool.query("SELECT id, total, status, payment_type, created_at, month FROM invoices ORDER BY created_at ASC"),
@@ -4688,9 +4710,10 @@ app.get('/api/statistics', async (req, res) => {
       pool.query('SELECT COUNT(*)::int AS n FROM leads WHERE created_at >= $1 AND created_at < $2', [staffMonthStart, staffMonthEnd]),
       pool.query('SELECT COUNT(*)::int AS n FROM lead_conversions WHERE converted_at >= $1 AND converted_at < $2', [staffMonthStart, staffMonthEnd]),
       pool.query(`SELECT amount, month, created_at FROM spendings ORDER BY created_at ASC`),
-      pool.query(`SELECT student_id, created_at FROM student_logins`),
-      pool.query(`SELECT used, created_at FROM student_portal_codes`),
-      pool.query(`SELECT score, total, passed, completed_at FROM vocab_practice_attempts`),
+      pool.query(`SELECT l.student_id, l.created_at FROM student_logins l JOIN students s ON s.id=l.student_id WHERE ${statScope('s')}`),
+      pool.query(`SELECT c.used, c.created_at FROM student_portal_codes c JOIN students s ON s.id=c.student_id WHERE ${statScope('s')}`),
+      pool.query(`SELECT a.score, a.total, a.passed, a.completed_at FROM vocab_practice_attempts a JOIN students s ON s.id=a.student_id WHERE ${statScope('s')}`),
+      pool.query(`SELECT COUNT(*)::int AS n FROM students s WHERE ${statScope('s')}`),
     ]);
 
     const students = stuR.rows;
@@ -4780,7 +4803,8 @@ app.get('/api/statistics', async (req, res) => {
     // ── Student portal adoption & usage ──
     const accountsCreated = loginR.rows.length;
     const accountsThisMonth = loginR.rows.filter(r => r.created_at && r.created_at.toISOString().slice(0,7) === staffMonth).length;
-    const adoptionRate = students.length > 0 ? Math.round(accountsCreated / students.length * 100) : 0;
+    const scopedStudents = scopeR.rows[0].n;
+    const adoptionRate = scopedStudents > 0 ? Math.round(accountsCreated / scopedStudents * 100) : 0;
     const codesIssued = codeR.rows.length;
     const codesUsed = codeR.rows.filter(c => c.used).length;
     const codesPending = codesIssued - codesUsed;
@@ -4810,25 +4834,25 @@ app.get('/api/statistics/system', async (req, res) => {
     const roles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
     if (!roles.includes('CEO')) return res.status(403).json({ error: 'CEO only.' });
     const q = (sql, params) => pool.query(sql, params).then(r => r.rows);
-    const LIVE = `s.archived IS NOT TRUE AND s.is_test IS NOT TRUE AND s.status NOT IN ('Lead','Trial')`;
+    const LIVE = statScope('s');
     const [byLevel, byStatus, newByMonth, debtors, groups, attRate, lowAtt, absentees, overdue, staleLeads] = await Promise.all([
-      q(`SELECT COALESCE(NULLIF(s.level,''),'No level') AS level, COUNT(*)::int AS n FROM students s WHERE ${LIVE} AND s.status='Active' GROUP BY 1 ORDER BY n DESC`),
+      q(`SELECT COALESCE(NULLIF(s.level,''),'No level') AS level, COUNT(*)::int AS n FROM students s WHERE ${LIVE} GROUP BY 1 ORDER BY n DESC`),
       q(`SELECT s.status AS status, COUNT(*)::int AS n FROM students s WHERE ${LIVE} GROUP BY 1 ORDER BY n DESC`),
       q(`SELECT to_char(s.created_at,'YYYY-MM') AS month, COUNT(*)::int AS n FROM students s WHERE ${LIVE} AND s.created_at > NOW() - INTERVAL '6 months' GROUP BY 1 ORDER BY 1`),
       q(`SELECT s.id, s.first_name, s.last_name, s.balance::float AS balance,
                 (SELECT g.name FROM groups g WHERE g.student_ids @> to_jsonb(s.id::text) LIMIT 1) AS group_name
-         FROM students s WHERE ${LIVE} AND s.status='Active' AND s.balance < 0 ORDER BY s.balance ASC LIMIT 10`),
+         FROM students s WHERE ${LIVE} AND s.balance < 0 ORDER BY s.balance ASC LIMIT 10`),
       q(`SELECT g.id, g.name, g.teacher, g.level, COUNT(s.id)::int AS size
          FROM groups g
          LEFT JOIN LATERAL jsonb_array_elements_text(g.student_ids) sid(id) ON TRUE
-         LEFT JOIN students s ON s.id=sid.id AND s.archived IS NOT TRUE AND s.is_test IS NOT TRUE AND s.status='Active'
+         LEFT JOIN students s ON s.id=sid.id AND ${statScope('s')}
          GROUP BY g.id, g.name, g.teacher, g.level ORDER BY size ASC, g.name`),
       q(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE a.status='present')::int AS present
-         FROM attendance a WHERE a.date >= CURRENT_DATE - 30 AND a.date <= CURRENT_DATE`),
+         FROM attendance a JOIN students s ON s.id=a.student_id WHERE ${LIVE} AND a.date >= CURRENT_DATE - 30 AND a.date <= CURRENT_DATE`),
       q(`SELECT g.id, g.name, g.teacher, COUNT(*)::int AS total,
                 ROUND(100.0 * COUNT(*) FILTER (WHERE a.status='present') / COUNT(*))::int AS rate
-         FROM attendance a JOIN groups g ON g.id=a.group_id
-         WHERE a.date >= CURRENT_DATE - 30 AND a.date <= CURRENT_DATE
+         FROM attendance a JOIN groups g ON g.id=a.group_id JOIN students s ON s.id=a.student_id
+         WHERE ${LIVE} AND a.date >= CURRENT_DATE - 30 AND a.date <= CURRENT_DATE
          GROUP BY g.id, g.name, g.teacher HAVING COUNT(*) >= 10 ORDER BY rate ASC LIMIT 8`),
       q(`SELECT s.id, s.first_name, s.last_name, COUNT(*)::int AS absences,
                 (SELECT g.name FROM groups g WHERE g.student_ids @> to_jsonb(s.id::text) LIMIT 1) AS group_name
@@ -4872,17 +4896,17 @@ app.get('/api/statistics/portal', async (req, res) => {
       accounts, activeAgg, daily, hours, groupsAdopt, dormant, units, weakWords, exams, learn,
       topPoints, shop, supportByTeacher, supportByDow, feedback, kinds, accountsByMonth, examsByUnit, recentExams, fbRecent
     ] = await Promise.all([
-      q(`SELECT COUNT(*)::int n FROM student_logins l JOIN students s ON s.id=l.student_id WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE`),
+      q(`SELECT COUNT(*)::int n FROM student_logins l JOIN students s ON s.id=l.student_id WHERE ${statScope('s')}`),
       q(`WITH a AS (SELECT student_id, MAX(at) last_at FROM (${ACT}) x GROUP BY student_id)
          SELECT COUNT(*) FILTER (WHERE last_at > NOW() - INTERVAL '7 days')::int d7,
                 COUNT(*) FILTER (WHERE last_at > NOW() - INTERVAL '30 days')::int d30
-         FROM a JOIN student_logins l ON l.student_id=a.student_id JOIN students s ON s.id=a.student_id WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE`),
+         FROM a JOIN student_logins l ON l.student_id=a.student_id JOIN students s ON s.id=a.student_id WHERE ${statScope('s')}`),
       q(`SELECT to_char((at ${TZ})::date,'YYYY-MM-DD') AS day, COUNT(*)::int AS events, COUNT(DISTINCT student_id)::int AS students
          FROM (${ACT}) x JOIN students s ON s.id=x.student_id
-         WHERE s.is_test IS NOT TRUE AND at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1`),
+         WHERE ${statScope('s')} AND at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1`),
       q(`SELECT EXTRACT(HOUR FROM (at ${TZ}))::int AS h, COUNT(*)::int AS n
          FROM (${ACT}) x JOIN students s ON s.id=x.student_id
-         WHERE s.is_test IS NOT TRUE AND at > NOW() - INTERVAL '60 days' GROUP BY 1 ORDER BY 1`),
+         WHERE ${statScope('s')} AND at > NOW() - INTERVAL '60 days' GROUP BY 1 ORDER BY 1`),
       q(`WITH last AS (SELECT student_id, MAX(at) last_at FROM (${ACT}) x GROUP BY student_id)
          SELECT g.id, g.name, g.teacher,
                 COUNT(s.id)::int members,
@@ -4890,7 +4914,7 @@ app.get('/api/statistics/portal', async (req, res) => {
                 COUNT(*) FILTER (WHERE la.last_at > NOW() - INTERVAL '14 days')::int active
          FROM groups g
          JOIN LATERAL jsonb_array_elements_text(g.student_ids) sid(id) ON TRUE
-         JOIN students s ON s.id=sid.id AND s.is_test IS NOT TRUE AND s.archived IS NOT TRUE AND s.status='Active'
+         JOIN students s ON s.id=sid.id AND ${statScope('s')}
          LEFT JOIN student_logins l ON l.student_id=s.id
          LEFT JOIN last la ON la.student_id=s.id
          GROUP BY g.id, g.name, g.teacher HAVING COUNT(s.id) > 0 ORDER BY g.name`),
@@ -4899,46 +4923,46 @@ app.get('/api/statistics/portal', async (req, res) => {
                 (SELECT g.name FROM groups g WHERE g.student_ids @> to_jsonb(s.id::text) LIMIT 1) group_name
          FROM student_logins l JOIN students s ON s.id=l.student_id
          LEFT JOIN last la ON la.student_id=s.id
-         WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE AND s.status='Active'
+         WHERE ${statScope('s')} AND s.status='Active'
            AND (la.last_at IS NULL OR la.last_at < NOW() - INTERVAL '14 days')
          ORDER BY la.last_at ASC NULLS FIRST LIMIT 15`),
       q(`SELECT u.id, u.name, COUNT(*)::int attempts,
                 ROUND(AVG(a.score::numeric / NULLIF(a.total,0)) * 100)::int avg_score,
                 ROUND(100.0 * COUNT(*) FILTER (WHERE a.passed) / COUNT(*))::int pass_rate
          FROM vocab_practice_attempts a
-         JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE
+         JOIN students s ON s.id=a.student_id AND ${statScope('s')}
          CROSS JOIN LATERAL jsonb_array_elements_text(a.unit_ids) uid(id)
          JOIN vocab_units u ON u.id=uid.id
          GROUP BY u.id, u.name HAVING COUNT(*) >= 3 ORDER BY attempts DESC`),
       q(`SELECT split_part(w.word_key,'::',1) unit_id, split_part(w.word_key,'::',2) word, u.name unit_name, COUNT(*)::int students
-         FROM vocab_learn_weak w JOIN students s ON s.id=w.student_id AND s.is_test IS NOT TRUE
+         FROM vocab_learn_weak w JOIN students s ON s.id=w.student_id AND ${statScope('s')}
          LEFT JOIN vocab_units u ON u.id = split_part(w.word_key,'::',1)
          GROUP BY 1,2,3 ORDER BY students DESC, word LIMIT 10`),
       q(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE a.passed)::int passed,
                 COUNT(*) FILTER (WHERE a.terminated_reason IS NOT NULL)::int terminated,
                 ROUND(AVG(a.score::numeric / NULLIF(a.total,0)) * 100)::int avg_score
-         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE`),
+         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND ${statScope('s')}`),
       q(`SELECT COUNT(DISTINCT p.student_id)::int students, COUNT(*)::int words,
                 COUNT(*) FILTER (WHERE p.revised_at > NOW() - INTERVAL '30 days')::int words30
-         FROM vocab_learn_progress p JOIN students s ON s.id=p.student_id AND s.is_test IS NOT TRUE`),
+         FROM vocab_learn_progress p JOIN students s ON s.id=p.student_id AND ${statScope('s')}`),
       q(`SELECT s.id, s.first_name, s.last_name, SUM(p.points)::int points
-         FROM student_points p JOIN students s ON s.id=p.student_id AND s.is_test IS NOT TRUE
+         FROM student_points p JOIN students s ON s.id=p.student_id AND ${statScope('s')}
          GROUP BY s.id, s.first_name, s.last_name HAVING SUM(p.points) > 0 ORDER BY points DESC LIMIT 5`),
-      q(`SELECT item_key, COUNT(*)::int n FROM student_shop_purchases pu JOIN students s ON s.id=pu.student_id AND s.is_test IS NOT TRUE GROUP BY item_key`),
+      q(`SELECT item_key, COUNT(*)::int n FROM student_shop_purchases pu JOIN students s ON s.id=pu.student_id AND ${statScope('s')} GROUP BY item_key`),
       q(`SELECT teacher, COUNT(*)::int booked, COUNT(*) FILTER (WHERE attended IS TRUE)::int attended,
                 COUNT(*) FILTER (WHERE attended IS FALSE)::int missed
          FROM support_sessions WHERE booked_by='student' AND date >= CURRENT_DATE - 60 GROUP BY teacher ORDER BY booked DESC`),
       q(`SELECT EXTRACT(DOW FROM date)::int AS dow, COUNT(*)::int AS n FROM support_sessions WHERE date >= CURRENT_DATE - 90 GROUP BY 1`),
       q(`SELECT type, COUNT(*)::int n, COUNT(*) FILTER (WHERE read IS NOT TRUE)::int unread, COUNT(*) FILTER (WHERE reply IS NULL)::int unanswered FROM student_feedback GROUP BY type`),
-      q(`SELECT kind, COUNT(*)::int n FROM (${ACT}) x JOIN students s ON s.id=x.student_id AND s.is_test IS NOT TRUE WHERE at > NOW() - INTERVAL '30 days' GROUP BY kind`),
-      q(`SELECT to_char(l.created_at,'YYYY-MM') AS month, COUNT(*)::int AS n FROM student_logins l JOIN students s ON s.id=l.student_id AND s.is_test IS NOT TRUE
+      q(`SELECT kind, COUNT(*)::int n FROM (${ACT}) x JOIN students s ON s.id=x.student_id AND ${statScope('s')} WHERE at > NOW() - INTERVAL '30 days' GROUP BY kind`),
+      q(`SELECT to_char(l.created_at,'YYYY-MM') AS month, COUNT(*)::int AS n FROM student_logins l JOIN students s ON s.id=l.student_id AND ${statScope('s')}
          WHERE l.created_at > NOW() - INTERVAL '6 months' GROUP BY 1 ORDER BY 1`),
       q(`SELECT u.name AS name, COUNT(*)::int AS attempts, ROUND(100.0 * COUNT(*) FILTER (WHERE a.passed) / COUNT(*))::int AS pass_rate
-         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE
+         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND ${statScope('s')}
          CROSS JOIN LATERAL jsonb_array_elements_text(a.unit_ids) uid(id) JOIN vocab_units u ON u.id=uid.id
          GROUP BY u.name HAVING COUNT(*) >= 2 ORDER BY pass_rate ASC LIMIT 8`),
       q(`SELECT s.id, s.first_name, s.last_name, a.score, a.total, a.passed, a.terminated_reason, a.completed_at
-         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE ORDER BY a.completed_at DESC LIMIT 10`),
+         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND ${statScope('s')} ORDER BY a.completed_at DESC LIMIT 10`),
       q(`SELECT type, message, student_name, created_at, reply IS NOT NULL AS replied FROM student_feedback ORDER BY created_at DESC LIMIT 5`),
     ]);
 

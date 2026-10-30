@@ -40,6 +40,7 @@
     .sta-alert .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
     .sta-alert.red .dot { background:#dc2626; } .sta-alert.amber .dot { background:#d97706; }
     .sta-alert .go { margin-left:auto; color:var(--muted); }
+    .sta-note { font-size:12.5px; color:#6b5555; background:#fbf6f6; border:1px solid var(--line); border-radius:10px; padding:8px 12px; margin-bottom:12px; }
     .sta-subtabs { margin-bottom:16px !important; border-bottom:0 !important; } .sta-subtabs .sta-tab { background:#f7eded; } .sta-subtabs .sta-tab.on { background:#c0392b; color:#fff; }
     .smeta { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:8px; }
     .smeta b { color:var(--text); }
@@ -594,7 +595,7 @@ function staShell(P, d, sys, pi) {
 
   const overview = `
     ${staSection('Key numbers', `${esc(d.month)}`, `<div class="sta-kpis">
-      ${staKpi('Active students', S.active, '#16a34a', `${S.total} total · ${S.inactive} inactive`, 'students')}
+      ${staKpi('Active students', S.active, '#16a34a', `${S.inactive} left this month, counted until month end`, 'students')}
       ${staKpi('Debtors', S.debtors, S.debtors ? '#dc2626' : '#16a34a', 'negative balance', 'students')}
       ${staKpi('Revenue this month', staFmtM(F.thisMonthRevenue), '#c0392b', `prev ${staFmtM(F.prevMonthRevenue)}`, 'finance')}
       ${staKpi('Pending payments', staFmtM(F.pendingRevenue), '#d97706', `${staFmtM(F.totalSpendings || 0)} spent total`, 'finance')}
@@ -609,7 +610,7 @@ function staShell(P, d, sys, pi) {
   const lvlRows = sysOk ? sys.byLevel : [];
   const students = staSection('Students', `${S.total} total`, `
     <div class="sta-kpis" style="margin-bottom:14px">
-      ${staKpi('Active', S.active, '#16a34a')}${staKpi('Inactive', S.inactive, '#6b7280')}
+      ${staKpi('Active', S.active, '#16a34a')}${staKpi('Left this month', S.inactive, '#6b7280', 'counted until month end')}
       ${staKpi('Debtors', S.debtors, '#dc2626')}${staKpi('Total balance', staFmtM(S.totalBalance), S.totalBalance < 0 ? '#dc2626' : '#16a34a')}
     </div>
     ${sysOk ? `<div class="g2" style="margin-bottom:14px">
@@ -640,7 +641,7 @@ function staShell(P, d, sys, pi) {
 
   const panels = { overview, students, groups, leads: P.P_LEADS, finance: P.P_FIN, staff: P.P_STAFF, portal: P.P_PORTAL };
   document.getElementById('statContent').innerHTML =
-    `<div class="sta-tabs">${STA_TABS.map(([k, l]) => `<button class="sta-tab" data-tab="${k}" onclick="staSetTab('${k}')">${l}</button>`).join('')}</div>` +
+    `<div class="sta-note">Figures cover <b>active students</b> only. A student who becomes inactive stays in the numbers until the end of that month.</div><div class="sta-tabs">${STA_TABS.map(([k, l]) => `<button class="sta-tab" data-tab="${k}" onclick="staSetTab('${k}')">${l}</button>`).join('')}</div>` +
     STA_TABS.map(([k]) => `<div class="sta-panel" data-tab="${k}">${panels[k]}</div>`).join('');
   staSetTab(STA_TAB);
   if (piOk || (pi && pi._error)) {
