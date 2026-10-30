@@ -98,6 +98,66 @@
       .arch-pills { gap:6px; }
       .arch-pill { padding:5px 10px 5px 8px; }
     }
+
+    /* ═══ Statistics visual polish ═══ */
+    .stat-page { font-variant-numeric:tabular-nums; --line:#f1e4e4; }
+    .stat-page .sec { margin-bottom:30px; }
+    .stat-page .sec-hd { border-bottom:0; padding-bottom:0; margin-bottom:14px; }
+    .stat-page .sec-hd h2 { font-size:18px; letter-spacing:-.2px; text-transform:none; font-weight:800; }
+    .stat-page .sec-meta { background:#f7eded; border-radius:999px; padding:4px 11px; font-size:12px; font-weight:600; }
+    .stat-page .card { border:1px solid var(--line); border-radius:18px; padding:20px 22px; box-shadow:0 1px 2px rgba(60,20,20,.05); transition:box-shadow .15s, transform .15s; }
+    .stat-page .card-title { font-size:12px; letter-spacing:.5px; margin:0 0 14px; color:#6b5555; }
+    .stat-page .g2, .stat-page .g3 { gap:16px; }
+
+    /* tabs */
+    .sta-tabs { background:#fff; border:1px solid var(--line); border-radius:14px; padding:5px; gap:4px; box-shadow:0 1px 2px rgba(60,20,20,.05); margin-bottom:24px; border-bottom:1px solid var(--line); top:8px; }
+    .sta-tab { padding:9px 16px; font-size:13.5px; border-radius:10px; transition:background .15s, color .15s; }
+    .sta-tab:hover:not(.on) { background:#f7eded; color:var(--text); }
+    .sta-tab.on { background:#c0392b; color:#fff; box-shadow:0 2px 6px rgba(192,57,43,.35); }
+    .sta-subtabs { box-shadow:none; background:transparent; border:0; padding:0; margin-bottom:18px !important; flex-wrap:wrap; overflow:visible; }
+    .sta-subtabs .sta-tab { background:#fff; border:1px solid var(--line); font-size:13px; padding:7px 14px; border-radius:999px; }
+    .sta-subtabs .sta-tab.on { background:#c0392b; border-color:#c0392b; }
+
+    /* KPI cards */
+    .sta-kpis { gap:14px; }
+    .sta-kpi { text-align:left; padding:16px 18px !important; position:relative; overflow:hidden; border-left:4px solid var(--k,#c0392b) !important; }
+    .sta-kpi.click { cursor:pointer; }
+    .sta-kpi.click:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(60,20,20,.10); }
+    .sta-kpi-v { font-size:28px; font-weight:900; letter-spacing:-1px; }
+    .sta-kpi-l { font-size:12px; font-weight:700; text-transform:none; letter-spacing:0; color:#4a3a3a; margin-top:6px; }
+    .sta-kpi-s { font-size:12px; color:var(--muted); margin-top:3px; }
+
+    /* alerts */
+    .sta-alert { border:0; border-left:4px solid; border-radius:10px; margin:8px 0; padding:11px 14px; transition:transform .12s; }
+    .sta-alert:hover { transform:translateX(3px); }
+    .sta-alert.red { background:#fef2f2; border-color:#dc2626; } .sta-alert.amber { background:#fffbeb; border-color:#d97706; }
+    .sta-alert .go { font-weight:800; }
+
+    /* bar lists */
+    .sbars { display:flex; flex-direction:column; gap:12px; }
+    .sbar-top { display:flex; justify-content:space-between; gap:10px; align-items:baseline; margin-bottom:5px; }
+    .sbar-l { font-size:13px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+    .sbar-v { font-size:13px; font-weight:800; flex-shrink:0; }
+    .sbar-track { height:10px; background:#f7eded; border-radius:999px; overflow:hidden; }
+    .sbar-fill { height:100%; border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+    .scols { display:flex; align-items:flex-end; gap:3px; border-bottom:1px solid var(--line); }
+    .scols > div { flex:1; min-width:2px; border-radius:4px 4px 0 0; }
+    .sta-empty { color:var(--muted); font-size:13px; padding:14px 0; text-align:center; background:#fbf6f6; border-radius:10px; }
+
+    /* tables */
+    .stbl th { background:#fbf6f6; padding:9px 10px; font-size:11px; border-bottom:1px solid var(--line); }
+    .stbl th:first-child { border-radius:8px 0 0 8px; } .stbl th:last-child { border-radius:0 8px 8px 0; }
+    .stbl td { padding:11px 10px; border-top:1px solid #f6ecec; }
+    .stbl tbody tr:hover td { background:#fdf8f8; }
+    .stat-page .rate-track { height:8px; border-radius:999px; }
+
+    @media(max-width:600px){
+      .stat-page .card { padding:16px; border-radius:16px; }
+      .sta-kpis { grid-template-columns:repeat(2,1fr); gap:10px; }
+      .sta-kpi { padding:13px 14px !important; } .sta-kpi-v { font-size:23px; }
+      .stat-page .sec-hd h2 { font-size:16px; }
+      .sta-tab { padding:8px 12px; font-size:13px; }
+    }
   </style>
 </head>
 <body>
@@ -507,12 +567,12 @@ function staSetTab(t) {
   if (!STA_TABS.some(x => x[0] === t)) t = 'overview';
   STA_TAB = t;
   try { history.replaceState(null, '', '#' + t); } catch {}
-  document.querySelectorAll('.sta-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  document.querySelectorAll('.sta-tab[data-tab]').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); if (on) b.scrollIntoView({ block: 'nearest', inline: 'center' }); });
   document.querySelectorAll('.sta-panel').forEach(p => { p.style.display = p.dataset.tab === t ? '' : 'none'; });
 }
 function staNoData(msg) { return `<div class="card" style="color:#c0392b;font-size:13px">${esc(msg)}</div>`; }
 function staKpi(l, v, c, sub, tab) {
-  return `<div class="card sta-kpi" ${tab ? `onclick="staSetTab('${tab}')" style="cursor:pointer"` : ''}>
+  return `<div class="card sta-kpi${tab ? ' click' : ''}" style="--k:${c}" ${tab ? `onclick="staSetTab('${tab}')"` : ''}>
     <div class="sta-kpi-v" style="color:${c}">${v}</div><div class="sta-kpi-l">${l}</div>${sub ? `<div class="sta-kpi-s">${sub}</div>` : ''}</div>`;
 }
 function staTable(head, rows, empty) {
@@ -605,14 +665,13 @@ function staShell(P, d, sys, pi) {
 /* ── Portal Insights: deeper usage analytics (own endpoint, own container) ── */
 function staBars(rows, valKey, labelFn, color, fmt) {
   const max = Math.max(1, ...rows.map(r => r[valKey]));
-  return rows.map(r => `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
-    <span style="width:34%;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(labelFn(r))}">${esc(labelFn(r))}</span>
-    <div style="flex:1;height:14px;background:#fdf2f2;border-radius:7px;overflow:hidden"><div style="height:100%;width:${Math.round(r[valKey]/max*100)}%;background:${color};border-radius:7px"></div></div>
-    <span style="width:44px;text-align:right;font-size:12px;font-weight:800">${fmt ? fmt(r[valKey]) : r[valKey]}</span></div>`).join('') || '<div style="color:var(--muted);font-size:13px;padding:10px 0">No data yet</div>';
+  return `<div class="sbars">` + (rows.map(r => `<div class="sbar">
+    <div class="sbar-top"><span class="sbar-l" title="${esc(labelFn(r))}">${esc(labelFn(r))}</span><span class="sbar-v">${fmt ? fmt(r[valKey]) : staFmt(r[valKey])}</span></div>
+    <div class="sbar-track"><div class="sbar-fill" style="width:${Math.max(2, Math.round(r[valKey]/max*100))}%;background:${color}"></div></div></div>`).join('') || '<div class="sta-empty">No data yet</div>') + `</div>`;
 }
 function staColumns(vals, labels, color, h) {
   const max = Math.max(1, ...vals);
-  return `<div style="display:flex;align-items:flex-end;gap:2px;height:${h}px">${vals.map((v,i)=>`<div title="${labels[i]}: ${v}" style="flex:1;min-width:2px;height:${Math.max(v?3:1, Math.round(v/max*h))}px;background:${v?color:'#f3dede'};border-radius:3px 3px 0 0"></div>`).join('')}</div>`;
+  return `<div class="scols" style="height:${h}px">${vals.map((v,i)=>`<div title="${labels[i]}: ${v}" style="flex:1;min-width:2px;height:${Math.max(v?3:1, Math.round(v/max*h))}px;background:${v?color:'#f3dede'};border-radius:3px 3px 0 0"></div>`).join('')}</div>`;
 }
 function staAgo(iso) {
   if (!iso) return 'never';
@@ -627,7 +686,7 @@ function staRenderPortalInsights(d) {
     return;
   }
   const card = (title, body, sub) => `<div class="card"><div class="card-title">${title}</div>${sub?`<div style="font-size:12px;color:var(--muted);margin:-6px 0 10px">${sub}</div>`:''}${body}</div>`;
-  const kpi = (l, v, c, sub) => `<div class="card" style="text-align:center;padding:14px 8px"><div style="font-size:26px;font-weight:900;color:${c}">${v}</div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">${l}</div>${sub?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${sub}</div>`:''}</div>`;
+  const kpi = (l, v, c, sub) => `<div class="card sta-kpi" style="--k:${c}"><div class="sta-kpi-v" style="color:${c}">${v}</div><div class="sta-kpi-l">${l}</div>${sub?`<div class="sta-kpi-s">${sub}</div>`:''}</div>`;
   const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
 
   // 30-day activity (fill missing days with 0)
@@ -649,7 +708,7 @@ function staRenderPortalInsights(d) {
   const fbUnans = fb.reduce((s, r) => s + r.unanswered, 0);
 
   const tbl = (head, rows, empty) => staTable(head, rows, empty);
-  const empty = '<div style="color:var(--muted);font-size:13px;padding:10px 0">No data yet</div>';
+  const empty = '<div class="sta-empty">No data yet</div>';
   const kpis = arr => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px">${arr.join('')}</div>`;
   const ago = iso => staAgo(iso);
   const SUBS = {
