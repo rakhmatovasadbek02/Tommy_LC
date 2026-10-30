@@ -988,7 +988,7 @@ app.use('/api', async (req, res, next) => {
     const tp = signed && signed.startsWith('u:') ? signed.split(':') : null;
     if (!tp || tp.length !== 3) return res.status(401).json({ error: 'Not authenticated' });
     const userId = tp[1], issuedAt = Number(tp[2]);
-    if (!issuedAt || Date.now() - issuedAt > STAFF_TOKEN_MAX_AGE_MS) return res.status(401).json({ error: 'Session expired — please sign in again.' });
+    if (!issuedAt) return res.status(401).json({ error: 'Not authenticated' });
     const r = await pool.query('SELECT id, first_name, last_name, role, title, roles, permissions, token_valid_from FROM users WHERE id=$1', [userId]);
     if (!r.rows[0]) return res.status(401).json({ error: 'Session no longer valid' });
     if (r.rows[0].token_valid_from && issuedAt < new Date(r.rows[0].token_valid_from).getTime()) return res.status(401).json({ error: 'Session expired — please sign in again.' });
@@ -1029,9 +1029,8 @@ app.use('/api', async (req, res, next) => {
 // server-side (see token_valid_from) — plain HMAC-of-an-id tokens never expired and
 // couldn't be revoked at all.
 const STUDENT_TOKEN_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
-// Staff tokens: 'u:<id>:<issuedAt>' — expire after 30 days and die when an admin resets the
+// Staff tokens: 'u:<id>:<issuedAt>' — never expire by age, but die when an admin resets the
 // user's password (users.token_valid_from). Old id-only tokens are no longer honored.
-const STAFF_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 function signStaffToken(userId) { return signToken(`u:${userId}:${Date.now()}`); }
 function signStudentToken(studentId) { return signToken(`stu:${studentId}:${Date.now()}`); }
 app.use('/api/student', async (req, res, next) => {
