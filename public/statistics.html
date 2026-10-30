@@ -595,7 +595,7 @@ function staShell(P, d, sys, pi) {
 
   const overview = `
     ${staSection('Key numbers', `${esc(d.month)}`, `<div class="sta-kpis">
-      ${staKpi('Active students', S.active, '#16a34a', `${S.inactive} left this month, counted until month end`, 'students')}
+      ${staKpi('Active students', S.active, '#16a34a', `${S.total} total · ${S.inactive} inactive`, 'students')}
       ${staKpi('Debtors', S.debtors, S.debtors ? '#dc2626' : '#16a34a', 'negative balance', 'students')}
       ${staKpi('Revenue this month', staFmtM(F.thisMonthRevenue), '#c0392b', `prev ${staFmtM(F.prevMonthRevenue)}`, 'finance')}
       ${staKpi('Pending payments', staFmtM(F.pendingRevenue), '#d97706', `${staFmtM(F.totalSpendings || 0)} spent total`, 'finance')}
@@ -610,7 +610,7 @@ function staShell(P, d, sys, pi) {
   const lvlRows = sysOk ? sys.byLevel : [];
   const students = staSection('Students', `${S.total} total`, `
     <div class="sta-kpis" style="margin-bottom:14px">
-      ${staKpi('Active', S.active, '#16a34a')}${staKpi('Left this month', S.inactive, '#6b7280', 'counted until month end')}
+      ${staKpi('Active', S.active, '#16a34a')}${staKpi('Inactive', S.inactive, '#6b7280')}
       ${staKpi('Debtors', S.debtors, '#dc2626')}${staKpi('Total balance', staFmtM(S.totalBalance), S.totalBalance < 0 ? '#dc2626' : '#16a34a')}
     </div>
     ${sysOk ? `<div class="g2" style="margin-bottom:14px">
@@ -641,7 +641,7 @@ function staShell(P, d, sys, pi) {
 
   const panels = { overview, students, groups, leads: P.P_LEADS, finance: P.P_FIN, staff: P.P_STAFF, portal: P.P_PORTAL };
   document.getElementById('statContent').innerHTML =
-    `<div class="sta-note">Figures cover <b>active students</b> only. A student who becomes inactive stays in the numbers until the end of that month.</div><div class="sta-tabs">${STA_TABS.map(([k, l]) => `<button class="sta-tab" data-tab="${k}" onclick="staSetTab('${k}')">${l}</button>`).join('')}</div>` +
+    `<div class="sta-tabs">${STA_TABS.map(([k, l]) => `<button class="sta-tab" data-tab="${k}" onclick="staSetTab('${k}')">${l}</button>`).join('')}</div>` +
     STA_TABS.map(([k]) => `<div class="sta-panel" data-tab="${k}">${panels[k]}</div>`).join('');
   staSetTab(STA_TAB);
   if (piOk || (pi && pi._error)) {
@@ -794,7 +794,7 @@ function staRenderPortalInsights(d) {
     document.querySelectorAll('.psub-tab').forEach(b => b.classList.toggle('on', b.dataset.sub === k));
     document.querySelectorAll('.psub').forEach(p => { p.style.display = p.dataset.sub === k ? '' : 'none'; });
   };
-  document.getElementById('portalSubTabs').innerHTML = `<div class="sta-tabs sta-subtabs" style="position:static">${SUB_LABELS.map(([k, l]) => `<button class="sta-tab psub-tab" data-sub="${k}" onclick="staPortalSub('${k}')">${l}</button>`).join('')}</div>`;
+  document.getElementById('portalSubTabs').innerHTML = `<div class="sta-note">Student Portal figures cover <b>active students</b> only. A student who becomes inactive stays in these numbers until the end of that month.</div><div class="sta-tabs sta-subtabs" style="position:static">${SUB_LABELS.map(([k, l]) => `<button class="sta-tab psub-tab" data-sub="${k}" onclick="staPortalSub('${k}')">${l}</button>`).join('')}</div>`;
   host.innerHTML = SUB_LABELS.map(([k]) => `<div class="psub" data-sub="${k}">${SUBS[k]}</div>`).join('');
   window.staPortalSub(window._staSub);
 }
