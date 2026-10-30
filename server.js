@@ -4667,8 +4667,9 @@ app.post('/api/activity', async (req, res) => {
 
 // Statistics are calculated across ACTIVE students only. A student who stops being active
 // (inactive / frozen / archived) stays in the numbers until the end of that calendar month, then drops out.
+// "Active" matches the Students page and Dashboard: status Active AND enrolled in at least one group.
 function statScope(a) {
-  return `(${a}.is_test IS NOT TRUE AND ${a}.status NOT IN ('Lead','Trial') AND (${a}.status='Active' OR ${a}.left_active_at >= (date_trunc('month', NOW() AT TIME ZONE 'Asia/Tashkent') AT TIME ZONE 'Asia/Tashkent')))`;
+  return `(${a}.is_test IS NOT TRUE AND ${a}.status NOT IN ('Lead','Trial') AND ((${a}.status='Active' AND EXISTS (SELECT 1 FROM groups gx WHERE gx.student_ids @> to_jsonb(${a}.id::text))) OR ${a}.left_active_at >= (date_trunc('month', NOW() AT TIME ZONE 'Asia/Tashkent') AT TIME ZONE 'Asia/Tashkent')))`;
 }
 
 app.get('/api/statistics', async (req, res) => {
