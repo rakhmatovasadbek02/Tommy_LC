@@ -4870,7 +4870,7 @@ app.get('/api/statistics/portal', async (req, res) => {
     const q = (sql, params) => pool.query(sql, params).then(r => r.rows);
     const [
       accounts, activeAgg, daily, hours, groupsAdopt, dormant, units, weakWords, exams, learn,
-      topPoints, shop, supportByTeacher, supportByDow, feedback, kinds
+      topPoints, shop, supportByTeacher, supportByDow, feedback, kinds, accountsByMonth, examsByUnit, recentExams, fbRecent
     ] = await Promise.all([
       q(`SELECT COUNT(*)::int n FROM student_logins l JOIN students s ON s.id=l.student_id WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE`),
       q(`WITH a AS (SELECT student_id, MAX(at) last_at FROM (${ACT}) x GROUP BY student_id)
@@ -4931,6 +4931,15 @@ app.get('/api/statistics/portal', async (req, res) => {
       q(`SELECT EXTRACT(DOW FROM date)::int AS dow, COUNT(*)::int AS n FROM support_sessions WHERE date >= CURRENT_DATE - 90 GROUP BY 1`),
       q(`SELECT type, COUNT(*)::int n, COUNT(*) FILTER (WHERE read IS NOT TRUE)::int unread, COUNT(*) FILTER (WHERE reply IS NULL)::int unanswered FROM student_feedback GROUP BY type`),
       q(`SELECT kind, COUNT(*)::int n FROM (${ACT}) x JOIN students s ON s.id=x.student_id AND s.is_test IS NOT TRUE WHERE at > NOW() - INTERVAL '30 days' GROUP BY kind`),
+      q(`SELECT to_char(l.created_at,'YYYY-MM') AS month, COUNT(*)::int AS n FROM student_logins l JOIN students s ON s.id=l.student_id AND s.is_test IS NOT TRUE
+         WHERE l.created_at > NOW() - INTERVAL '6 months' GROUP BY 1 ORDER BY 1`),
+      q(`SELECT u.name AS name, COUNT(*)::int AS attempts, ROUND(100.0 * COUNT(*) FILTER (WHERE a.passed) / COUNT(*))::int AS pass_rate
+         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE
+         CROSS JOIN LATERAL jsonb_array_elements_text(a.unit_ids) uid(id) JOIN vocab_units u ON u.id=uid.id
+         GROUP BY u.name HAVING COUNT(*) >= 2 ORDER BY pass_rate ASC LIMIT 8`),
+      q(`SELECT s.id, s.first_name, s.last_name, a.score, a.total, a.passed, a.terminated_reason, a.completed_at
+         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE ORDER BY a.completed_at DESC LIMIT 10`),
+      q(`SELECT type, message, student_name, created_at, reply IS NOT NULL AS replied FROM student_feedback ORDER BY created_at DESC LIMIT 5`),
     ]);
 
     const SHOP_NAMES = Object.fromEntries(Object.entries(SHOP_ITEMS).map(([k, v]) => [k, v.name]));
@@ -4950,6 +4959,9 @@ app.get('/api/statistics/portal', async (req, res) => {
       shop: shop.map(r => ({ item: SHOP_NAMES[r.item_key] || r.item_key, n: r.n })),
       supportByTeacher, supportByDow, feedback,
       activityMix: Object.fromEntries(kinds.map(k => [k.kind, k.n])),
+      accountsByMonth, examsByUnit,
+      recentExams: recentExams.map(r => ({ id: r.id, name: nameOf(r), score: r.score, total: r.total, passed: r.passed, left: r.terminated_reason, at: r.completed_at })),
+      fbRecent: fbRecent.map(r => ({ type: r.type, message: r.message, name: r.student_name, at: r.created_at, replied: r.replied })),
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
