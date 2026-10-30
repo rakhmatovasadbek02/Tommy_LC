@@ -663,7 +663,14 @@ function staShell(P, d, sys, pi) {
     `<div class="sta-tabs">${STA_TABS.map(([k, l]) => `<button class="sta-tab" data-tab="${k}" onclick="staSetTab('${k}')">${l}</button>`).join('')}</div>` +
     STA_TABS.map(([k]) => `<div class="sta-panel" data-tab="${k}">${panels[k]}</div>`).join('');
   staSetTab(STA_TAB);
-  if (piOk || (pi && pi._error)) staRenderPortalInsights(pi);
+  if (piOk || (pi && pi._error)) {
+    try { staRenderPortalInsights(pi); }
+    catch (e) {
+      console.error(e);
+      const h = document.getElementById('portalInsights');
+      if (h) h.innerHTML = `<div class="card" style="color:#c0392b;font-size:13px">Portal Insights could not be drawn: ${esc(e && e.message || e)}</div>`;
+    }
+  }
 }
 
 /* ── Portal Insights: deeper usage analytics (own endpoint, own container) ── */
