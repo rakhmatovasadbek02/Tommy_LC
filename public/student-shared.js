@@ -1,3 +1,5 @@
+// HTML-escape user-supplied text before it goes into an innerHTML template.
+function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // ══════════════════════════════════════════
 // Tommy LC — Student Portal shared helpers
 // Deliberately separate from shared.js (staff app): a different session storage key
@@ -508,7 +510,7 @@ function spRenderHeader(activeKey) {
     ];
     tabs.innerHTML = `
       <div class="sp-tabbar-inner">
-        ${items.map(it => `<a href="${it.href}" class="sp-tab${activeKey===it.key?' on':''}"><i class="fas ${it.icon}"></i>${it.label}</a>`).join('')}
+        ${items.map(it => `<a href="${it.href}" class="sp-tab${activeKey===it.key?' on':''}"><i class="fas ${it.icon}"></i>${esc(it.label)}</a>`).join('')}
       </div>`;
   }
 }

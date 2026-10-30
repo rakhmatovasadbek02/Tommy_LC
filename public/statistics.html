@@ -160,7 +160,7 @@ function staLineChartSVG(series, months, containerId) {
     const lineD = `M${xOf(0)},${yOf(s.values[0])} ` + s.values.map((v,i)=>`L${xOf(i)},${yOf(v)}`).join(' ');
     paths += `<path d="${lineD}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
     s.values.forEach((v,i)=>{
-      paths += `<circle cx="${xOf(i)}" cy="${yOf(v)}" r="3.5" fill="${col}" stroke="white" stroke-width="1.5" class="lc-dot-pt" data-series="${s.label}" data-val="${v}" data-month="${months[i]}" data-x="${xOf(i)}" data-y="${yOf(v)}"/>`;
+      paths += `<circle cx="${xOf(i)}" cy="${yOf(v)}" r="3.5" fill="${col}" stroke="white" stroke-width="1.5" class="lc-dot-pt" data-series="${esc(s.label)}" data-val="${v}" data-month="${months[i]}" data-x="${xOf(i)}" data-y="${yOf(v)}"/>`;
     });
   });
 

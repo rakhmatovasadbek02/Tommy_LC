@@ -324,7 +324,7 @@ row.innerHTML = visibleStats()
 .map(s => `
 <div class="stat-box ${s.color}" ${s.link?`onclick="location.href='${s.link}'" style="cursor:pointer"`:s.onclick?`onclick="${s.onclick}" style="cursor:pointer"`:''}">
 <span class="stat-box-icon">${s.icon}</span>
-<div class="stat-box-label">${s.label}</div>
+<div class="stat-box-label">${esc(s.label)}</div>
 <div class="stat-box-value${s.always?' num-exempt':''}" id="${s.id}">—</div>
 <div class="stat-box-sub">${s.sub}</div>
 </div>`).join('');
@@ -468,7 +468,7 @@ allRooms.forEach(room => {
 const roomClasses = visibleClasses.filter(c => c.room === room.name);
 html += `<div style="display:flex;min-width:${totalW}px;">
 <div style="width:${ROOM_W}px;flex-shrink:0;padding:14px 16px;border-right:1px solid #e0a0a0;background:var(--crimson-soft);display:flex;flex-direction:column;justify-content:center;position:sticky;left:0;z-index:4;">
-<div style="font-weight:700;font-size:14px;color:var(--crimson)">${room.name}</div>
+<div style="font-weight:700;font-size:14px;color:var(--crimson)">${esc(room.name)}</div>
 </div>
 ${slots.map(s => {
 const startingHere = roomClasses.filter(cls => timeToMin(cls.time) === s);
@@ -490,7 +490,7 @@ return `<div class="tt-class-card" onclick="window.location.href='group.html?id=
 style="position:absolute;top:2px;left:2px;width:${blockW}px;bottom:2px;background:linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0) 45%), ${c};border-radius:8px;padding:5px 8px;cursor:pointer;overflow:hidden;z-index:3;box-sizing:border-box;display:flex;flex-direction:column;gap:2px;">
 <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;overflow:hidden">
 <div style="display:flex;align-items:center;gap:4px;overflow:hidden">
-<span class="tt-class-name" style="font-weight:800;font-size:13px;color:${textCol};white-space:nowrap">${cls.name}</span>
+<span class="tt-class-name" style="font-weight:800;font-size:13px;color:${textCol};white-space:nowrap">${esc(cls.name)}</span>
 ${cls.lang?`<span class="tt-chip" style="font-size:11px;background:rgba(255,255,255,0.38);border-radius:4px;padding:0 4px;line-height:1.5;flex-shrink:0">${LANG_FLAG[cls.lang]||''}</span>`:''}
 </div>
 <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
@@ -553,15 +553,15 @@ function absentCardHTML(s, absentGroupId) {
   const groupsHTML = (s.groups || []).map(g => {
     const isAbsent = g.id === absentGroupId;
     return `<div style="background:${isAbsent?'#fff5f5':'#f8f9ff'};border:1px solid ${isAbsent?'#fca5a5':'#e0e7ff'};border-radius:8px;padding:8px 12px">
-      <div style="font-size:12px;font-weight:700;color:var(--text)">${g.name}${isAbsent?' <span style="color:#c0392b;font-size:10px">(absent today)</span>':''}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text)">${esc(g.name)}${isAbsent?' <span style="color:#c0392b;font-size:10px">(absent today)</span>':''}</div>
       ${g.teacher ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${reverseName(g.teacher)}${g.time?' · '+g.time:''}</div>` : ''}
     </div>`;
   }).join('');
 
   const lastCmtHTML = s.lastComment
     ? `<div style="background:#fffbf0;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:12px">
-        <div style="color:var(--muted);margin-bottom:3px;font-size:11px">${s.lastComment.actor} · ${s.lastComment.time}</div>
-        <div style="color:var(--text)">${s.lastComment.text}</div>
+        <div style="color:var(--muted);margin-bottom:3px;font-size:11px">${esc(s.lastComment.actor)} · ${s.lastComment.time}</div>
+        <div style="color:var(--text)">${esc(s.lastComment.text)}</div>
        </div>`
     : `<div style="font-size:12px;color:var(--muted);font-style:italic">No comments yet</div>`;
 
@@ -570,7 +570,7 @@ function absentCardHTML(s, absentGroupId) {
       <div style="width:40px;height:40px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0">${initials(name)}</div>
       <div style="flex:1;min-width:0">
         <a href="student-profile.html?id=${s.id}" onmouseenter="showStudentHoverCard(this,'${s.id}')" onmouseleave="hideStudentHoverCard()" style="font-weight:700;font-size:14px;color:var(--text);text-decoration:none;display:block">${name}</a>
-        ${s.phone ? `<div style="font-size:12px;color:var(--muted)">+998 ${s.phone}</div>` : ''}
+        ${s.phone ? `<div style="font-size:12px;color:var(--muted)">+998 ${esc(s.phone)}</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
         <span style="font-size:11px;font-weight:700;color:#c0392b;background:#fde8e8;padding:2px 9px;border-radius:20px">Absent</span>
@@ -809,7 +809,7 @@ if (!window._supportGroups) { try { window._supportGroups = await apiGet('/api/g
 document.getElementById('spGroupInfo').style.display='none';
 _spDur = 30; document.querySelectorAll('#spDurSeg button').forEach((b,i)=>b.classList.toggle('active', i===0));
 const onlyWorking = (window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
-document.getElementById('spTeacher').innerHTML = '<option value="">— Select —</option>' + onlyWorking.map(t=>`<option value="${t.name}">${reverseName(t.name)}</option>`).join('');
+document.getElementById('spTeacher').innerHTML = '<option value="">— Select —</option>' + onlyWorking.map(t=>`<option value="${esc(t.name)}">${reverseName(t.name)}</option>`).join('');
 const pre = (prefillTeacher && typeof prefillTeacher==='string') ? prefillTeacher : '';
 if (pre) document.getElementById('spTeacher').value = pre;
 supBuildTimes(pre, (prefillTime && typeof prefillTime==='string') ? prefillTime : '09:00');

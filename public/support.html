@@ -240,7 +240,7 @@
         <div class="fined-list">${(st.finedStudents||[]).map(f=>`
           <div class="session-card" style="padding:12px 16px">
             <div class="session-info" style="flex:1">
-              <div class="session-name" onmouseenter="showStudentHoverCard(this,'${f.studentId}')" onmouseleave="hideStudentHoverCard()">${f.name}</div>
+              <div class="session-name" onmouseenter="showStudentHoverCard(this,'${f.studentId}')" onmouseleave="hideStudentHoverCard()">${esc(f.name)}</div>
               <div class="session-meta">Blocked until ${new Date(f.blockedUntil).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
             </div>
             <span class="fine-badge">Fined</span>
@@ -284,7 +284,7 @@
         return `<div class="session-card" id="sc_${s.id}">
           <div class="session-time">${s.time}</div>
           <div class="session-info">
-            <div class="session-name" onmouseenter="showStudentHoverCard(this,'${s.studentId}')" onmouseleave="hideStudentHoverCard()">${s.studentName}${s.bookedBy==='student' ? ` <span class="self-booked-badge">Self-booked</span>` : ''}</div>
+            <div class="session-name" onmouseenter="showStudentHoverCard(this,'${s.studentId}')" onmouseleave="hideStudentHoverCard()">${esc(s.studentName)}${s.bookedBy==='student' ? ` <span class="self-booked-badge">Self-booked</span>` : ''}</div>
             <div class="session-meta">${s.duration} min${data.isAdmin ? ` · ${reverseName(s.teacher)}` : ''}</div>
           </div>
           <div class="session-actions">
@@ -313,7 +313,7 @@
           <td style="color:var(--muted)">${d}</td>
           <td style="font-weight:600">${s.time}</td>
           <td>${reverseName(s.teacher)}</td>
-          <td style="font-weight:600" onmouseenter="showStudentHoverCard(this,'${s.studentId}')" onmouseleave="hideStudentHoverCard()">${s.studentName}${s.bookedBy==='student' ? ` <span class="self-booked-badge">Self-booked</span>` : ''}</td>
+          <td style="font-weight:600" onmouseenter="showStudentHoverCard(this,'${s.studentId}')" onmouseleave="hideStudentHoverCard()">${esc(s.studentName)}${s.bookedBy==='student' ? ` <span class="self-booked-badge">Self-booked</span>` : ''}</td>
           <td style="color:var(--muted)">${s.duration} min</td>
           <td style="color:var(--muted)">${s.theme||'—'}</td>
           <td>${badge}</td>
@@ -475,7 +475,7 @@ ${isAdministration()?`<button onclick="event.stopPropagation();deleteSupport('${
     let onlyWorking=(window._supportTeachers||[]).filter(t=>supShiftFor(t.name));
     const selfOnly=isSupportTeacher()&&!isAdministration();
     if(selfOnly) onlyWorking=onlyWorking.filter(t=>t.name===SUPPORT_OWNER);
-    document.getElementById('spTeacher').innerHTML='<option value="">— Select —</option>'+onlyWorking.map(t=>`<option value="${t.name}">${reverseName(t.name)}</option>`).join('');
+    document.getElementById('spTeacher').innerHTML='<option value="">— Select —</option>'+onlyWorking.map(t=>`<option value="${esc(t.name)}">${reverseName(t.name)}</option>`).join('');
     const pre=selfOnly?SUPPORT_OWNER:((prefillTeacher&&typeof prefillTeacher==='string')?prefillTeacher:'');
     if(pre)document.getElementById('spTeacher').value=pre;
     document.getElementById('spTeacher').disabled=selfOnly;

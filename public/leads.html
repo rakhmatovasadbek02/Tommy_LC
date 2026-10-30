@@ -632,7 +632,7 @@ async function load() {
   const sel = document.getElementById('filterGroup');
   const prevGroup = sel.value;
   sel.innerHTML = '<option value="">All Groups</option>' +
-    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+    groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
   if (groups.some(g=>g.id===prevGroup)) sel.value = prevGroup;
   const sources = [...new Set(leads.map(l => l.source).filter(Boolean))].sort();
   const sSel = document.getElementById('filterSource');
@@ -682,7 +682,7 @@ function buildColumn(col, filtered) {
     const cl = colLeads.filter(l => l.subContainer === c.id);
     return `<div class="sub-container">
       <div class="sub-container-header">
-        <span class="sub-container-name">${c.name}</span>
+        <span class="sub-container-name">${esc(c.name)}</span>
         <span class="sub-container-count">(${cl.length})</span>
         <button class="sub-toggle-btn" onclick="toggleSubCont('${col.status}','${c.id}')">${c.collapsed?'▸':'▾'}</button>
       </div>
@@ -703,10 +703,10 @@ function buildColumn(col, filtered) {
   return `<div class="kanban-col" style="--col-color:${col.color}">
     <div class="kanban-col-header">
       <span class="col-dot"></span>
-      <span class="kanban-col-title">${col.label}</span>
+      <span class="kanban-col-title">${esc(col.label)}</span>
       <span class="kanban-col-count">${colLeads.length === total ? total : colLeads.length+'/'+total}</span>
       <button class="kanban-col-menu-btn${isEditing?' active':''}"
-        onclick="toggleContainerEditor('${col.status}','${col.label}')"
+        onclick="toggleContainerEditor('${col.status}','${esc(col.label)}')"
         title="Manage containers">☰</button>
     </div>
     ${addBtn}
@@ -744,7 +744,7 @@ function buildCard(l, col, conts) {
          onchange="moveToContainer(event,'${l.id}','${col.status}')" onclick="event.stopPropagation()">
          <option value="">Move…</option>
          <option value="__none__">No container</option>
-         ${conts.map(c => `<option value="${c.id}"${l.subContainer===c.id?' selected':''}>${c.name}</option>`).join('')}
+         ${conts.map(c => `<option value="${c.id}"${l.subContainer===c.id?' selected':''}>${esc(c.name)}</option>`).join('')}
        </select>` : '';
 
   let actionBtns = '';
@@ -759,7 +759,7 @@ function buildCard(l, col, conts) {
   const lvCol = LEVEL_COLORS[l.currentLevel] || '#546E7A';
   const chips = [
     l.currentLevel ? `<span class="lead-chip" style="background:${lvCol}1A;color:${lvCol}">${l.currentLevel}</span>` : '',
-    col.status === 'Trial' && group ? `<span class="lead-chip" style="background:#FDF3E2;color:#A05C00">👥 ${group.name}${group.time?' · '+group.time:''}</span>` : '',
+    col.status === 'Trial' && group ? `<span class="lead-chip" style="background:#FDF3E2;color:#A05C00">👥 ${esc(group.name)}${group.time?' · '+group.time:''}</span>` : '',
     col.status === 'Student' ? `<span class="lead-chip" style="background:#E5F3EC;color:#1E6B45">✓ Enrolled</span>` : '',
   ].filter(Boolean).join('');
 
@@ -845,7 +845,7 @@ function renderContainerEditor() {
   body.innerHTML = conts.map(c => {
     const count = colLeads.filter(l => l.subContainer === c.id).length;
     return `<div class="cont-item" id="citem-${c.id}">
-      <span class="cont-item-name" id="cname-${c.id}">${c.name}</span>
+      <span class="cont-item-name" id="cname-${c.id}">${esc(c.name)}</span>
       <span class="cont-item-count">${count} lead${count!==1?'s':''}</span>
       <button class="cont-item-btn" onclick="startRenameContainer('${colStatus}','${c.id}')" title="Rename">${IC.edit}</button>
       <button class="cont-item-btn danger" onclick="deleteContainer('${colStatus}','${c.id}')" title="Delete">${IC.trash}</button>
@@ -975,7 +975,7 @@ function openTrial(id) {
   document.getElementById('trialLeadName').textContent = l ? l.lastName+' '+l.firstName : '';
   const sel = document.getElementById('trialGroupSelect');
   sel.innerHTML = '<option value="">— Select group —</option>' +
-    groups.map(g => `<option value="${g.id}">${g.name}${g.level?' · '+g.level:''} · ${g.time||'—'} · ${g.room||'—'}</option>`).join('');
+    groups.map(g => `<option value="${g.id}">${esc(g.name)}${g.level?' · '+g.level:''} · ${g.time||'—'} · ${g.room||'—'}</option>`).join('');
   openModal('trialModal');
 }
 
@@ -1068,7 +1068,7 @@ function renderLeadCalls(calls) {
       <div style="width:28px;height:28px;border-radius:50%;background:#0e7490;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">📞</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:11px;color:var(--muted)">${c.actor||'Unknown'} · ${new Date(c.created_at).toLocaleString('en-GB',{timeZone:'Asia/Tashkent',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
-        <div style="font-size:13px;font-weight:500;margin-top:2px">${c.note}</div>
+        <div style="font-size:13px;font-weight:500;margin-top:2px">${esc(c.note)}</div>
       </div>
       <button onclick="deleteLeadCall(${c.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 4px;line-height:1" title="Delete">×</button>
     </div>`).join('');
@@ -1110,11 +1110,11 @@ function showDetail(id) {
       <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px">
         ${l.phoneStudent?`<div>👤 Student: <strong>${l.phoneStudent}</strong></div>`:''}
         ${l.phoneFather ?`<div>👨 Father: <strong>${l.phoneFather}</strong></div>`:''}
-        ${l.phoneMother ?`<div>👩 Mother: <strong>${l.phoneMother}</strong></div>`:''}
-        ${l.phoneOther  ?`<div>👥 Other: <strong>${l.phoneOther}</strong></div>`:''}
+        ${l.phoneMother ?`<div>👩 Mother: <strong>${esc(l.phoneMother)}</strong></div>`:''}
+        ${l.phoneOther  ?`<div>👥 Other: <strong>${esc(l.phoneOther)}</strong></div>`:''}
       </div>
     </div>
-    ${l.notes?`<div class="form-group"><label>Notes</label><div style="background:var(--crimson-soft);padding:12px;border-radius:8px;font-size:14px">${l.notes}</div></div>`:''}
+    ${l.notes?`<div class="form-group"><label>Notes</label><div style="background:var(--crimson-soft);padding:12px;border-radius:8px;font-size:14px">${esc(l.notes)}</div></div>`:''}
     <div id="conversionInfo"></div>
   `;
   document.getElementById('detailFooter').innerHTML = `
@@ -1185,9 +1185,9 @@ function checkLeadBlacklist() {
         <div style="display:flex;align-items:flex-start;gap:10px;${hits.length>1?'margin-bottom:8px':''}">
           <span style="font-size:20px;flex-shrink:0">⛔</span>
           <div>
-            <div style="font-weight:700;color:#dc2626;font-size:13px">Blacklisted student match: ${h.name}${h.phone?' · +998 '+h.phone:''}</div>
-            <div style="font-size:12px;color:#7f1d1d;margin-top:2px">Reason: ${h.reason}</div>
-            ${h.comment ? `<div style="font-size:12px;color:#991b1b;margin-top:2px;font-style:italic">"${h.comment}"</div>` : ''}
+            <div style="font-weight:700;color:#dc2626;font-size:13px">Blacklisted student match: ${esc(h.name)}${h.phone?' · +998 '+h.phone:''}</div>
+            <div style="font-size:12px;color:#7f1d1d;margin-top:2px">Reason: ${esc(h.reason)}</div>
+            ${h.comment ? `<div style="font-size:12px;color:#991b1b;margin-top:2px;font-style:italic">"${esc(h.comment)}"</div>` : ''}
           </div>
         </div>`).join('');
     } catch { /* silent */ }
@@ -1212,7 +1212,7 @@ async function deleteLead(id) {
   const sel = document.getElementById('leadArchiveReason');
   sel.innerHTML = '<option value="">Select reason…</option>'
     + '<option value="Blacklist" data-blacklist="true">⛔ Blacklist</option>'
-    + reasons.map(r => `<option value="${r.label}">${r.label}</option>`).join('');
+    + reasons.map(r => `<option value="${esc(r.label)}">${esc(r.label)}</option>`).join('');
   document.getElementById('leadArchiveCommentGroup').style.display = 'none';
   document.getElementById('leadArchiveComment').value = '';
 

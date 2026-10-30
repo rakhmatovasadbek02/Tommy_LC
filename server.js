@@ -1,7 +1,6 @@
 const express  = require('express');
 const { Pool } = require('pg');
 const path     = require('path');
-const cors     = require('cors');
 const cron     = require('node-cron');
 const crypto   = require('crypto');
 const compression = require('compression');
@@ -34,7 +33,6 @@ async function logStudentHistory(studentId, actor, actorRole, action, details = 
 }
 
 app.use(compression());
-app.use(cors());
 // Default 100kb is too small for a base64-encoded profile photo upload (see
 // POST /api/student/account/photo) — everything else on the app sends far less than this.
 app.use(express.json({ limit: '2mb' }));
@@ -834,6 +832,7 @@ async function initDB() {
   await loadAppSecret();
   await backfillStudentPoints();
   await hashLegacyStudentPasswords();
+  await hashLegacyStaffPasswords();
   console.log('Database ready');
 }
 
@@ -870,6 +869,25 @@ async function hashLegacyStudentPasswords() {
     }
     if (rows.length) console.log(`Hashed ${rows.length} legacy plaintext student password(s)`);
   } catch(e) { console.warn('Legacy password hashing skipped:', e.message); }
+}
+
+// Staff passwords: same scheme as students — bcrypt, with legacy plaintext rows upgraded
+// in place at startup and (for any stragglers) on first successful login.
+async function hashLegacyStaffPasswords() {
+  try {
+    const { rows } = await pool.query(`SELECT id, password FROM users WHERE password NOT LIKE '$2%'`);
+    for (const r of rows) {
+      await pool.query('UPDATE users SET password=$1 WHERE id=$2', [await bcrypt.hash(r.password, 10), r.id]);
+    }
+    if (rows.length) console.log(`Hashed ${rows.length} legacy plaintext staff password(s)`);
+  } catch(e) { console.warn('Legacy staff password hashing skipped:', e.message); }
+}
+async function staffPasswordMatches(plain, stored, userId) {
+  if (!stored) return false;
+  if (stored.startsWith('$2')) return bcrypt.compare(plain, stored);
+  if (plain !== stored) return false;
+  await pool.query('UPDATE users SET password=$1 WHERE id=$2', [await bcrypt.hash(plain, 10), userId]);
+  return true;
 }
 
 // True if `plain` is the student's current password, hashed or (for a row that predates
@@ -930,6 +948,7 @@ function requiredPerm(method, p) {
     if (write) return 'groups';
     return null;
   }
+  if (top === 'spendings')  return 'finance';
   if (top === 'invoices')   return write ? 'finance'    : null;
   if (top === 'teachers')   return write ? 'teachers'   : null;
   if (top === 'leads')      return write ? 'leads'      : null;
@@ -949,7 +968,7 @@ function requiredPerm(method, p) {
 function isFinanceWrite(method, p) {
   if (method === 'GET') return false;
   const seg = p.split('/').filter(Boolean);
-  if (seg[0] === 'invoices' || seg[0] === 'pricing' || seg[0] === 'admin') return true;
+  if (seg[0] === 'invoices' || seg[0] === 'pricing' || seg[0] === 'admin' || seg[0] === 'spendings') return true;
   if (seg[0] === 'students' && seg[2] === 'payment') return true;
   return false;
 }
@@ -1050,13 +1069,18 @@ app.get('/api/events', (req, res) => {
 /* AUTH */
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { phone, password } = req.body;
-    const { rows } = await pool.query(
-      `SELECT * FROM users WHERE REPLACE(phone,' ','')=$1 AND password=$2`,
-      [phone.replace(/\s/g,''), password]
-    );
-    if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
+    const phone = String(req.body.phone || '').replace(/\s/g, '');
+    const password = String(req.body.password || '');
+    if (!phone || !password) return res.status(400).json({ error: 'Phone and password are required.' });
+    const rlKey = `staff-login:${req.ip}:${phone}`;
+    if (rateLimited(rlKey)) return res.status(429).json({ error: 'Too many attempts — try again in 15 minutes.' });
+    const { rows } = await pool.query(`SELECT * FROM users WHERE REPLACE(phone,' ','')=$1`, [phone]);
     const u = rows[0];
+    if (!u || !(await staffPasswordMatches(password, u.password, u.id))) {
+      recordFailure(rlKey);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    clearFailures(rlKey);
     res.json({
       id: u.id, name: u.first_name+' '+u.last_name,
       role: u.role, title: u.title || u.role, avatar: u.avatar, phone: u.phone,
@@ -1073,7 +1097,7 @@ app.post('/api/account/change-password', async (req, res) => {
   try {
     const err = validateNewPassword(req.body.newPassword);
     if (err) return res.status(400).json({ error: err });
-    await pool.query('UPDATE users SET password=$1, must_change_password=FALSE WHERE id=$2', [req.body.newPassword, req.user.id]);
+    await pool.query('UPDATE users SET password=$1, must_change_password=FALSE WHERE id=$2', [await bcrypt.hash(req.body.newPassword, 10), req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1136,12 +1160,13 @@ app.post('/api/users', async (req, res) => {
     const title = roles[0];
     const pwErr = validateCreatePassword(password);
     if (pwErr) return res.status(400).json({ error: pwErr });
-    const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
+    if (!firstName) return res.status(400).json({ error: 'First name is required.' });
+    const avatar = (firstName[0]+((lastName||'')[0]||'')).toUpperCase();
     const perms = permsForRoles(roles);
     const sh = supportShift(req.body, roles.includes('Support Teacher') ? 'Support Teacher' : title);
     await pool.query(
       'INSERT INTO users(id,first_name,last_name,phone,password,role,title,roles,avatar,permissions,must_change_password,support_odd_start,support_odd_end,support_even_start,support_even_end,support_lang) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12,$13,$14,$15)',
-      [id, firstName, lastName, phone, password, title, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang]
+      [id, firstName, lastName, phone, await bcrypt.hash(password, 10), title, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang]
     );
     broadcast('users');
     res.json({ ok: true });
@@ -1167,7 +1192,7 @@ app.put('/api/users/:id', async (req, res) => {
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
         'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,roles=$6,avatar=$7,permissions=$8,must_change_password=TRUE,support_odd_start=$9,support_odd_end=$10,support_even_start=$11,support_even_end=$12,support_lang=$13 WHERE id=$14',
-        [firstName, lastName, phone, password, title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang, req.params.id]
+        [firstName, lastName, phone, await bcrypt.hash(password, 10), title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang, req.params.id]
       );
     } else {
       await pool.query(
@@ -1759,7 +1784,7 @@ app.post('/api/teachers', async (req, res) => {
     const avatar = (firstName[0]+(lastName[0]||'')).toUpperCase();
     await pool.query(
       "INSERT INTO users(id,first_name,last_name,phone,password,role,title,avatar,permissions,must_change_password) VALUES($1,$2,$3,$4,$5,'Teacher','Teacher',$6,$7,TRUE)",
-      [id, firstName, lastName, phone, password, avatar, JSON.stringify(permsForRole('Teacher'))]
+      [id, firstName, lastName, phone, await bcrypt.hash(String(password||''), 10), avatar, JSON.stringify(permsForRole('Teacher'))]
     );
     broadcast('users');
     res.json({ ok: true });
@@ -1778,7 +1803,7 @@ app.put('/api/teachers/:id', async (req, res) => {
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
         'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,avatar=$5,must_change_password=TRUE WHERE id=$6',
-        [firstName, lastName, phone, password, avatar, req.params.id]
+        [firstName, lastName, phone, await bcrypt.hash(String(password), 10), avatar, req.params.id]
       );
     } else {
       await pool.query(
@@ -2514,8 +2539,8 @@ app.get('/api/students/:id/attendance', async (req, res) => {
      code on the standalone public test page (not linked in app nav yet).
    - vocab_attempts: completed results, for admin review.
 ══════════════════════════════════════ */
-function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
-function genVocabCode() { return String(Math.floor(100000 + Math.random() * 900000)); } // 6 digits
+function genVocabId(prefix) { return prefix + '_' + Date.now().toString(36) + crypto.randomBytes(8).toString('hex'); }
+function genVocabCode() { return String(crypto.randomInt(100000, 1000000)); } // 6 digits
 
 // A code an admin/teacher grants but the student never opens (question_set still null,
 // i.e. the test was never actually started) is revoked 2 minutes after it was created —
@@ -2953,14 +2978,6 @@ app.post('/api/public/student/login', async (req, res) => {
   try {
     const username = String(req.body.username || '').trim().toLowerCase();
     const password = String(req.body.password || '');
-    // Hidden testing backdoor: typing "test" as the username logs straight into a
-    // reusable, hidden test-only student account — no real password check, works from
-    // anywhere (not just localhost, unlike /dev-login). Not linked from any UI; the
-    // account is excluded from all admin-facing student counts via is_test.
-    if (username === 'test') {
-      const id = await ensureHiddenTestStudent();
-      return res.json({ ok: true, token: signStudentToken(id), name: 'Test Student' });
-    }
     const rlKey = `login:${req.ip}:${username}`;
     if (rateLimited(rlKey)) return res.status(429).json({ error: 'Too many attempts — try again in 15 minutes.' });
     const { rows } = await pool.query(
@@ -3763,6 +3780,8 @@ app.put('/api/student/feedback/seen', async (req, res) => {
 app.get('/api/public/vocab/access/:code', async (req, res) => {
   try {
     const code = String(req.params.code || '').trim();
+    const rlKey = `vocab-code:${req.ip}`;
+    if (rateLimited(rlKey)) return res.status(429).json({ error: 'Too many attempts — try again in 15 minutes.' });
     const { rows } = await pool.query(`
       SELECT a.id, a.student_id, a.used, a.question_set, a.created_at, a.unit_ids, a.language_pair, s.first_name, s.last_name
       FROM vocab_access a
@@ -3770,7 +3789,7 @@ app.get('/api/public/vocab/access/:code', async (req, res) => {
       WHERE a.code = $1
     `, [code]);
     const row = rows[0];
-    if (!row) return res.status(404).json({ error: 'Invalid code.' });
+    if (!row) { recordFailure(rlKey); return res.status(404).json({ error: 'Invalid code.' }); }
     if (row.used) return res.status(410).json({ error: 'This code has already been used. Ask your admin for a new one.' });
     const ban = await currentVocabBan(row.student_id);
     if (ban) return res.status(403).json({ error: `This student is temporarily banned for leaving a test — try again after ${ban.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Tashkent'})}.` });
@@ -4614,8 +4633,10 @@ app.get('/api/activity', async (req, res) => {
 
 app.post('/api/activity', async (req, res) => {
   try {
-    const { text, color, actor, role } = req.body;
-    await pool.query('INSERT INTO activity(text,color,actor,role) VALUES($1,$2,$3,$4)', [text, color||null, actor||null, role||null]);
+    const { text, color } = req.body;
+    // actor/role come from the verified session, never from the request body (log can't be forged)
+    const actor = `${req.user.last_name} ${req.user.first_name}`.trim();
+    await pool.query('INSERT INTO activity(text,color,actor,role) VALUES($1,$2,$3,$4)', [String(text||'').slice(0, 500), color||null, actor, req.user.title||req.user.role||null]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

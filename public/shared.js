@@ -1,3 +1,5 @@
+// HTML-escape user-supplied text before it goes into an innerHTML template.
+function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // ══════════════════════════════════════════
 // Tommy LC CRM — Shared Utilities (PostgreSQL)
 // ══════════════════════════════════════════
@@ -578,11 +580,11 @@ function renderSidebar(activePage) {
        const isActive = item.feature === activePage
          || (item.feature === '_students_or_vocab' && activePage === 'students')
          || (item.feature === '_control' && activePage === 'control');
-       return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span><span class="label">${item.label}</span></a>`;
+       return `<a href="${item.href}" class="nav-link${isActive?' active':''}"><span class="icon">${NAV_ICONS[item.iconKey]||''}</span><span class="label">${esc(item.label)}</span></a>`;
      }).join('');
    if (!links) return '';
    return `<div class="nav-section">
-     ${section.label ? `<div class="nav-label">${section.label}</div>` : ''}
+     ${section.label ? `<div class="nav-label">${esc(section.label)}</div>` : ''}
      ${links}
    </div>`;
  }).join('');
@@ -727,8 +729,8 @@ function loadNotifPanel() {
    return `<div class="notif-item${n.read ? '' : ' unread'}" onclick="openNotif('${n.id}','${n.link||''}')">
     <div class="notif-icon ${n.type}">${icon}</div>
     <div class="notif-text">
-     <div class="notif-title">${n.title}</div>
-     ${n.body ? `<div class="notif-body">${n.body}</div>` : ''}
+     <div class="notif-title">${esc(n.title)}</div>
+     ${n.body ? `<div class="notif-body">${esc(n.body)}</div>` : ''}
      <div class="notif-time">${age}</div>
     </div>
     ${n.read ? '' : '<div class="notif-dot"></div>'}
@@ -821,7 +823,7 @@ function injectLangSwitcher() {
  const dd = document.createElement('div');
  dd.className = 'lang-dd'; dd.id = 'langDd';
  dd.innerHTML = `<button class="lang-dd-btn" onclick="toggleLangDd(event)" title="Language">${cur.flag}</button>
- <div class="lang-dd-menu" id="langDdMenu">${Object.entries(LANGS).map(([c,o])=>`<button class="lang-dd-item${getLang()===c?' active':''}" onclick="setLang('${c}')"><span class="flag">${o.flag}</span>${o.name}</button>`).join('')}</div>`;
+ <div class="lang-dd-menu" id="langDdMenu">${Object.entries(LANGS).map(([c,o])=>`<button class="lang-dd-item${getLang()===c?' active':''}" onclick="setLang('${c}')"><span class="flag">${o.flag}</span>${esc(o.name)}</button>`).join('')}</div>`;
  tr.appendChild(dd);
 }
 function toggleLangDd(e) { e.stopPropagation(); document.getElementById('langDdMenu')?.classList.toggle('open'); }

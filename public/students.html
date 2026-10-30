@@ -560,7 +560,7 @@
       const balClass = s.balance > 0 ? 'pos' : s.balance < 0 ? 'neg' : 'zero';
       const balStr = s.balance !== 0 ? s.balance.toLocaleString() : '0';
       const groupsHTML = (s.groups||[]).map(g =>
-        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-block"><span class="group-number">${g.name}</span><span class="group-meta">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
+        `<a href="group.html?id=${g.id}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none"><div class="group-block"><span class="group-number">${esc(g.name)}</span><span class="group-meta">${shortLevel(g.level)}${g.time?' · '+g.time:''}</span></div></a>`
       ).join('') || '<span style="color:var(--stw-muted-soft)">—</span>';
       const teachers = [...new Set((s.groups||[]).map(g=>g.teacher).filter(Boolean))];
       const teacherHTML = teachers.length
@@ -723,9 +723,9 @@
           <div style="display:flex;align-items:flex-start;gap:10px;${hits.length>1?'margin-bottom:8px':''}">
             <span style="font-size:20px;flex-shrink:0">⛔</span>
             <div>
-              <div style="font-weight:700;color:#dc2626;font-size:13px">Blacklisted student match: ${h.name}${h.phone?' · +998 '+h.phone:''}</div>
-              <div style="font-size:12px;color:#7f1d1d;margin-top:2px">Reason: ${h.reason}</div>
-              ${h.comment ? `<div style="font-size:12px;color:#991b1b;margin-top:2px;font-style:italic">"${h.comment}"</div>` : ''}
+              <div style="font-weight:700;color:#dc2626;font-size:13px">Blacklisted student match: ${esc(h.name)}${h.phone?' · +998 '+h.phone:''}</div>
+              <div style="font-size:12px;color:#7f1d1d;margin-top:2px">Reason: ${esc(h.reason)}</div>
+              ${h.comment ? `<div style="font-size:12px;color:#991b1b;margin-top:2px;font-style:italic">"${esc(h.comment)}"</div>` : ''}
             </div>
           </div>`).join('');
       } catch { /* silent */ }

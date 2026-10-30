@@ -557,7 +557,7 @@
           <div class="inv-name"><a href="student-profile.html?id=${r.stu.id}" onmouseenter="showStudentHoverCard(this,'${r.stu.id}')" onmouseleave="hideStudentHoverCard()">${name}</a></div>
           <div class="inv-meta">${r.stu.phone||''}</div>
         </div>
-        <div class="inv-meta">👥 ${r.group.name}${r.group.level?` <span style="color:${col};font-weight:700">${r.group.level}</span>`:''}</div>
+        <div class="inv-meta">👥 ${esc(r.group.name)}${r.group.level?` <span style="color:${col};font-weight:700">${r.group.level}</span>`:''}</div>
         <div class="deb-amount" style="color:var(--text)">${fmt(r.amount)}</div>
         <div class="inv-actions">
           ${FIN_MANAGE?`<button class="btn btn-primary btn-sm" onclick="openAddFor('${r.stu.id}')">💰 Record</button>`:''}
@@ -671,7 +671,7 @@
         <div>
           <div class="inv-name"><a href="student-profile.html?id=${stu?.id}" onmouseenter="showStudentHoverCard(this,'${stu?.id}')" onmouseleave="hideStudentHoverCard()">${name}</a></div>
           <div class="inv-meta">
-            ${grp ? `<span>👥 <a href="group.html?id=${grp.id}">${grp.name}</a></span>` : ''}
+            ${grp ? `<span>👥 <a href="group.html?id=${grp.id}">${esc(grp.name)}</a></span>` : ''}
             ${i.level ? `<span style="color:${col};font-weight:600">${i.level}</span>` : ''}
             ${i.notes ? `<span title="${i.notes.replace(/"/g,'&quot;')}">💬</span>` : ''}
           </div>
@@ -894,14 +894,14 @@
     const sel = document.getElementById('invStudent');
     sel.innerHTML = '<option value="">— Select student —</option>' +
       students.filter(s=>s.status==='Active'||s.status==='Trial').map(s=>
-        `<option value="${s.id}">${s.lastName} ${s.firstName}</option>`
+        `<option value="${s.id}">${esc(s.lastName)} ${esc(s.firstName)}</option>`
       ).join('');
   }
 
   function populateGroupSelect() {
     const sel = document.getElementById('invGroup');
     sel.innerHTML = '<option value="">— Select group —</option>' +
-      groups.map(g=>`<option value="${g.id}">${g.name}${g.level?' · '+g.level:''}</option>`).join('');
+      groups.map(g=>`<option value="${g.id}">${esc(g.name)}${g.level?' · '+g.level:''}</option>`).join('');
   }
 
   /* ── Head Admin: student payment list ── */
@@ -997,7 +997,7 @@
 
     el.innerHTML = rows.map(({s,name,grps,paid,bal,paidAmt}) => {
       const grpChips = grps.length
-        ? grps.map(g=>`<a href="group.html?id=${g.id}" class="ha-grp-chip">${g.name}</a>`).join('')
+        ? grps.map(g=>`<a href="group.html?id=${g.id}" class="ha-grp-chip">${esc(g.name)}</a>`).join('')
         : `<span style="color:var(--muted);font-size:11px">No group</span>`;
       const balColor = bal<0 ? '#dc2626' : bal>0 ? '#16a34a' : 'var(--muted)';
       const balPrefix = bal<0 ? '−' : bal>0 ? '+' : '';
@@ -1036,7 +1036,7 @@
       </div>
       <select id="haGroup" onchange="renderStudentList()" style="width:auto;padding:9px 14px">
         <option value="">All Groups</option>
-        ${groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('')}
+        ${groups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('')}
       </select>
       <select id="haStatus" onchange="renderStudentList()" style="width:auto;padding:9px 14px">
         <option value="">All Students</option>

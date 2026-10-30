@@ -227,7 +227,7 @@ return `<div class="group-card">
 <div class="group-card-top">
 <div class="group-color-bar" style="background:${col}"></div>
 <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-top:6px">
-<a href="group.html?id=${g.id}" style="text-decoration:none;color:inherit"><div class="group-name">${g.name}</div></a>
+<a href="group.html?id=${g.id}" style="text-decoration:none;color:inherit"><div class="group-name">${esc(g.name)}</div></a>
 ${g.lang?`<span style="font-size:20px">${LANG_FLAG[g.lang]||''}</span>`:''}
 </div>
 <div class="group-meta">
@@ -335,7 +335,7 @@ await load(); showToast('Deleted.','error');
 }
 async function populateSelects() {
 const tSel=document.getElementById('gTeacher');
-tSel.innerHTML='<option value="">— Select teacher —</option>'+teachers.map(t=>`<option value="${t.firstName} ${t.lastName}">${t.lastName} ${t.firstName}</option>`).join('');
+tSel.innerHTML='<option value="">— Select teacher —</option>'+teachers.map(t=>`<option value="${esc(t.firstName)} ${esc(t.lastName)}">${esc(t.lastName)} ${esc(t.firstName)}</option>`).join('');
 const rSel=document.getElementById('gRoom');
 rSel.disabled=false;rSel.innerHTML='<option value="">— Select room —</option>'+FIXED_ROOMS.map(r=>`<option value="${r}">${r}</option>`).join('');
 }

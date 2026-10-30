@@ -544,7 +544,7 @@
           <div class="sf-roles">
             ${roles.map(r=>`<span class="sf-role-pill" style="${rolePillColor(r)}">${r}</span>`).join('')}
           </div>
-          ${u.phone ? `<div class="sf-phone"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.83a16 16 0 0 0 6.29 6.29l1.7-1.71a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>+998 ${u.phone}</div>` : ''}
+          ${u.phone ? `<div class="sf-phone"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.83a16 16 0 0 0 6.29 6.29l1.7-1.71a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>+998 ${esc(u.phone)}</div>` : ''}
           <div class="sf-perms-box">${summary}</div>
         </div>
         <div class="sf-footer">
@@ -695,7 +695,7 @@
               : `<a href="student-profile.html?id=${s.id}">${name}</a>`}
           </div>
         </div>
-        ${s.phone ? `<div class="bl-phone">+998 ${s.phone}</div>` : ''}
+        ${s.phone ? `<div class="bl-phone">+998 ${esc(s.phone)}</div>` : ''}
         ${s.archiveComment ? `<div class="bl-comment">${s.archiveComment}</div>` : ''}
         <div class="bl-footer">
           <span class="bl-date">${dt}</span>
@@ -776,7 +776,7 @@
     }
     el.innerHTML = arcReasons.map(r =>
       `<div class="reason-row">
-        <span class="reason-row-label">${r.label}</span>
+        <span class="reason-row-label">${esc(r.label)}</span>
         <button class="reason-row-del" data-rid="${r.id}" onclick="arcDeleteReason(this.dataset.rid, this.closest('.reason-row').querySelector('.reason-row-label').textContent)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -849,7 +849,7 @@
     document.getElementById('actStudentName').textContent = studentName + ' restored. Activate now?';
     const sel = document.getElementById('actGroupSel');
     sel.innerHTML = '<option value="">— Select group —</option>' +
-      arcAllGroups.map(g => `<option value="${g.id}">${g.name}${g.time ? ' ('+g.time+')' : ''}</option>`).join('');
+      arcAllGroups.map(g => `<option value="${g.id}">${esc(g.name)}${g.time ? ' ('+g.time+')' : ''}</option>`).join('');
     document.getElementById('actChargeRow').style.display = 'none';
     document.getElementById('actConfirmBtn').disabled = true;
     openModal('activateModal');
@@ -975,7 +975,7 @@
           ${!isLast ? '<div class="action-line"></div>' : ''}
         </div>
         <div class="action-body">
-          <div class="action-text">${a.text}</div>
+          <div class="action-text">${esc(a.text)}</div>
           <div class="action-meta">
             ${a.actor ? `<span class="action-actor">${reverseName(a.actor)}</span>` : ''}
             ${a.role  ? `<span class="action-role" style="background:${rc.bg};color:${rc.color}">${a.role}</span>` : ''}
@@ -1005,7 +1005,7 @@
       if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.fb-reply-box')) return;
       fbkRender();
     } catch (e) {
-      document.getElementById('fbkList').innerHTML = `<div class="fb-empty">${e.message}</div>`;
+      document.getElementById('fbkList').innerHTML = `<div class="fb-empty">${esc(e.message)}</div>`;
     }
   }
 

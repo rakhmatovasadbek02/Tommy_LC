@@ -643,7 +643,7 @@
     if (!grps.length) { el.innerHTML='<div class="empty-feed">Not enrolled in any group.</div>'; return; }
     el.innerHTML = grps.map(g => `
       <div class="group-row">
-        <a href="group.html?id=${g.id}" style="text-decoration:none"><div class="group-badge">${g.name}</div></a>
+        <a href="group.html?id=${g.id}" style="text-decoration:none"><div class="group-badge">${esc(g.name)}</div></a>
         <div class="group-detail">
           <div class="group-detail-name">${g.level||''} ${g.time?'('+g.time+')':''}</div>
           <div class="group-detail-sub">
@@ -687,7 +687,7 @@
             <span style="font-size:14px">${isPresent?'✅':'❌'}</span>
             <span style="font-weight:600;font-size:13px;color:${isPresent?'var(--green)':'var(--crimson)'}">${isPresent?'Present':'Absent'}</span>
             <span style="font-size:12px;color:var(--muted);margin-left:auto">${dateStr}</span>
-            ${r.groupName?`<span style="font-size:11px;font-weight:700;background:white;border:1px solid var(--border);padding:2px 8px;border-radius:20px">${r.groupName}</span>`:''}
+            ${r.groupName?`<span style="font-size:11px;font-weight:700;background:white;border:1px solid var(--border);padding:2px 8px;border-radius:20px">${esc(r.groupName)}</span>`:''}
           </div>`;
         }).join('')}
       </div>`;
@@ -722,7 +722,7 @@
               : { icon:'❌', label:'Not passed', color:'var(--crimson)', bg:'#fef2f2' };
           return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:${status.bg}">
             <span style="font-size:14px">${status.icon}</span>
-            <span style="font-weight:600;font-size:13px;color:${status.color}">${status.label}</span>
+            <span style="font-weight:600;font-size:13px;color:${status.color}">${esc(status.label)}</span>
             <span style="font-size:12px;color:var(--muted)">${v.score} / ${v.total}</span>
             <span style="font-size:12px;color:var(--muted);margin-left:auto">${fmtDate(v.completedAt)}</span>
             <span style="font-size:11px;font-weight:700;background:white;border:1px solid var(--border);padding:2px 8px;border-radius:20px">${v.unitNames.join(', ')}</span>
@@ -740,7 +740,7 @@
         <div class="feed-body">
           <span class="feed-actor">${reverseName(c.actor)||'Unknown'}</span>
           <span class="feed-time">${fmtDateTime(c.created_at)}</span>
-          <div class="feed-text">${c.text}</div>
+          <div class="feed-text">${esc(c.text)}</div>
         </div>
         <button class="btn btn-danger btn-sm" onclick="deleteComment(${c.id})">${IC.trash}</button>
       </div>`).join('');
@@ -755,7 +755,7 @@
         <div class="feed-body">
           <span class="feed-actor">${reverseName(c.actor)||'Unknown'}</span>
           <span class="feed-time">${fmtDateTime(c.created_at)}</span>
-          <div class="feed-text">${c.note}</div>
+          <div class="feed-text">${esc(c.note)}</div>
         </div>
         <button class="btn btn-danger btn-sm" onclick="deleteCall(${c.id})">${IC.trash}</button>
       </div>`).join('');
@@ -932,13 +932,13 @@
         } else if (r.action === 'group_added' || r.action === 'group_removed') {
           detailHTML = `<div class="hist-details">${d.groupName||d.groupId||''}</div>`;
         } else if (r.action === 'comment_added' || r.action === 'comment_deleted') {
-          if (d.text) detailHTML = `<div class="hist-details">"${d.text}"</div>`;
+          if (d.text) detailHTML = `<div class="hist-details">"${esc(d.text)}"</div>`;
         }
 
         return `<div class="hist-item">
           <div class="hist-icon" style="background:${cfg.bg}">${cfg.icon}</div>
           <div class="hist-body">
-            <div class="hist-action">${cfg.label}</div>
+            <div class="hist-action">${esc(cfg.label)}</div>
             <div class="hist-meta">${reverseName(r.actor)||'System'}${r.actorRole?' · '+r.actorRole:''} · ${ts}</div>
             ${detailHTML}
           </div>
@@ -964,7 +964,7 @@
     const sel = document.getElementById('addGroupSelect');
     sel.innerHTML = '<option value="">— Select group —</option>' +
       allGrps.filter(g => !currentIds.has(g.id)).map(g =>
-        `<option value="${g.id}">${g.name}${g.level?' · '+g.level:''}</option>`
+        `<option value="${g.id}">${esc(g.name)}${g.level?' · '+g.level:''}</option>`
       ).join('');
     openModal('addGroupModal');
   }
@@ -1064,7 +1064,7 @@
     document.getElementById('payNotesGroup').style.display = isSubtract ? 'none' : '';
     const sel = document.getElementById('payGroup');
     sel.innerHTML = '<option value="">— No group —</option>' +
-      studentGroups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');
+      studentGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');
     openModal('payModal');
   }
 
