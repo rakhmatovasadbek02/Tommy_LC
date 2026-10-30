@@ -151,6 +151,19 @@
     .stbl tbody tr:hover td { background:#fdf8f8; }
     .stat-page .rate-track { height:8px; border-radius:999px; }
 
+
+    .srow { display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid #f6ecec; }
+    .srow:last-child { border-bottom:0; }
+    .srow-l { font-size:13px; color:#4a3a3a; }
+    .srow-v { font-size:16px; font-weight:800; }
+    .stat-page .gauge-num { font-size:40px; letter-spacing:-2px; }
+    .stat-page .gauge-card { padding:6px 0 4px; }
+    .stat-page .f-track { height:34px; border-radius:10px; background:#f7eded; }
+    .stat-page .f-fill { border-radius:10px; }
+    .stat-page .f-n { display:none; }
+    .stat-page .f-lbl { width:96px; font-size:12.5px; }
+    .stat-page .sname { display:flex; align-items:center; gap:10px; font-weight:600; }
+    .stat-page .arch-pill { background:#f7eded; border:1px solid var(--line); border-radius:999px; }
     @media(max-width:600px){
       .stat-page .card { padding:16px; border-radius:16px; }
       .sta-kpis { grid-template-columns:repeat(2,1fr); gap:10px; }
@@ -266,12 +279,12 @@ function staDonutSVG(slices) {
 }
 
 function staGaugeSVG(val) {
-  const r=50,cx=70,cy=68,sw=11,circ=Math.PI*r;
+  const r=50,cx=70,cy=68,sw=12,circ=Math.PI*r;
   const filled=circ*(Math.min(val,100)/100);
-  return `<svg width="140" height="78" viewBox="0 0 140 78">
-    <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="#f5e0e0" stroke-width="${sw}" stroke-linecap="round"/>
-    <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="url(#staGg)" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${filled} ${circ}"/>
-    <defs><linearGradient id="staGg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f9a8a8"/><stop offset="100%" stop-color="#c0392b"/></linearGradient></defs>
+  const col = val>=70 ? '#16a34a' : val>=40 ? '#d97706' : '#c0392b';
+  return `<svg width="160" height="86" viewBox="0 0 140 78">
+    <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="#f3e4e4" stroke-width="${sw}" stroke-linecap="round"/>
+    <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${filled} ${circ}"/>
   </svg>`;
 }
 
@@ -372,7 +385,7 @@ function staRender(d, sys, pi) {
     </tr>`;
   }
   const tRows = (ST.teachers||[]).length
-    ? ST.teachers.map(t=>staStaffRow(reverseName(t.name),`${t.groups}g · ${t.students}s`,t.attendanceRate)).join('')
+    ? ST.teachers.map(t=>staStaffRow(reverseName(t.name),`${t.groups} groups · ${t.students} students`,t.attendanceRate)).join('')
     : `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px 0;font-size:13px">No teacher data</td></tr>`;
   const sRows = (ST.support||[]).length
     ? ST.support.map(t=>staStaffRow(reverseName(t.name),`${t.total} sessions`,t.rate)).join('')
@@ -423,10 +436,7 @@ function staRender(d, sys, pi) {
             ['This Month',      staFmtM(F.thisMonthRevenue), '#c0392b'],
             ['Pending',         staFmtM(F.pendingRevenue),   '#d97706'],
             ['Total Spendings', staFmtM(F.totalSpendings||0),'#dc2626'],
-          ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
-            <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
-            <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
-          </div>`).join('')}
+          ].map(([l,v,c])=>`<div class="srow"><span class="srow-l">${l}</span><span class="srow-v" style="color:${c}">${v}</span></div>`).join('')}
         </div>
       </div>
     </div>
@@ -465,7 +475,7 @@ function staRender(d, sys, pi) {
     <div class="sec">
       <div class="sec-hd">
         <div class="sec-icon" style="background:#eff6ff">${iPortal.replace('stroke="currentColor"','stroke="#2563eb"')}</div>
-        <h2>Student Portal</h2>
+        <h2>Adoption &amp; Registration</h2>
         <span class="sec-meta">${P.accountsCreated} accounts · ${P.adoptionRate}% adoption</span>
       </div>
       <div class="g3">
@@ -484,10 +494,7 @@ function staRender(d, sys, pi) {
             ['Attempts (all time)', P.practiceAttempts, '#2563eb'],
             ['Attempts this month', P.practiceThisMonth, '#c0392b'],
             ['Pass rate', P.practicePassRate+'%', '#16a34a'],
-          ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
-            <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
-            <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
-          </div>`).join('')}
+          ].map(([l,v,c])=>`<div class="srow"><span class="srow-l">${l}</span><span class="srow-v" style="color:${c}">${v}</span></div>`).join('')}
         </div>
         <div class="card" style="display:flex;flex-direction:column;gap:12px;justify-content:center">
           <div class="card-title" style="margin-bottom:4px">Registration Codes &amp; Support</div>
@@ -496,10 +503,7 @@ function staRender(d, sys, pi) {
             ['Codes used', P.codesUsed, '#16a34a'],
             ['Codes pending', P.codesPending, '#d97706'],
             ['Support sessions this month', P.supportSessionsThisMonth, '#c0392b'],
-          ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #fae8e8">
-            <span style="font-size:12px;color:var(--muted);font-weight:500">${l}</span>
-            <span style="font-size:14px;font-weight:800;color:${c}">${v}</span>
-          </div>`).join('')}
+          ].map(([l,v,c])=>`<div class="srow"><span class="srow-l">${l}</span><span class="srow-v" style="color:${c}">${v}</span></div>`).join('')}
         </div>
       </div>
     </div>
