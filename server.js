@@ -578,6 +578,7 @@ async function initDB() {
     // password change or a staff-issued reset, so a stolen/old token stops working the
     // moment the password actually changes (tokens themselves never expired before this).
     `ALTER TABLE student_logins ADD COLUMN IF NOT EXISTS token_valid_from TIMESTAMPTZ DEFAULT NOW()`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS token_valid_from TIMESTAMPTZ DEFAULT NOW()`,
     // Points ledger — CEFR-only gamification. One row per point-earning/losing event.
     // `ref_id` identifies the source record (attendance row id, vocab attempt id, or a
     // plain date string for daily login) so every award path can be idempotent via the
@@ -983,10 +984,14 @@ app.use('/api', async (req, res, next) => {
     if (req.path.startsWith('/student/')) return next(); // handled by studentAuthMiddleware below
     const hdr = req.headers.authorization || '';
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.headers['x-auth-token'] || req.query.token || '');
-    const userId = token && verifyToken(token);
-    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
-    const r = await pool.query('SELECT id, first_name, last_name, role, title, roles, permissions FROM users WHERE id=$1', [userId]);
+    const signed = token && verifyToken(token);
+    const tp = signed && signed.startsWith('u:') ? signed.split(':') : null;
+    if (!tp || tp.length !== 3) return res.status(401).json({ error: 'Not authenticated' });
+    const userId = tp[1], issuedAt = Number(tp[2]);
+    if (!issuedAt || Date.now() - issuedAt > STAFF_TOKEN_MAX_AGE_MS) return res.status(401).json({ error: 'Session expired — please sign in again.' });
+    const r = await pool.query('SELECT id, first_name, last_name, role, title, roles, permissions, token_valid_from FROM users WHERE id=$1', [userId]);
     if (!r.rows[0]) return res.status(401).json({ error: 'Session no longer valid' });
+    if (r.rows[0].token_valid_from && issuedAt < new Date(r.rows[0].token_valid_from).getTime()) return res.status(401).json({ error: 'Session expired — please sign in again.' });
     req.user = r.rows[0];
     const perms = req.user.permissions || [];
     const p = req.path.replace(/^\//, '');
@@ -1024,6 +1029,10 @@ app.use('/api', async (req, res, next) => {
 // server-side (see token_valid_from) — plain HMAC-of-an-id tokens never expired and
 // couldn't be revoked at all.
 const STUDENT_TOKEN_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
+// Staff tokens: 'u:<id>:<issuedAt>' — expire after 30 days and die when an admin resets the
+// user's password (users.token_valid_from). Old id-only tokens are no longer honored.
+const STAFF_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+function signStaffToken(userId) { return signToken(`u:${userId}:${Date.now()}`); }
 function signStudentToken(studentId) { return signToken(`stu:${studentId}:${Date.now()}`); }
 app.use('/api/student', async (req, res, next) => {
   try {
@@ -1087,7 +1096,7 @@ app.post('/api/auth/login', async (req, res) => {
       roles: Array.isArray(u.roles) && u.roles.length ? u.roles : [u.title || u.role],
       permissions: u.permissions || [],
       mustChangePassword: !!u.must_change_password,
-      token: signToken(u.id)
+      token: signStaffToken(u.id)
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1191,7 +1200,7 @@ app.put('/api/users/:id', async (req, res) => {
       const pwErr = validateCreatePassword(password);
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,roles=$6,avatar=$7,permissions=$8,must_change_password=TRUE,support_odd_start=$9,support_odd_end=$10,support_even_start=$11,support_even_end=$12,support_lang=$13 WHERE id=$14',
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,role=$5,title=$5,roles=$6,avatar=$7,permissions=$8,must_change_password=TRUE,token_valid_from=NOW(),support_odd_start=$9,support_odd_end=$10,support_even_start=$11,support_even_end=$12,support_lang=$13 WHERE id=$14',
         [firstName, lastName, phone, await bcrypt.hash(password, 10), title, JSON.stringify(roles), avatar, JSON.stringify(perms), sh.oddStart, sh.oddEnd, sh.evenStart, sh.evenEnd, sh.lang, req.params.id]
       );
     } else {
@@ -1802,7 +1811,7 @@ app.put('/api/teachers/:id', async (req, res) => {
       const pwErr = validateCreatePassword(password);
       if (pwErr) return res.status(400).json({ error: pwErr });
       await pool.query(
-        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,avatar=$5,must_change_password=TRUE WHERE id=$6',
+        'UPDATE users SET first_name=$1,last_name=$2,phone=$3,password=$4,avatar=$5,must_change_password=TRUE,token_valid_from=NOW() WHERE id=$6',
         [firstName, lastName, phone, await bcrypt.hash(String(password), 10), avatar, req.params.id]
       );
     } else {
