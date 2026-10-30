@@ -4804,6 +4804,56 @@ app.get('/api/statistics', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// System-wide health numbers for the Statistics "Overview / Students / Groups" tabs (CEO only).
+app.get('/api/statistics/system', async (req, res) => {
+  try {
+    const roles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
+    if (!roles.includes('CEO')) return res.status(403).json({ error: 'CEO only.' });
+    const q = (sql, params) => pool.query(sql, params).then(r => r.rows);
+    const LIVE = `s.archived IS NOT TRUE AND s.is_test IS NOT TRUE AND s.status NOT IN ('Lead','Trial')`;
+    const [byLevel, byStatus, newByMonth, debtors, groups, attRate, lowAtt, absentees, overdue, staleLeads] = await Promise.all([
+      q(`SELECT COALESCE(NULLIF(s.level,''),'No level') AS level, COUNT(*)::int AS n FROM students s WHERE ${LIVE} AND s.status='Active' GROUP BY 1 ORDER BY n DESC`),
+      q(`SELECT s.status AS status, COUNT(*)::int AS n FROM students s WHERE ${LIVE} GROUP BY 1 ORDER BY n DESC`),
+      q(`SELECT to_char(s.created_at,'YYYY-MM') AS month, COUNT(*)::int AS n FROM students s WHERE ${LIVE} AND s.created_at > NOW() - INTERVAL '6 months' GROUP BY 1 ORDER BY 1`),
+      q(`SELECT s.id, s.first_name, s.last_name, s.balance::float AS balance,
+                (SELECT g.name FROM groups g WHERE g.student_ids @> to_jsonb(s.id::text) LIMIT 1) AS group_name
+         FROM students s WHERE ${LIVE} AND s.status='Active' AND s.balance < 0 ORDER BY s.balance ASC LIMIT 10`),
+      q(`SELECT g.id, g.name, g.teacher, g.level, COUNT(s.id)::int AS size
+         FROM groups g
+         LEFT JOIN LATERAL jsonb_array_elements_text(g.student_ids) sid(id) ON TRUE
+         LEFT JOIN students s ON s.id=sid.id AND s.archived IS NOT TRUE AND s.is_test IS NOT TRUE AND s.status='Active'
+         GROUP BY g.id, g.name, g.teacher, g.level ORDER BY size ASC, g.name`),
+      q(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE a.status='present')::int AS present
+         FROM attendance a WHERE a.date >= CURRENT_DATE - 30 AND a.date <= CURRENT_DATE`),
+      q(`SELECT g.id, g.name, g.teacher, COUNT(*)::int AS total,
+                ROUND(100.0 * COUNT(*) FILTER (WHERE a.status='present') / COUNT(*))::int AS rate
+         FROM attendance a JOIN groups g ON g.id=a.group_id
+         WHERE a.date >= CURRENT_DATE - 30 AND a.date <= CURRENT_DATE
+         GROUP BY g.id, g.name, g.teacher HAVING COUNT(*) >= 10 ORDER BY rate ASC LIMIT 8`),
+      q(`SELECT s.id, s.first_name, s.last_name, COUNT(*)::int AS absences,
+                (SELECT g.name FROM groups g WHERE g.student_ids @> to_jsonb(s.id::text) LIMIT 1) AS group_name
+         FROM attendance a JOIN students s ON s.id=a.student_id
+         WHERE ${LIVE} AND a.status='absent' AND a.date >= CURRENT_DATE - 14 AND a.date <= CURRENT_DATE
+         GROUP BY s.id, s.first_name, s.last_name HAVING COUNT(*) >= 3 ORDER BY absences DESC LIMIT 10`),
+      q(`SELECT COUNT(*)::int AS n, COALESCE(SUM(i.total),0)::float AS amount FROM invoices i
+         WHERE i.status='Pending' AND i.month IS NOT NULL AND i.month < to_char(NOW() AT TIME ZONE 'Asia/Tashkent','YYYY-MM')`),
+      q(`SELECT COUNT(*)::int AS n FROM leads l WHERE l.archived IS NOT TRUE AND l.status IN ('New','Contacted') AND l.created_at < NOW() - INTERVAL '14 days'`),
+    ]);
+    const nm = r => `${r.last_name || ''} ${r.first_name || ''}`.trim();
+    res.json({
+      byLevel, byStatus, newByMonth,
+      debtors: debtors.map(r => ({ id: r.id, name: nm(r), balance: r.balance, group: r.group_name })),
+      groups: { total: groups.length, empty: groups.filter(g => g.size === 0).length,
+                avgSize: groups.length ? Math.round(groups.reduce((t, g) => t + g.size, 0) / groups.length * 10) / 10 : 0,
+                smallest: groups.slice(0, 8), largest: [...groups].reverse().slice(0, 5) },
+      attendance: { total: attRate[0].total, present: attRate[0].present, rate: attRate[0].total ? Math.round(attRate[0].present / attRate[0].total * 100) : null },
+      lowAttendanceGroups: lowAtt,
+      absentees: absentees.map(r => ({ id: r.id, name: nm(r), absences: r.absences, group: r.group_name })),
+      overdue: overdue[0], staleLeads: staleLeads[0].n,
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Deeper portal analytics for the Statistics page (CEO only, like /api/statistics): who is
 // actually using the portal, when, on what, and where it's weak. Test student excluded.
 app.get('/api/statistics/portal', async (req, res) => {
