@@ -4827,10 +4827,10 @@ app.get('/api/statistics/portal', async (req, res) => {
          SELECT COUNT(*) FILTER (WHERE last_at > NOW() - INTERVAL '7 days')::int d7,
                 COUNT(*) FILTER (WHERE last_at > NOW() - INTERVAL '30 days')::int d30
          FROM a JOIN student_logins l ON l.student_id=a.student_id JOIN students s ON s.id=a.student_id WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE`),
-      q(`SELECT to_char((at ${TZ})::date,'YYYY-MM-DD') day, COUNT(*)::int events, COUNT(DISTINCT student_id)::int students
+      q(`SELECT to_char((at ${TZ})::date,'YYYY-MM-DD') AS day, COUNT(*)::int AS events, COUNT(DISTINCT student_id)::int AS students
          FROM (${ACT}) x JOIN students s ON s.id=x.student_id
          WHERE s.is_test IS NOT TRUE AND at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1`),
-      q(`SELECT EXTRACT(HOUR FROM (at ${TZ}))::int h, COUNT(*)::int n
+      q(`SELECT EXTRACT(HOUR FROM (at ${TZ}))::int AS h, COUNT(*)::int AS n
          FROM (${ACT}) x JOIN students s ON s.id=x.student_id
          WHERE s.is_test IS NOT TRUE AND at > NOW() - INTERVAL '60 days' GROUP BY 1 ORDER BY 1`),
       q(`WITH last AS (SELECT student_id, MAX(at) last_at FROM (${ACT}) x GROUP BY student_id)
@@ -4878,7 +4878,7 @@ app.get('/api/statistics/portal', async (req, res) => {
       q(`SELECT teacher, COUNT(*)::int booked, COUNT(*) FILTER (WHERE attended IS TRUE)::int attended,
                 COUNT(*) FILTER (WHERE attended IS FALSE)::int missed
          FROM support_sessions WHERE booked_by='student' AND date >= CURRENT_DATE - 60 GROUP BY teacher ORDER BY booked DESC`),
-      q(`SELECT EXTRACT(DOW FROM date)::int dow, COUNT(*)::int n FROM support_sessions WHERE date >= CURRENT_DATE - 90 GROUP BY 1`),
+      q(`SELECT EXTRACT(DOW FROM date)::int AS dow, COUNT(*)::int AS n FROM support_sessions WHERE date >= CURRENT_DATE - 90 GROUP BY 1`),
       q(`SELECT type, COUNT(*)::int n, COUNT(*) FILTER (WHERE read IS NOT TRUE)::int unread, COUNT(*) FILTER (WHERE reply IS NULL)::int unanswered FROM student_feedback GROUP BY type`),
       q(`SELECT kind, COUNT(*)::int n FROM (${ACT}) x JOIN students s ON s.id=x.student_id AND s.is_test IS NOT TRUE WHERE at > NOW() - INTERVAL '30 days' GROUP BY kind`),
     ]);
