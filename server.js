@@ -4804,6 +4804,106 @@ app.get('/api/statistics', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Deeper portal analytics for the Statistics page (CEO only, like /api/statistics): who is
+// actually using the portal, when, on what, and where it's weak. Test student excluded.
+app.get('/api/statistics/portal', async (req, res) => {
+  try {
+    const roles = Array.isArray(req.user.roles) && req.user.roles.length ? req.user.roles : [req.user.title];
+    if (!roles.includes('CEO')) return res.status(403).json({ error: 'CEO only.' });
+    const TZ = `AT TIME ZONE 'Asia/Tashkent'`;
+    // One row per (student, event time) across every kind of portal activity.
+    const ACT = `
+      SELECT student_id, completed_at AS at, 'practice' AS kind FROM vocab_practice_attempts
+      UNION ALL SELECT student_id, completed_at, 'exam' FROM vocab_attempts
+      UNION ALL SELECT student_id, revised_at, 'learn' FROM vocab_learn_progress
+      UNION ALL SELECT student_id, created_at, 'points' FROM student_points`;
+    const q = (sql, params) => pool.query(sql, params).then(r => r.rows);
+    const [
+      accounts, activeAgg, daily, hours, groupsAdopt, dormant, units, weakWords, exams, learn,
+      topPoints, shop, supportByTeacher, supportByDow, feedback, kinds
+    ] = await Promise.all([
+      q(`SELECT COUNT(*)::int n FROM student_logins l JOIN students s ON s.id=l.student_id WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE`),
+      q(`WITH a AS (SELECT student_id, MAX(at) last_at FROM (${ACT}) x GROUP BY student_id)
+         SELECT COUNT(*) FILTER (WHERE last_at > NOW() - INTERVAL '7 days')::int d7,
+                COUNT(*) FILTER (WHERE last_at > NOW() - INTERVAL '30 days')::int d30
+         FROM a JOIN student_logins l ON l.student_id=a.student_id JOIN students s ON s.id=a.student_id WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE`),
+      q(`SELECT to_char((at ${TZ})::date,'YYYY-MM-DD') day, COUNT(*)::int events, COUNT(DISTINCT student_id)::int students
+         FROM (${ACT}) x JOIN students s ON s.id=x.student_id
+         WHERE s.is_test IS NOT TRUE AND at > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1`),
+      q(`SELECT EXTRACT(HOUR FROM (at ${TZ}))::int h, COUNT(*)::int n
+         FROM (${ACT}) x JOIN students s ON s.id=x.student_id
+         WHERE s.is_test IS NOT TRUE AND at > NOW() - INTERVAL '60 days' GROUP BY 1 ORDER BY 1`),
+      q(`WITH last AS (SELECT student_id, MAX(at) last_at FROM (${ACT}) x GROUP BY student_id)
+         SELECT g.id, g.name, g.teacher,
+                COUNT(s.id)::int members,
+                COUNT(l.student_id)::int accounts,
+                COUNT(*) FILTER (WHERE la.last_at > NOW() - INTERVAL '14 days')::int active
+         FROM groups g
+         JOIN LATERAL jsonb_array_elements_text(g.student_ids) sid(id) ON TRUE
+         JOIN students s ON s.id=sid.id AND s.is_test IS NOT TRUE AND s.archived IS NOT TRUE AND s.status='Active'
+         LEFT JOIN student_logins l ON l.student_id=s.id
+         LEFT JOIN last la ON la.student_id=s.id
+         GROUP BY g.id, g.name, g.teacher HAVING COUNT(s.id) > 0 ORDER BY g.name`),
+      q(`WITH last AS (SELECT student_id, MAX(at) last_at FROM (${ACT}) x GROUP BY student_id)
+         SELECT s.id, s.first_name, s.last_name, la.last_at,
+                (SELECT g.name FROM groups g WHERE g.student_ids @> to_jsonb(s.id::text) LIMIT 1) group_name
+         FROM student_logins l JOIN students s ON s.id=l.student_id
+         LEFT JOIN last la ON la.student_id=s.id
+         WHERE s.is_test IS NOT TRUE AND s.archived IS NOT TRUE AND s.status='Active'
+           AND (la.last_at IS NULL OR la.last_at < NOW() - INTERVAL '14 days')
+         ORDER BY la.last_at ASC NULLS FIRST LIMIT 15`),
+      q(`SELECT u.id, u.name, COUNT(*)::int attempts,
+                ROUND(AVG(a.score::numeric / NULLIF(a.total,0)) * 100)::int avg_score,
+                ROUND(100.0 * COUNT(*) FILTER (WHERE a.passed) / COUNT(*))::int pass_rate
+         FROM vocab_practice_attempts a
+         JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE
+         CROSS JOIN LATERAL jsonb_array_elements_text(a.unit_ids) uid(id)
+         JOIN vocab_units u ON u.id=uid.id
+         GROUP BY u.id, u.name HAVING COUNT(*) >= 3 ORDER BY attempts DESC`),
+      q(`SELECT split_part(w.word_key,'::',1) unit_id, split_part(w.word_key,'::',2) word, u.name unit_name, COUNT(*)::int students
+         FROM vocab_learn_weak w JOIN students s ON s.id=w.student_id AND s.is_test IS NOT TRUE
+         LEFT JOIN vocab_units u ON u.id = split_part(w.word_key,'::',1)
+         GROUP BY 1,2,3 ORDER BY students DESC, word LIMIT 10`),
+      q(`SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE a.passed)::int passed,
+                COUNT(*) FILTER (WHERE a.terminated_reason IS NOT NULL)::int terminated,
+                ROUND(AVG(a.score::numeric / NULLIF(a.total,0)) * 100)::int avg_score
+         FROM vocab_attempts a JOIN students s ON s.id=a.student_id AND s.is_test IS NOT TRUE`),
+      q(`SELECT COUNT(DISTINCT p.student_id)::int students, COUNT(*)::int words,
+                COUNT(*) FILTER (WHERE p.revised_at > NOW() - INTERVAL '30 days')::int words30
+         FROM vocab_learn_progress p JOIN students s ON s.id=p.student_id AND s.is_test IS NOT TRUE`),
+      q(`SELECT s.id, s.first_name, s.last_name, SUM(p.points)::int points
+         FROM student_points p JOIN students s ON s.id=p.student_id AND s.is_test IS NOT TRUE
+         GROUP BY s.id, s.first_name, s.last_name HAVING SUM(p.points) > 0 ORDER BY points DESC LIMIT 5`),
+      q(`SELECT item_key, COUNT(*)::int n FROM student_shop_purchases pu JOIN students s ON s.id=pu.student_id AND s.is_test IS NOT TRUE GROUP BY item_key`),
+      q(`SELECT teacher, COUNT(*)::int booked, COUNT(*) FILTER (WHERE attended IS TRUE)::int attended,
+                COUNT(*) FILTER (WHERE attended IS FALSE)::int missed
+         FROM support_sessions WHERE booked_by='student' AND date >= CURRENT_DATE - 60 GROUP BY teacher ORDER BY booked DESC`),
+      q(`SELECT EXTRACT(DOW FROM date)::int dow, COUNT(*)::int n FROM support_sessions WHERE date >= CURRENT_DATE - 90 GROUP BY 1`),
+      q(`SELECT type, COUNT(*)::int n, COUNT(*) FILTER (WHERE read IS NOT TRUE)::int unread, COUNT(*) FILTER (WHERE reply IS NULL)::int unanswered FROM student_feedback GROUP BY type`),
+      q(`SELECT kind, COUNT(*)::int n FROM (${ACT}) x JOIN students s ON s.id=x.student_id AND s.is_test IS NOT TRUE WHERE at > NOW() - INTERVAL '30 days' GROUP BY kind`),
+    ]);
+
+    const SHOP_NAMES = Object.fromEntries(Object.entries(SHOP_ITEMS).map(([k, v]) => [k, v.name]));
+    const nameOf = r => `${r.last_name || ''} ${r.first_name || ''}`.trim();
+    res.json({
+      accounts: accounts[0].n,
+      active7: activeAgg[0]?.d7 || 0,
+      active30: activeAgg[0]?.d30 || 0,
+      daily, hours,
+      groups: groupsAdopt,
+      dormant: dormant.map(r => ({ id: r.id, name: nameOf(r), group: r.group_name, lastAt: r.last_at })),
+      units,
+      weakWords,
+      exams: exams[0],
+      learn: learn[0],
+      topPoints: topPoints.map(r => ({ name: nameOf(r), points: r.points })),
+      shop: shop.map(r => ({ item: SHOP_NAMES[r.item_key] || r.item_key, n: r.n })),
+      supportByTeacher, supportByDow, feedback,
+      activityMix: Object.fromEntries(kinds.map(k => [k.kind, k.n])),
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });

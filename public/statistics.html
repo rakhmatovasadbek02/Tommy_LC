@@ -468,8 +468,102 @@ function staRender(d) {
   }
 }
 
-staLoad();
-setupLive(['students','leads','groups','finance','attendance'], () => staLoad());
+/* ── Portal Insights: deeper usage analytics (own endpoint, own container) ── */
+function staBars(rows, valKey, labelFn, color, fmt) {
+  const max = Math.max(1, ...rows.map(r => r[valKey]));
+  return rows.map(r => `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+    <span style="width:34%;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(labelFn(r))}">${esc(labelFn(r))}</span>
+    <div style="flex:1;height:14px;background:#fdf2f2;border-radius:7px;overflow:hidden"><div style="height:100%;width:${Math.round(r[valKey]/max*100)}%;background:${color};border-radius:7px"></div></div>
+    <span style="width:44px;text-align:right;font-size:12px;font-weight:800">${fmt ? fmt(r[valKey]) : r[valKey]}</span></div>`).join('') || '<div style="color:var(--muted);font-size:13px;padding:10px 0">No data yet</div>';
+}
+function staColumns(vals, labels, color, h) {
+  const max = Math.max(1, ...vals);
+  return `<div style="display:flex;align-items:flex-end;gap:2px;height:${h}px">${vals.map((v,i)=>`<div title="${labels[i]}: ${v}" style="flex:1;min-width:2px;height:${Math.max(v?3:1, Math.round(v/max*h))}px;background:${v?color:'#f3dede'};border-radius:3px 3px 0 0"></div>`).join('')}</div>`;
+}
+function staAgo(iso) {
+  if (!iso) return 'never';
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return d <= 0 ? 'today' : d + 'd ago';
+}
+async function staLoadPortalInsights() {
+  let host = document.getElementById('portalInsights');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'portalInsights'; host.className = 'stat-page';
+    document.getElementById('statContent').insertAdjacentElement('afterend', host);
+  }
+  let d;
+  try { d = await apiGet('/api/statistics/portal'); }
+  catch (e) { host.innerHTML = ''; return; }
+  const card = (title, body, sub) => `<div class="card"><div class="card-title">${title}</div>${sub?`<div style="font-size:12px;color:var(--muted);margin:-6px 0 10px">${sub}</div>`:''}${body}</div>`;
+  const kpi = (l, v, c, sub) => `<div class="card" style="text-align:center;padding:14px 8px"><div style="font-size:26px;font-weight:900;color:${c}">${v}</div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">${l}</div>${sub?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${sub}</div>`:''}</div>`;
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+
+  // 30-day activity (fill missing days with 0)
+  const byDay = Object.fromEntries(d.daily.map(r => [r.day, r]));
+  const days = [], evs = [], stu = [];
+  for (let i = 29; i >= 0; i--) {
+    const k = new Date(Date.now() - i * 86400000 + 5 * 3600000).toISOString().slice(0, 10);
+    days.push(k); evs.push(byDay[k]?.events || 0); stu.push(byDay[k]?.students || 0);
+  }
+  const hrs = Array.from({length:24}, (_, h) => d.hours.find(r => r.h === h)?.n || 0);
+  const peakH = hrs.indexOf(Math.max(...hrs));
+  const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dow = DOW.map((n, i) => ({ n, v: d.supportByDow.find(r => r.dow === i)?.n || 0 }));
+  const mix = d.activityMix || {};
+  const mixRows = [['Practice tests', mix.practice||0], ['Learning mode words', mix.learn||0], ['Graded exams', mix.exam||0], ['Points earned', mix.points||0]].map(([l, v]) => ({ l, v }));
+  const ex = d.exams || {};
+  const groups = d.groups.map(g => ({ ...g, adopt: pct(g.accounts, g.members), actv: pct(g.active, g.members) })).sort((a, b) => a.adopt - b.adopt);
+  const fb = d.feedback || [];
+  const fbUnans = fb.reduce((s, r) => s + r.unanswered, 0);
+
+  host.innerHTML = `
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-icon" style="background:#eff6ff">📊</div><h2>Portal Insights</h2>
+      <span class="sec-meta">Live usage · test account excluded</span></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px">
+      ${kpi('Accounts', d.accounts, '#2563eb')}
+      ${kpi('Active 7 days', d.active7, '#16a34a', pct(d.active7, d.accounts) + '% of accounts')}
+      ${kpi('Active 30 days', d.active30, '#0891b2', pct(d.active30, d.accounts) + '% of accounts')}
+      ${kpi('Exam pass rate', ex.total ? pct(ex.passed, ex.total) + '%' : '—', '#c0392b', (ex.total||0) + ' graded tests')}
+      ${kpi('Left test early', ex.terminated || 0, '#d97706', 'tab switched / closed')}
+      ${kpi('Learning mode', (d.learn?.students)||0, '#7c3aed', ((d.learn?.words30)||0) + ' words / 30d')}
+    </div>
+
+    <div class="g2" style="margin-bottom:14px">
+      ${card('Daily activity · last 30 days', staColumns(evs, days, '#2563eb', 90) + `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px"><span>${days[0].slice(5)}</span><span>peak ${Math.max(...stu)} students/day</span><span>${days[29].slice(5)}</span></div>`, 'Practice, learning, exams and points events')}
+      ${card('When students study', staColumns(hrs, hrs.map((_, h) => h + ':00'), '#c0392b', 90) + `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px"><span>0h</span><span>busiest ${peakH}:00–${peakH+1}:00</span><span>23h</span></div>`, 'Hour of day (Tashkent), last 60 days')}
+    </div>
+
+    <div class="g2" style="margin-bottom:14px">
+      ${card('What students use (30 days)', staBars(mixRows, 'v', r => r.l, '#7c3aed'))}
+      ${card('Vocabulary units · practice', staBars(d.units.slice(0, 8), 'attempts', r => r.name, '#2563eb'), 'Most practiced (3+ attempts)')}
+    </div>
+
+    <div class="g2" style="margin-bottom:14px">
+      ${card('Hardest units', staBars([...d.units].sort((a, b) => a.avg_score - b.avg_score).slice(0, 8), 'avg_score', r => r.name, '#d97706', v => v + '%'), 'Lowest average practice score — review these in class')}
+      ${card('Most-missed words', d.weakWords.length ? staBars(d.weakWords, 'students', r => r.word + (r.unit_name ? ' · ' + r.unit_name : ''), '#c0392b') : '<div style="color:var(--muted);font-size:13px;padding:10px 0">No mistakes recorded</div>', 'Students currently flagging the word as a mistake')}
+    </div>
+
+    <div class="g2" style="margin-bottom:14px">
+      ${card('Adoption by group', `<div class="tscroll"><table class="stbl"><thead><tr><th>Group</th><th>Accounts</th><th>Active 14d</th></tr></thead><tbody>${groups.slice(0, 12).map(g => `<tr><td>${esc(g.name)}<div style="font-size:11px;color:var(--muted)">${esc(g.teacher || '')}</div></td><td>${g.accounts}/${g.members} <b style="color:${g.adopt < 50 ? '#c0392b' : '#16a34a'}">${g.adopt}%</b></td><td>${g.active}/${g.members} <b>${g.actv}%</b></td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--muted);text-align:center">No groups</td></tr>'}</tbody></table></div>`, 'Lowest adoption first — where to push sign-ups')}
+      ${card('Gone quiet · need a nudge', `<div class="tscroll"><table class="stbl"><thead><tr><th>Student</th><th>Group</th><th>Last active</th></tr></thead><tbody>${d.dormant.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.group || '—')}</td><td>${staAgo(r.lastAt)}</td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--muted);text-align:center">Everyone is active 🎉</td></tr>'}</tbody></table></div>`, 'Have an account, no activity for 14+ days')}
+    </div>
+
+    <div class="g2">
+      ${card('Support bookings by teacher', `<div class="tscroll"><table class="stbl"><thead><tr><th>Teacher</th><th>Booked</th><th>Attended</th><th>No-show</th></tr></thead><tbody>${d.supportByTeacher.map(r => `<tr><td>${esc(r.teacher || '—')}</td><td>${r.booked}</td><td>${r.attended}</td><td>${r.missed}</td></tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted);text-align:center">No student bookings</td></tr>'}</tbody></table></div>` + `<div style="margin-top:12px">${staBars(dow, 'v', r => r.n, '#0891b2')}</div>`, 'Student self-bookings, last 60 days · busiest weekdays below (90d)')}
+      ${card('Points, shop & feedback', `
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px">Top earners</div>${staBars(d.topPoints, 'points', r => r.name, '#16a34a')}
+        <div style="font-size:12px;font-weight:700;margin:12px 0 4px">Shop purchases</div>${d.shop.map(s => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span>${esc(s.item)}</span><b>${s.n}</b></div>`).join('') || '<div style="color:var(--muted);font-size:13px">None yet</div>'}
+        <div style="font-size:12px;font-weight:700;margin:12px 0 4px">Feedback</div>${fb.map(r => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span>${esc(r.type)}</span><b>${r.n} · ${r.unread} unread</b></div>`).join('') || '<div style="color:var(--muted);font-size:13px">None</div>'}
+        ${fbUnans ? `<div style="font-size:12px;color:#d97706;margin-top:6px">${fbUnans} awaiting a reply</div>` : ''}`)}
+    </div>
+  </div>`;
+}
+
+staLoad().then(staLoadPortalInsights);
+setupLive(['students','leads','groups','finance','attendance','vocab'], () => staLoad().then(staLoadPortalInsights));
 </script>
 </body>
 </html>
