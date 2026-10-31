@@ -1,3 +1,6 @@
+// Load a local .env for development; on Railway the variables are set in the dashboard and
+// dotenv never overrides variables that already exist, so this is a no-op there.
+require('dotenv').config({ quiet: true });
 const express  = require('express');
 const { Pool } = require('pg');
 const path     = require('path');
