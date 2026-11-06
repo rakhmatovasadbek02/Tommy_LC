@@ -745,6 +745,9 @@
   function vocNaturalUnitCompare(a, b) {
     const level = String(a.level || '').localeCompare(String(b.level || ''));
     if (level !== 0) return level;
+    // "New …" units go after the whole original set instead of interleaving by number.
+    const isNew = n => /^new\s/i.test(String(n || ''));
+    if (isNew(a.name) !== isNew(b.name)) return isNew(a.name) ? 1 : -1;
     const parse = s => {
       const str = String(s || '');
       const m = str.match(/(\d+)/);

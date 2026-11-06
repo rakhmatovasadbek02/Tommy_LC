@@ -710,16 +710,20 @@ function shortUnitLabel(name) {
 // sits right after an odd module's C unit: PE1 after 1C, PE2 after 3C, PE3 after 5C,
 // PE4 after 7C, PE5 after 9C, PE6 after 11C (module = 2*PE_number - 1).
 // "Phase N" (CEFR vocabulary phases) sort numerically after the textbook units.
-function unitSortKey(name) {
+function unitSortKey(rawName) {
+  // "New 1A …" is a second edition of the unit list: it follows the whole original set.
+  const isNew = /^New\s+/i.test(rawName);
+  const name = rawName.replace(/^New\s+/i, '');
+  const off = isNew ? 5000 : 0;
   const ph = name.match(/^Phase\s+(\d{1,2})$/);
-  if (ph) return [1000 + parseInt(ph[1], 10), 0];
+  if (ph) return [off + 1000 + parseInt(ph[1], 10), 0];
   const pe = name.match(/^(\d{1,2})\s+Practical/);
-  if (pe) return [2 * parseInt(pe[1], 10) - 1, 2.5];
-  const m = name.match(/^(\d{1,2})([A-C])?/);
-  if (!m) return [999, 999];
+  if (pe) return [off + 2 * parseInt(pe[1], 10) - 1, 2.5];
+  const m = name.match(/^(\d{1,2})([A-D])?/);
+  if (!m) return [off + 999, 999];
   const module = parseInt(m[1], 10);
-  const sub = m[2] ? { A: 0, B: 1, C: 2 }[m[2]] : 999;
-  return [module, sub];
+  const sub = m[2] ? { A: 0, B: 1, C: 2, D: 3 }[m[2]] : 999;
+  return [off + module, sub];
 }
 function sortUnits(units) {
   return [...units].sort((a, b) => {

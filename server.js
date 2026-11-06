@@ -3372,6 +3372,10 @@ function naturalUnitCompare(a, b) {
   // different courses shuffled together looks like nothing is in order at all.
   const level = String(a.level || '').localeCompare(String(b.level || ''));
   if (level !== 0) return level;
+  // A "New …" edition of a level's units goes after the whole original set, so the two
+  // sets read one after another instead of being interleaved by unit number.
+  const isNew = n => /^new\s/i.test(String(n || ''));
+  if (isNew(a.name) !== isNew(b.name)) return isNew(a.name) ? 1 : -1;
   // Find the first number anywhere in the name, not just a leading one — "1A Welcome…"
   // and "Phase 1" both need to sort as 1, 2, 3…, not have "Phase *" fall through to
   // Infinity and get string-sorted ("Phase 10" before "Phase 2").
