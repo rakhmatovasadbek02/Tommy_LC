@@ -2004,7 +2004,7 @@ app.patch('/api/groups/:id/unit', async (req, res) => {
 app.get('/api/levels', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT level FROM custom_levels ORDER BY created_at');
-    res.json(rows.map(r => r.level));
+    res.json(rows.map(r => r.level).sort((a, b) => levelRank(a) - levelRank(b)));   // stable: unlisted levels keep creation order
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -3365,12 +3365,17 @@ app.get('/api/student/points-history', async (req, res) => {
 // Natural sort for unit names like "1A Welcome to the class", "2A ...", "10A ...":
 // a plain string ORDER BY puts "10A" before "2A" since '1' < '2'. Pull the leading
 // number out and compare numerically first, falling back to the rest of the name.
+// Course order wherever levels are listed: Beginner → Elementary → Pre-Intermediate →
+// Intermediate → CEFR; any other level (RoundUp, IELTS, custom) follows, in its own order.
+const LEVEL_ORDER = ['Beginner', 'Elementary', 'Pre-Intermediate', 'Intermediate', 'CEFR'];
+function levelRank(l) { const i = LEVEL_ORDER.indexOf(l); return i === -1 ? LEVEL_ORDER.length : i; }
+
 function naturalUnitCompare(a, b) {
   // Level first: when a student has no group (or their level doesn't match any unit's
   // level string) every level's units come back together, and without this a plain
   // number sort interleaves each level's "1A", "1B", ... one after another — three
   // different courses shuffled together looks like nothing is in order at all.
-  const level = String(a.level || '').localeCompare(String(b.level || ''));
+  const level = levelRank(a.level) - levelRank(b.level) || String(a.level || '').localeCompare(String(b.level || ''));
   if (level !== 0) return level;
   // A "New …" edition of a level's units goes after the whole original set, so the two
   // sets read one after another instead of being interleaved by unit number.

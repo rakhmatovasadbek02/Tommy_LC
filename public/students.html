@@ -742,8 +742,10 @@
   // the first number found anywhere in the name — so "1A", "2 Practical English" and
   // "Phase 1" .. "Phase 19" all rise in the right numeric order instead of a plain
   // string sort putting "Phase 10" before "Phase 2".
+  const LEVEL_ORDER = ['Beginner', 'Elementary', 'Pre-Intermediate', 'Intermediate', 'CEFR'];
+  const levelRank = l => { const i = LEVEL_ORDER.indexOf(l); return i === -1 ? LEVEL_ORDER.length : i; };
   function vocNaturalUnitCompare(a, b) {
-    const level = String(a.level || '').localeCompare(String(b.level || ''));
+    const level = levelRank(a.level) - levelRank(b.level) || String(a.level || '').localeCompare(String(b.level || ''));
     if (level !== 0) return level;
     // "New …" units go after the whole original set instead of interleaving by number.
     const isNew = n => /^new\s/i.test(String(n || ''));

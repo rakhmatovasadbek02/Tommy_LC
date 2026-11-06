@@ -361,7 +361,12 @@ const arr=await apiGet('/api/pricing');
 arr.forEach(p=>levelPrices[p.level]=p.price);
 } catch(e){}
 }
-function getAllLevels(){ return [...BUILT_IN_LEVELS,...customLevels.filter(l=>!BUILT_IN_LEVELS.includes(l))]; }
+const LEVEL_ORDER=['Beginner','Elementary','Pre-Intermediate','Intermediate','CEFR'];
+function getAllLevels(){
+  const all=[...BUILT_IN_LEVELS,...customLevels.filter(l=>!BUILT_IN_LEVELS.includes(l))];
+  const rank=l=>{const i=LEVEL_ORDER.indexOf(l);return i===-1?LEVEL_ORDER.length:i;};
+  return all.sort((a,b)=>rank(a)-rank(b));   // stable: RoundUp, IELTS and custom levels follow CEFR
+}
 function populateLevelSelect() {
 const sel=document.getElementById('gLevel');
 const cur=sel.value;
