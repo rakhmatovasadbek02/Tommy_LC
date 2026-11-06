@@ -2630,7 +2630,21 @@ function vocabPassed(score, total) { return total > 0 && (total - score) <= maxM
 // Shared by the admin-graded test flow (/api/public/vocab/test/*) and the student
 // self-practice flow (/api/student/vocab/practice/*) — builds a shuffled, mixed-direction
 // question set (with correct answers embedded) from a pool of trilingual words.
-function buildQuestionSet(allWords, languagePair) {
+// English phrases (multi-word answers) from the student's level that are NOT in the given
+// units — used as the wrong options for phrase questions, so a phrase is never offered next
+// to single words and the wrong answers come from other lessons.
+async function otherUnitPhrases(level, excludeUnitIds) {
+  if (!level) return [];
+  const { rows } = await pool.query('SELECT id, words FROM vocab_units WHERE level=$1', [level]);
+  const out = new Set();
+  for (const u of rows) {
+    if ((excludeUnitIds || []).includes(u.id)) continue;
+    for (const w of (u.words || [])) { const en = String(w.en || '').trim(); if (en.includes(' ')) out.add(en); }
+  }
+  return [...out];
+}
+
+function buildQuestionSet(allWords, languagePair, otherPhrases = []) {
   const backKey = languagePair === 'ENG-UZ' ? 'uz' : 'ru';
   const backAltKey = languagePair === 'ENG-UZ' ? 'uzAlt' : 'ruAlt';
   const allEnglish = [...new Set(allWords.map(w => w.en))];
@@ -2649,12 +2663,17 @@ function buildQuestionSet(allWords, languagePair) {
     let options = null;
     if (isPhrase) {
       // Multiple choice for multi-word answers — typing a whole phrase is slow.
-      const distractorPool = allEnglish.filter(e => e !== w.en);
-      for (let i = distractorPool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [distractorPool[i], distractorPool[j]] = [distractorPool[j], distractorPool[i]];
+      const accepted = new Set([w.en, ...(w.enAlt || [])].map(x => x.toLowerCase()));
+      const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+      // Wrong options: phrases from other units first; only if there aren't enough, top up
+      // from phrases and then words of the units being tested.
+      const own = allEnglish.filter(e => !accepted.has(e.toLowerCase()));
+      const distractors = shuffle(otherPhrases.filter(e => !accepted.has(e.toLowerCase())));
+      for (const e of shuffle(own.filter(e => e.includes(' '))).concat(shuffle(own.filter(e => !e.includes(' '))))) {
+        if (distractors.length >= 3) break;
+        if (!distractors.includes(e)) distractors.push(e);
       }
-      options = [w.en, ...distractorPool.slice(0, 3)];
+      options = [w.en, ...distractors.slice(0, 3)];
       for (let i = options.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [options[i], options[j]] = [options[j], options[i]];
@@ -3401,7 +3420,7 @@ async function loadUnitsForLearn(req, unitIds) {
   const allWords = units.rows.flatMap(u => (u.words || []).map(w => ({ ...w, unitId: u.id })));
   if (!allWords.length) throw { status: 404, message: 'These units have no words yet.' };
   const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
-  return { allWords, languagePair };
+  return { allWords, languagePair, level: units.rows[0].level };
 }
 
 // Total vs. not-yet-revised word counts for the unit-picker screen, before committing to
@@ -3424,7 +3443,7 @@ app.get('/api/student/vocab/learn', async (req, res) => {
   try {
     const unitIds = String(req.query.unitIds || '').split(',').map(s => s.trim()).filter(Boolean);
     if (!unitIds.length) return res.status(400).json({ error: 'Pick at least one unit.' });
-    const { allWords, languagePair } = await loadUnitsForLearn(req, unitIds);
+    const { allWords, languagePair, level } = await loadUnitsForLearn(req, unitIds);
     const backKey = languagePair === 'ENG-UZ' ? 'uz' : 'ru';
     const keys = allWords.map(w => wordKey(w.unitId, w.en));
     const revisedR = await pool.query(`SELECT word_key FROM vocab_learn_progress WHERE student_id=$1 AND word_key = ANY($2::text[])`, [req.student.id, keys]);
@@ -3442,7 +3461,7 @@ app.get('/api/student/vocab/learn', async (req, res) => {
     const count = req.query.count ? Math.max(1, parseInt(req.query.count, 10)) : pool_.length;
     const picked = pool_.slice(0, count);
     const words = picked.map(w => ({ key: wordKey(w.unitId, w.en), en: w.en, enAlt: w.enAlt || [], back: w[backKey] }));
-    res.json({ words, languagePair, totalWords: allWords.length, unrevisedCount: pool_.length, cycled });
+    res.json({ words, languagePair, totalWords: allWords.length, unrevisedCount: pool_.length, cycled, distractors: shuffleServer(await otherUnitPhrases(level, unitIds)).slice(0, 80) });
   } catch(e) {
     if (e && e.status) return res.status(e.status).json({ error: e.message });
     res.status(500).json({ error: e.message });
@@ -3516,14 +3535,14 @@ app.get('/api/student/vocab/learn/weak', async (req, res) => {
     const level = groupR.rows[0]?.level || null;
     const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
     const backKey = languagePair === 'ENG-UZ' ? 'uz' : 'ru';
-    if (!weak.size) return res.json({ words: [], languagePair });
+    if (!weak.size) return res.json({ words: [], languagePair, distractors: [] });
     const unitsR = level ? await pool.query('SELECT id, words FROM vocab_units WHERE level=$1', [level]) : await pool.query('SELECT id, words FROM vocab_units');
     const words = [];
     for (const u of unitsR.rows) for (const w of (u.words || [])) {
       const key = wordKey(u.id, w.en);
       if (weak.has(key)) words.push({ key, en: w.en, enAlt: w.enAlt || [], back: w[backKey] });
     }
-    res.json({ words: shuffleServer(words), languagePair });
+    res.json({ words: shuffleServer(words), languagePair, distractors: shuffleServer(await otherUnitPhrases(level, [])).slice(0, 80) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -3543,7 +3562,7 @@ app.post('/api/student/vocab/practice/start', async (req, res) => {
     const allWords = units.rows.flatMap(u => u.words || []);
     if (!allWords.length) return res.status(404).json({ error: 'These units have no words yet.' });
     const languagePair = groupR.rows[0]?.lang === 'UZ' ? 'ENG-UZ' : 'RU-ENG';
-    const questionSet = buildQuestionSet(allWords, languagePair);
+    const questionSet = buildQuestionSet(allWords, languagePair, await otherUnitPhrases(units.rows[0].level, unitIds));
     const id = genVocabId('vprac');
     await pool.query(
       `INSERT INTO vocab_practice_sessions(id, student_id, unit_ids, language_pair, question_set) VALUES($1,$2,$3,$4,$5)`,
@@ -3846,11 +3865,11 @@ app.get('/api/public/vocab/test/:accessId', async (req, res) => {
 
     let questionSet = row.question_set;
     if (!questionSet) {
-      const units = await pool.query('SELECT words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
+      const units = await pool.query('SELECT id, level, words FROM vocab_units WHERE id = ANY($1::text[])', [row.unit_ids || []]);
       const allWords = units.rows.flatMap(u => u.words || []);
       if (!allWords.length) return res.status(404).json({ error: 'The unit(s) for this code no longer exist.' });
       // language_pair picks which of RU/UZ is shown; the student always answers in English.
-      questionSet = buildQuestionSet(allWords, row.language_pair);
+      questionSet = buildQuestionSet(allWords, row.language_pair, await otherUnitPhrases(units.rows[0].level, row.unit_ids || []));
       await pool.query('UPDATE vocab_access SET question_set=$1 WHERE id=$2', [JSON.stringify(questionSet), req.params.accessId]);
     }
     const questions = questionSet.map((q, qid) => ({ qid, prompt: q.prompt, options: q.options }));

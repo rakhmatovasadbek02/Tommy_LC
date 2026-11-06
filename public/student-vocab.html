@@ -158,6 +158,7 @@ let LEARN_PROGRESS = null;    // { units: { id: { total, revised } }, weakCount 
 let LEARN_RESULTS = [];       // this session: [{ w, ok }]
 let LEARN_FILL_OPEN = false;
 let LEARN_FILL_TIMER = null;
+let LEARN_DISTRACTORS = [];   // phrases from other units, offered as wrong options on phrase questions
 
 // ── Per-word timer (student can turn this off; unlike the graded test, it's optional here) ──
 // Each word gets 15s, but time isn't reset per word — whatever's left when the student
@@ -617,14 +618,15 @@ async function startLearn(method, fillDifficulty) {
   try {
     let words;
     if (LEARN_SOURCE === 'weak') {
-      words = (await spGet('/api/student/vocab/learn/weak')).words;
+      const r = await spGet('/api/student/vocab/learn/weak');
+      words = r.words; LEARN_DISTRACTORS = r.distractors || [];
     } else {
       if (!LEARN_SELECTED.size) { spToast('Pick at least one unit.', 'error'); return; }
       const unitIds = [...LEARN_SELECTED].map(encodeURIComponent).join(',');
       const count = LEARN_COUNT ? `&count=${LEARN_COUNT}` : '';
       const r = await spGet(`/api/student/vocab/learn?unitIds=${unitIds}${count}`);
       if (r.cycled) spToast("You've revised every word here — starting a fresh round.");
-      words = r.words;
+      words = r.words; LEARN_DISTRACTORS = r.distractors || [];
     }
     if (!words.length) { spToast('No words to study here yet.', 'error'); return; }
     if (method === 'mcq' && words.length < 4) { spToast('Multiple choice needs at least 4 words — try Flashcards or Fill in the Letters.', 'error'); return; }
@@ -834,9 +836,19 @@ function renderMCQ() {
     // De-dupe by translation, not just by word object — two different vocab entries can
     // share the same English translation (synonyms, or the same word across units), which
     // would otherwise show two identical-looking answer buttons.
-    const pool = [...new Set(LEARN_WORDS.filter((x,i) => i !== LEARN_IDX).map(x => x.en))].filter(en => en !== w.en);
-    const distractors = shuffleArray(pool).slice(0, 3);
-    w._options = shuffleArray([w.en, ...distractors]);
+    const accepted = new Set([w.en, ...(w.enAlt || [])].map(x => x.toLowerCase()));
+    const sessionEn = [...new Set(LEARN_WORDS.filter((x, i) => i !== LEARN_IDX).map(x => x.en))].filter(en => !accepted.has(en.toLowerCase()));
+    let pool;
+    if (/\s/.test(w.en.trim())) {
+      // A phrase: wrong options are phrases from OTHER units, never single words; only top up
+      // from this session's phrases (then words) if the level has too few other phrases.
+      const other = shuffleArray(LEARN_DISTRACTORS.filter(en => !accepted.has(en.toLowerCase()) && !sessionEn.includes(en)));
+      pool = [...other, ...shuffleArray(sessionEn.filter(en => /\s/.test(en))), ...shuffleArray(sessionEn.filter(en => !/\s/.test(en)))];
+      pool = [...new Set(pool)];
+    } else {
+      pool = shuffleArray(sessionEn);
+    }
+    w._options = shuffleArray([w.en, ...pool.slice(0, 3)]);
   }
   el.innerHTML = `
     <div class="sp-learn-topbar">
